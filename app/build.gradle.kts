@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -95,4 +96,20 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+// Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.auth.ktx)
+
+    // Google Play Services Auth
+    implementation(libs.play.services.auth)
+
+    // Biometric
+    implementation(libs.androidx.biometric)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.androidx.navigation.compose)
 }

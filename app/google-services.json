@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "991209034332",
+    "project_id": "arcticflowapp",
+    "storage_bucket": "arcticflowapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991209034332:android:c917fd8ef9f90a5d8fcc99",
+        "android_client_info": {
+          "package_name": "com.prog7314.arcticflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfBatr3VJQasQPiGeCJvfdeeb23rXa7Rw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

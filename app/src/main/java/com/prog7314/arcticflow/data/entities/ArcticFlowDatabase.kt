@@ -8,12 +8,14 @@ import androidx.room.TypeConverters
 import com.prog7314.arcticflow.data.converters.DateConverter
 import com.prog7314.arcticflow.data.dao.BrochureDao
 import com.prog7314.arcticflow.data.dao.ProductDao
+import com.prog7314.arcticflow.data.dao.UserDao
 import com.prog7314.arcticflow.data.entities.Brochure
 import com.prog7314.arcticflow.data.entities.Product
+import com.prog7314.arcticflow.data.entities.User
 
 @Database(
-    entities = [Product::class, Brochure::class],
-    version = 1,
+    entities = [Product::class, Brochure::class, User::class],
+    version = 2,  // Increment version
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -21,6 +23,7 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
 
     abstract fun productDao(): ProductDao
     abstract fun brochureDao(): BrochureDao
+    abstract fun userDao(): UserDao  // Add this
 
     companion object {
         @Volatile
@@ -33,7 +36,7 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
                     ArcticFlowDatabase::class.java,
                     "arcticflow_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration()  // Will recreate DB with new schema
                     .build()
                 INSTANCE = instance
                 instance
