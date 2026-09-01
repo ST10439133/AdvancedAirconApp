@@ -1,23 +1,27 @@
 package com.prog7314.arcticflow.ui.screens
 
-import androidx.compose.foundation.clickable  // ADD THIS IMPORT
+import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.ui.theme.ThemeState
 import com.prog7314.arcticflow.utils.LocaleManager
+import com.prog7314.arcticflow.utils.Translations
+import com.prog7314.arcticflow.utils.rememberTranslation
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,22 +31,28 @@ fun SettingsScreen(
     onNavigateToEditProfile: () -> Unit,
     onSignOut: () -> Unit,
     onThemeChange: (ThemeState) -> Unit,
-    currentTheme: ThemeState
+    currentTheme: ThemeState,
+    onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val localeManager = remember { LocaleManager(context) }
+    val t = rememberTranslation()
 
+    val currentLocale = localeManager.getCurrentLocale()
+    val currentDisplayName = getLanguageDisplayName(currentLocale.language)
     var showLanguageDialog by remember { mutableStateOf(false) }
-    val currentLocale by remember { mutableStateOf(localeManager.getCurrentLocale()) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(t("settings")) },
                 navigationIcon = {
-                    IconButton(onClick = { /* Navigate back */ }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -65,22 +75,22 @@ fun SettingsScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Profile",
+                            text = t("profile"),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
 
                         SettingsItem(
                             icon = Icons.Default.Person,
-                            title = "View Profile",
+                            title = t("view_profile"),
                             onClick = onNavigateToProfile
                         )
 
-                        Divider(modifier = Modifier.padding(vertical = 4.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                         SettingsItem(
                             icon = Icons.Default.Edit,
-                            title = "Edit Profile",
+                            title = t("edit_profile"),
                             onClick = onNavigateToEditProfile
                         )
                     }
@@ -97,12 +107,11 @@ fun SettingsScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Appearance",
+                            text = t("appearance"),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
 
-                        // Dark Mode Toggle
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -117,7 +126,7 @@ fun SettingsScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
-                                Text("Dark Mode")
+                                Text(t("dark_mode"))
                             }
                             Switch(
                                 checked = currentTheme.isDarkMode,
@@ -127,29 +136,30 @@ fun SettingsScreen(
                             )
                         }
 
-                        // Dynamic Color Toggle (Android 12+)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Palette,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text("Dynamic Colors (Android 12+)")
-                            }
-                            Switch(
-                                checked = currentTheme.dynamicColor,
-                                onCheckedChange = {
-                                    onThemeChange(currentTheme.copy(dynamicColor = it))
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Palette,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(t("dynamic_colors"))
                                 }
-                            )
+                                Switch(
+                                    checked = currentTheme.dynamicColor,
+                                    onCheckedChange = {
+                                        onThemeChange(currentTheme.copy(dynamicColor = it))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -165,15 +175,15 @@ fun SettingsScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Language",
+                            text = t("language"),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
 
                         SettingsItem(
                             icon = Icons.Default.Language,
-                            title = "Change Language",
-                            subtitle = getLanguageDisplayName(currentLocale),
+                            title = t("change_language"),
+                            subtitle = currentDisplayName,
                             onClick = { showLanguageDialog = true }
                         )
                     }
@@ -190,14 +200,14 @@ fun SettingsScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Account",
+                            text = t("account"),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
 
                         SettingsItem(
-                            icon = Icons.Default.Logout,
-                            title = "Sign Out",
+                            icon = Icons.AutoMirrored.Filled.Logout,
+                            title = t("sign_out"),
                             iconTint = MaterialTheme.colorScheme.error,
                             textColor = MaterialTheme.colorScheme.error,
                             onClick = onSignOut
@@ -212,33 +222,44 @@ fun SettingsScreen(
     if (showLanguageDialog) {
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
-            title = { Text("Select Language") },
+            title = { Text(t("select_language")) },
             text = {
                 Column {
-                    localeManager.getAvailableLocales().forEach { locale ->
+                    localeManager.getAvailableLocales().forEach { localeInfo ->
                         TextButton(
                             onClick = {
                                 coroutineScope.launch {
-                                    localeManager.setLocale(locale)
+                                    localeManager.setLocale(localeInfo.locale)
                                     showLanguageDialog = false
-                                    // Recreate activity to apply language
-                                    (context as? androidx.activity.ComponentActivity)?.recreate()
+                                    (context as? ComponentActivity)?.recreate()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = getLanguageDisplayName(locale),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${localeInfo.flag} ${localeInfo.displayName}",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (currentLocale.language == localeInfo.locale.language) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         }
-                        Divider()
+                        HorizontalDivider()
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showLanguageDialog = false }) {
-                    Text("Cancel")
+                    Text(t("cancel"))
                 }
             }
         )
@@ -247,7 +268,7 @@ fun SettingsScreen(
 
 @Composable
 fun SettingsItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     subtitle: String? = null,
     iconTint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -257,7 +278,7 @@ fun SettingsItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }  // Now works with the import
+            .clickable { onClick() }
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -296,11 +317,11 @@ fun SettingsItem(
     }
 }
 
-private fun getLanguageDisplayName(locale: Locale): String {
-    return when (locale.language) {
+private fun getLanguageDisplayName(languageCode: String): String {
+    return when (languageCode) {
         "en" -> "English"
         "af" -> "Afrikaans"
         "zu" -> "isiZulu"
-        else -> locale.displayName
+        else -> "Unknown"
     }
 }

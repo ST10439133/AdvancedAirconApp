@@ -29,18 +29,16 @@ fun ProductListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val brands by viewModel.brands.collectAsStateWithLifecycle()
     val sortType by viewModel.sortType.collectAsStateWithLifecycle()
+    var expanded by remember { mutableStateOf(false) }
+    var selectedBrand by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("ArcticFlow") },
                 actions = {
-                    // Settings Button
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Settings"
-                        )
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
@@ -65,9 +63,6 @@ fun ProductListScreen(
 
             // Brand Filter Dropdown
             if (brands.isNotEmpty()) {
-                var expanded by remember { mutableStateOf(false) }
-                var selectedBrand by remember { mutableStateOf<String?>(null) }
-
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }

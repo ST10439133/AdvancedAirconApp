@@ -1,6 +1,7 @@
 package com.prog7314.arcticflow.auth
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -34,22 +36,33 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Google Sign-In Client - Make this public directly instead of using a getter
+    // Google Sign-In Client
     val googleSignInClient: GoogleSignInClient by lazy {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("991209034332-s0ss0aihnnmbr0pp215dqkvrkkkoq36d.apps.googleusercontent.com") // Replace with your web client ID
+            .requestIdToken("YOUR_WEB_CLIENT_ID") // Replace with your web client ID
             .requestEmail()
             .build()
         GoogleSignIn.getClient(application, gso)
     }
 
     init {
-        // Check if user is already signed in
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            loadUserFromFirebase(currentUser)
-        } else {
-            _authState.value = AuthState.Unauthenticated
+        // Check if user is already signed in with a timeout
+        viewModelScope.launch {
+            try {
+                withTimeout(5000) { // 5 second timeout
+                    val currentUser = auth.currentUser
+                    Log.d("AuthViewModel", "Current user: $currentUser")
+                    if (currentUser != null) {
+                        loadUserFromFirebase(currentUser)
+                    } else {
+                        _authState.value = AuthState.Unauthenticated
+                        Log.d("AuthViewModel", "User not authenticated, state set to Unauthenticated")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error initializing auth", e)
+                _authState.value = AuthState.Unauthenticated
+            }
         }
     }
 
@@ -65,7 +78,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Save user to local database
                 val user = User(
                     uid = firebaseUser.uid,
                     email = email,
@@ -132,19 +144,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Biometric Authentication
-    suspend fun authenticateWithBiometric(): Boolean {
-        // This is handled by the BiometricManager
-        // Return true if authentication was successful
-        return true
-    }
-
     // Load user from Firebase and save to local DB
     private fun loadUserFromFirebase(firebaseUser: FirebaseUser): User {
-        // Use runBlocking to get the user from DB synchronously
+        // Run blocking call to get user from DB
         val existingUser = runBlocking { userDao.getUserById(firebaseUser.uid) }
         return if (existingUser != null) {
-            // Update user info if needed
             val updatedUser = existingUser.copy(
                 displayName = firebaseUser.displayName ?: existingUser.displayName,
                 photoUrl = firebaseUser.photoUrl?.toString() ?: existingUser.photoUrl,
@@ -155,7 +159,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
             updatedUser
         } else {
-            // Create new user
             val newUser = User(
                 uid = firebaseUser.uid,
                 email = firebaseUser.email ?: "",
@@ -177,14 +180,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _authState.value = AuthState.Unauthenticated
     }
 
-    // Clean up
     override fun onCleared() {
         super.onCleared()
-        // Additional cleanup if needed
     }
 }
 
-// Helper function for blocking calls in coroutine
 private fun <T> runBlocking(block: suspend () -> T): T {
     return kotlinx.coroutines.runBlocking { block() }
 }

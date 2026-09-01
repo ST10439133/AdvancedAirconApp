@@ -1,7 +1,7 @@
+// app/src/main/java/com/prog7314/arcticflow/auth/AuthState.kt
 package com.prog7314.arcticflow.auth
 
 import com.prog7314.arcticflow.data.entities.User
-import com.prog7314.arcticflow.data.entities.UserRole
 
 sealed class AuthState {
     object Unauthenticated : AuthState()

@@ -182,6 +182,7 @@ fun LoginScreen(
         OutlinedButton(
             onClick = {
                 val signInIntent = viewModel.googleSignInClient.signInIntent
+                googleLauncher.launch(signInIntent)
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading

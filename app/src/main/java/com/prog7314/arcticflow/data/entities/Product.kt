@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/data/entities/Product.kt
 package com.prog7314.arcticflow.data.entities
 
 import androidx.room.Entity
@@ -13,8 +14,8 @@ data class Product(
     val btu: Int,
     val price: Double,
     val description: String,
-    val imagePath: String,      // Path in Azure File Share
-    val brochurePath: String,   // Path in Azure File Share
+    val imagePath: String,
+    val brochurePath: String,
     val warrantyPath: String? = null,
     val rating: Float = 0f,
     val isFavorite: Boolean = false

@@ -1,14 +1,19 @@
 package com.prog7314.arcticflow.ui.theme
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.prog7314.arcticflow.utils.LocaleManager
+import java.util.Locale
 
 data class ThemeState(
     val isDarkMode: Boolean = false,
@@ -46,15 +51,15 @@ fun ArcticFlowTheme(
     themeState: ThemeState,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+
     val colorScheme = when {
-        themeState.dynamicColor -> {
-            if (themeState.isDarkMode) dynamicDarkColorScheme(LocalContext.current)
-            else dynamicLightColorScheme(LocalContext.current)
+        themeState.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (themeState.isDarkMode) dynamicDarkColorScheme(context)
+            else dynamicLightColorScheme(context)
         }
-        else -> {
-            if (themeState.isDarkMode) darkColorScheme()
-            else lightColorScheme()
-        }
+        themeState.isDarkMode -> darkColorScheme()
+        else -> lightColorScheme()
     }
 
     val view = LocalView.current

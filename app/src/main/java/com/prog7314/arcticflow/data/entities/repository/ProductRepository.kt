@@ -1,10 +1,11 @@
+// app/src/main/java/com/prog7314/arcticflow/data/repository/ProductRepository.kt
 package com.prog7314.arcticflow.data.repository
 
 import com.prog7314.arcticflow.data.dao.BrochureDao
 import com.prog7314.arcticflow.data.dao.ProductDao
 import com.prog7314.arcticflow.data.entities.Brochure
 import com.prog7314.arcticflow.data.entities.Product
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.Flow  // ADD THIS IMPORT
 
 class ProductRepository(
     private val productDao: ProductDao,

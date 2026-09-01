@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/screens/ProfileScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,7 +24,6 @@ fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onNavigateToEditProfile: () -> Unit
 ) {
-    // FIX: Use collectAsStateWithLifecycle to get StateFlow value
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val user = when (authState) {
         is AuthState.Authenticated -> (authState as AuthState.Authenticated).user
@@ -53,7 +55,6 @@ fun ProfileScreen(
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Avatar
                 Surface(
                     modifier = Modifier.size(120.dp),
                     shape = MaterialTheme.shapes.medium,
@@ -73,7 +74,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // User Details
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -136,7 +136,7 @@ fun ProfileDetailRow(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val date = java.util.Date(timestamp)
-    val format = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+    val date = Date(timestamp)
+    val format = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     return format.format(date)
 }

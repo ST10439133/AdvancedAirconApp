@@ -15,7 +15,14 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ArcticFlow">
+        android:theme="@style/Theme.ArcticFlow"
+        android:allowNativeHeapPointerTagging="false"
+        android:hasFragileUserData="true">
+
+        <!-- Add this for 16KB support -->
+        <property
+            android:name="android.16kb_page_size_compatibility"
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"
@@ -29,4 +36,5 @@
             </intent-filter>
         </activity>
     </application>
+
 </manifest>
