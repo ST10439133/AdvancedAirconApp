@@ -1,6 +1,7 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/screens/ManagerDashboardScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.entities.Alert
@@ -42,10 +42,9 @@ fun ManagerDashboardScreen(
     val context = LocalContext.current
 
     val notificationViewModel: NotificationViewModel = viewModel(
-        factory = NotificationViewModel.Factory(context, userId)  // <-- FIX THIS LINE
+        factory = NotificationViewModel.Factory(context, userId)
     )
 
-    // Load sample notifications on first launch
     LaunchedEffect(Unit) {
         notificationViewModel.addSampleNotifications()
     }
@@ -60,12 +59,19 @@ fun ManagerDashboardScreen(
     val selectedJobId by viewModel.selectedJobId.collectAsStateWithLifecycle()
     val selectedAlertId by viewModel.selectedAlertId.collectAsStateWithLifecycle()
 
+    // Sample data for manager dashboard
+    val activeBuildings = 14
+    val openQuotes = 9
+    val scheduled = 28
+    val techsOnline = 11
+
     Scaffold(
         topBar = {
             AppTopBar(
                 title = "Manager Dashboard",
                 navManager = navManager,
                 notificationViewModel = notificationViewModel,
+                showBackButton = false,
                 actions = {
                     IconButton(onClick = { navManager.navigateToSettings() }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -81,107 +87,171 @@ fun ManagerDashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Stats Row
+            // Welcome Section
             item {
-                Row(
+                Column {
+                    Text(
+                        text = "System Administrator",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Jordan Vance",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Overview Stats
+            item {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Buildings",
-                            value = stats.totalBuildings.toString(),
-                            icon = Icons.Default.Business
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "OVERVIEW",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Units",
-                            value = stats.totalUnits.toString(),
-                            icon = Icons.Default.Devices
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            OverviewStatItem(
+                                value = activeBuildings.toString(),
+                                label = "Active Buildings"
+                            )
+                            OverviewStatItem(
+                                value = openQuotes.toString(),
+                                label = "Open Quotes"
+                            )
+                            OverviewStatItem(
+                                value = scheduled.toString(),
+                                label = "Scheduled"
+                            )
+                            OverviewStatItem(
+                                value = "$techsOnline/15",
+                                label = "Techs Online"
+                            )
+                        }
                     }
                 }
-                Row(
+            }
+
+            // Monthly Performance
+            item {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Alerts",
-                            value = stats.activeAlerts.toString(),
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "MONTHLY PERFORMANCE",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Service Revenue",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "R84,200",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "+24% from last month",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Green
+                                )
+                            }
+
+                            Column {
+                                Text(
+                                    text = "Service Breakdown",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(Color(0xFF4CAF50), shape = MaterialTheme.shapes.small)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(Color(0xFF2196F3), shape = MaterialTheme.shapes.small)
+                                    )
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("HVAC 65%", style = MaterialTheme.typography.labelSmall)
+                                    Text("Electr. 35%", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Recent Operations
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "RECENT OPERATIONS",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        RecentOperationItem(
                             icon = Icons.Default.Warning,
-                            color = if (stats.activeAlerts > 0) Color.Red else Color.Green
+                            title = "Emergency HVAC Repair dispatched",
+                            time = "9:02 AM"
                         )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Pending Jobs",
-                            value = stats.pendingMaintenance.toString(),
-                            icon = Icons.Default.Construction,
-                            color = if (stats.pendingMaintenance > 0) Color(0xFFFF9800) else Color.Green
+                        RecentOperationItem(
+                            icon = Icons.Default.Receipt,
+                            title = "Quote #Q-1894 accepted by Apex",
+                            time = "Yesterday"
                         )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Completed",
-                            value = stats.completedJobs.toString(),
-                            icon = Icons.Default.CheckCircle,
-                            color = Color.Green
-                        )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        StatsCard(
-                            title = "Technicians",
-                            value = stats.technicianCount.toString(),
-                            icon = Icons.Default.People
+                        RecentOperationItem(
+                            icon = Icons.Default.RequestQuote,
+                            title = "New quote requested: Thermostat",
+                            time = "Yesterday"
                         )
                     }
                 }
             }
 
-            if (alerts.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Active Alerts",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-
-                items(alerts) { alert ->
-                    AlertCard(
-                        alert = alert,
-                        onResolve = { viewModel.resolveAlert(alert.id) }
-                    )
-                }
-            }
-
-            if (jobs.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Maintenance Jobs",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-
-                items(jobs.take(5)) { job ->
-                    JobCard(
-                        job = job,
-                        onClick = { viewModel.selectJob(job.id) }
-                    )
-                }
-            }
-
-            // Quick Actions - ADDED MORE OPTIONS
+            // Quick Actions
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -197,56 +267,29 @@ fun ManagerDashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // First row - 4 buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             QuickActionButton(
                                 icon = Icons.Default.Add,
+                                label = "Create Request",  // Changed from "Add Building"
+                                onClick = { navManager.navigateToServiceRequest() }
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.RequestQuote,
                                 label = "View Quotes",
                                 onClick = { navManager.navigateToMyQuotes() }
                             )
                             QuickActionButton(
-                                icon = Icons.Default.SupportAgent,
-                                label = "Create Quote",
-                                onClick = {
-                                    navManager.navigateToPendingRequests()
-                                }
+                                icon = Icons.Default.Business,
+                                label = "Add Building",
+                                onClick = { navManager.navigateToAddBuilding() }
                             )
                             QuickActionButton(
                                 icon = Icons.Default.People,
                                 label = "Manage Techs",
                                 onClick = { /* Navigate to technicians */ }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Analytics,
-                                label = "Reports",
-                                onClick = { /* Navigate to reports */ }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Second row - 3 buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            QuickActionButton(
-                                icon = Icons.Default.Business,
-                                label = "Buildings",
-                                onClick = { navManager.navigateToAddBuilding() }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Build,
-                                label = "Service Request",
-                                onClick = { navManager.navigateToServiceRequest() }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Receipt,
-                                label = "My Jobs",
-                                onClick = { /* Navigate to jobs */ }
                             )
                         }
                     }
@@ -280,7 +323,61 @@ fun ManagerDashboardScreen(
     }
 }
 
+@Composable
+fun OverviewStatItem(
+    value: String,
+    label: String
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
+@Composable
+fun RecentOperationItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    time: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        Text(
+            text = time,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
 @Composable
 fun StatsCard(
@@ -466,7 +563,7 @@ fun QuickActionButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(label, fontSize = 10.sp)
+            Text(label, style = MaterialTheme.typography.labelSmall)
         }
     }
 }

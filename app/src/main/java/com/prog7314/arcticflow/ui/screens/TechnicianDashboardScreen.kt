@@ -35,10 +35,10 @@ fun TechnicianDashboardScreen(
     navManager: NavManager,
     userId: String
 ) {
-    val context = LocalContext.current  // <-- ADD THIS LINE
+    val context = LocalContext.current
 
     val notificationViewModel: NotificationViewModel = viewModel(
-        factory = NotificationViewModel.Factory(context, userId)  // <-- FIX THIS LINE
+        factory = NotificationViewModel.Factory(context, userId)
     )
 
     // Load sample notifications on first launch
@@ -207,7 +207,7 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // Quick Actions for Technician
+            // Quick Actions for Technician - UPDATED
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -239,8 +239,8 @@ fun TechnicianDashboardScreen(
                             )
                             QuickActionButton(
                                 icon = Icons.Default.CheckCircle,
-                                label = "Complete Jobs",
-                                onClick = { /* Navigate to complete jobs */ }
+                                label = "My Jobs",  // Changed from "Complete Jobs"
+                                onClick = { navManager.navigateToMyJobs() }  // Updated to navigate to My Jobs
                             )
                         }
                     }

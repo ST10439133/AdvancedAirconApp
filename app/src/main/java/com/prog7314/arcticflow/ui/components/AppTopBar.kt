@@ -1,7 +1,6 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/components/AppTopBar.kt
 package com.prog7314.arcticflow.ui.components
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,8 +33,8 @@ fun AppTopBar(
         title = { Text(title) },
         navigationIcon = {
             if (showBackButton) {
-                IconButton(onClick = { navManager.navigateBack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                IconButton(onClick = { navManager.navigateToMain() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Dashboard")
                 }
             }
         },

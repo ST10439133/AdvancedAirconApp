@@ -23,12 +23,12 @@ fun JobsScreen(
     userId: String,
     navManager: NavManager
 ) {
-    // Sample jobs data - replace with actual data from ViewModel
+    // Sample jobs data
     val jobs = listOf(
         SampleJob("JC-1002", "Apex Tech Plaza", "AC Compressor Repair", JobStatus.COMPLETED, "09:00 AM", "1.5 hrs"),
         SampleJob("JC-1003", "Oakwood Medical", "Scheduled HVAC Maintenance", JobStatus.IN_PROGRESS, "11:00 AM", "2.0 hrs"),
-        SampleJob("JC-1004", "Riverview Apartments", "Thermostat Calibration", JobStatus.SCHEDULED, "02:30 PM", "1.0 hrs"),
-        SampleJob("JC-1005", "Grand Hotel & Suites", "Emergency Repair", JobStatus.SCHEDULED, "04:00 PM", "3.0 hrs")
+        SampleJob("JC-1004", "Riverview Apartments", "Thermostat Calibration", JobStatus.PENDING, "02:30 PM", "1.0 hrs"),
+        SampleJob("JC-1005", "Grand Hotel & Suites", "Emergency Repair", JobStatus.PENDING, "04:00 PM", "3.0 hrs")
     )
 
     Scaffold(
@@ -81,7 +81,7 @@ fun JobsScreen(
                 )
                 StatsCard(
                     title = "Revenue",
-                    value = "$84.2k",
+                    value = "R84.2k",
                     icon = Icons.Default.AttachMoney,
                     modifier = Modifier.weight(1f),
                     color = Color(0xFF2196F3)
@@ -103,7 +103,8 @@ fun JobsScreen(
             ) {
                 items(jobs) { job ->
                     JobItem(job = job) {
-                        // Navigate to job details
+                        // Navigate to job details or create job card
+                        navManager.navigateToCreateJobCard(job.id.toInt())
                     }
                 }
             }
@@ -168,7 +169,7 @@ fun JobItem(
                 containerColor = when (job.status) {
                     JobStatus.COMPLETED -> Color.Green
                     JobStatus.IN_PROGRESS -> Color.Blue
-                    JobStatus.SCHEDULED -> Color(0xFFFF9800)
+                    JobStatus.PENDING -> Color(0xFFFF9800)
                     else -> Color.Gray
                 }
             ) {

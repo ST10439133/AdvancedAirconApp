@@ -5,13 +5,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.prog7314.arcticflow.auth.AuthViewModel
+import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
 import com.prog7314.arcticflow.ui.theme.ThemeState
@@ -26,25 +27,21 @@ fun MainScreen(
     themeState: ThemeState,
     onThemeChange: (ThemeState) -> Unit
 ) {
+    val context = LocalContext.current
+    val database = ArcticFlowDatabase.getDatabase(context)
+
     val bottomNavController = rememberNavController()
 
-    // Get the current route for highlighting the correct bottom nav item
     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Get the appropriate nav items based on role
     val navItems = if (userRole == "MANAGER") {
         BottomNavItem.getManagerItems()
     } else {
         BottomNavItem.getTechnicianItems()
     }
 
-    // Determine start destination
-    val startDestination = if (userRole == "MANAGER") {
-        BottomNavItem.Dashboard.route
-    } else {
-        BottomNavItem.Dashboard.route
-    }
+    val startDestination = BottomNavItem.Dashboard.route
 
     Scaffold(
         bottomBar = {
@@ -118,7 +115,9 @@ fun MainScreen(
 
                 // Manager only screens
                 composable(BottomNavItem.Buildings.route) {
-                    val viewModel: QuoteViewModel = viewModel()
+                    val viewModel: QuoteViewModel = viewModel(
+                        factory = QuoteViewModel.Factory(database)
+                    )
                     BuildingsScreen(
                         viewModel = viewModel,
                         userId = userId,
@@ -127,21 +126,20 @@ fun MainScreen(
                 }
 
                 composable(BottomNavItem.Quotes.route) {
-                    val viewModel: QuoteViewModel = viewModel()
+                    val viewModel: QuoteViewModel = viewModel(
+                        factory = QuoteViewModel.Factory(database)
+                    )
                     QuotesListScreen(
                         viewModel = viewModel,
                         userId = userId,
-                        isCustomer = userRole == "MANAGER",
+                        isCustomer = true, // Manager sees quotes as customer
                         navManager = navManager
                     )
                 }
 
                 composable(BottomNavItem.Services.route) {
-                    ServiceRequestScreen(
-                        viewModel = viewModel(),
-                        userId = userId,
-                        navManager = navManager
-                    )
+                    // Manager Services Screen - NEW
+                    ServicesScreen(navManager = navManager)
                 }
 
                 // Technician only screens
@@ -153,21 +151,9 @@ fun MainScreen(
                 }
 
                 composable(BottomNavItem.Jobs.route) {
-                    // Jobs list screen
                     JobsScreen(
                         userId = userId,
                         navManager = navManager
-                    )
-                }
-
-                // Settings - Common
-                composable(BottomNavItem.Settings.route) {
-                    val authViewModel: AuthViewModel = viewModel()
-                    SettingsScreen(
-                        authViewModel = authViewModel,
-                        navManager = navManager,
-                        onThemeChange = onThemeChange,
-                        currentTheme = themeState
                     )
                 }
             }

@@ -17,12 +17,6 @@ sealed class BottomNavItem(
         label = "Dashboard"
     )
 
-    object Settings : BottomNavItem(
-        route = "settings",
-        icon = Icons.Default.Settings,
-        label = "Settings"
-    )
-
     // Manager only items
     object Buildings : BottomNavItem(
         route = "buildings",
@@ -60,16 +54,14 @@ sealed class BottomNavItem(
             Dashboard,
             Buildings,
             Quotes,
-            Services,
-            Settings
+            Services
         )
 
         fun getTechnicianItems(): List<BottomNavItem> = listOf(
             Dashboard,
             Quotes,
             Bookings,
-            Jobs,
-            Settings
+            Jobs
         )
     }
 }

@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/data/dao/ServiceRequestDao.kt
 package com.prog7314.arcticflow.data.dao
 
 import androidx.room.*
@@ -24,6 +25,10 @@ interface ServiceRequestDao {
 
     @Query("SELECT * FROM service_requests WHERE id = :requestId")
     suspend fun getRequestById(requestId: Int): ServiceRequest?
+
+    // CRITICAL: Get ALL pending requests - NO userId filter
+    @Query("SELECT * FROM service_requests WHERE status = 'PENDING' ORDER BY createdAt DESC")
+    fun getPendingRequests(): Flow<List<ServiceRequest>>
 
     @Query("SELECT * FROM service_requests WHERE status = :status ORDER BY createdAt DESC")
     fun getRequestsByStatus(status: RequestStatus): Flow<List<ServiceRequest>>

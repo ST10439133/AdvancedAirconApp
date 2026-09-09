@@ -44,6 +44,7 @@ class NavManager(
         object ProductsList : Destination("products_list")
         object QuoteHistory : Destination("quote_history")
         object AddBuildings : Destination("add_buildings")
+        object Jobs : Destination("jobs")
         object JobDetails : Destination("job_details/{jobId}") {
             fun passJobId(jobId: Int) = "job_details/$jobId"
         }
@@ -62,6 +63,12 @@ class NavManager(
     fun navigateToMain() {
         navController.navigate(Destination.Main.route) {
             popUpTo(0) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToMyJobs() {
+        navController.navigate(Destination.Jobs.route) {
             launchSingleTop = true
         }
     }

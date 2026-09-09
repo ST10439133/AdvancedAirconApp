@@ -7,6 +7,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.prog7314.arcticflow.data.converters.DateConverter
+import com.prog7314.arcticflow.data.converters.PartItemListConverter
+import com.prog7314.arcticflow.data.converters.StringListConverter
 import com.prog7314.arcticflow.data.dao.*
 import com.prog7314.arcticflow.data.entities.*
 
@@ -19,12 +21,17 @@ import com.prog7314.arcticflow.data.entities.*
         ServiceRequest::class,
         Quote::class,
         Job::class,
-        Notification::class
+        Notification::class,
+        JobCard::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
-@TypeConverters(DateConverter::class)
+@TypeConverters(
+    DateConverter::class,
+    PartItemListConverter::class,
+    StringListConverter::class
+)
 abstract class ArcticFlowDatabase : RoomDatabase() {
 
     abstract fun productDao(): ProductDao
@@ -35,6 +42,7 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
     abstract fun quoteDao(): QuoteDao
     abstract fun jobDao(): JobDao
     abstract fun notificationDao(): NotificationDao
+    abstract fun jobCardDao(): JobCardDao
 
     companion object {
         @Volatile

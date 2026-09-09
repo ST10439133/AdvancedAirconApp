@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,14 +26,13 @@ fun ServiceBookingsScreen(
     var selectedFilter by remember { mutableStateOf("Today") }
     val filters = listOf("Today", "This Week", "This Month", "All")
 
-    // Sample bookings data
     val bookings = listOf(
         ServiceBooking(
             id = "1",
             buildingName = "Oakwood Medical Center",
-            address = "92 Medical Way, Big 8",
+            address = "892 Medical Way, Big 8",
             serviceType = "HVAC Inspection",
-            dateTime = "Today, 11:30AM",
+            dateTime = "Today, 11:30 AM",
             status = BookingStatus.CONFIRMED
         ),
         ServiceBooking(
@@ -40,7 +40,7 @@ fun ServiceBookingsScreen(
             buildingName = "Riverview Apartments",
             address = "340 Riverview Dr, Unit 2B",
             serviceType = "Thermostat Calibration",
-            dateTime = "Today, 02:30PM",
+            dateTime = "Today, 02:30 PM",
             status = BookingStatus.CONFIRMED
         ),
         ServiceBooking(
@@ -67,7 +67,7 @@ fun ServiceBookingsScreen(
                 title = { Text("Service Bookings") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -88,7 +88,8 @@ fun ServiceBookingsScreen(
                     FilterChip(
                         selected = selectedFilter == filter,
                         onClick = { selectedFilter = filter },
-                        label = { Text(filter) }
+                        label = { Text(filter) },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
