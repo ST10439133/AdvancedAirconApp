@@ -1,7 +1,7 @@
+// app/src/main/java/com/prog7314/arcticflow/auth/AuthViewModel.kt
 package com.prog7314.arcticflow.auth
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -20,53 +20,70 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withTimeout
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val auth = Firebase.auth
-    private val userDao = ArcticFlowDatabase.getDatabase(application).userDao()
+    private val database = ArcticFlowDatabase.getDatabase(application)
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-    private val _authError = MutableStateFlow<String?>(null)
-    val authError: StateFlow<String?> = _authError.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Google Sign-In Client
-    val googleSignInClient: GoogleSignInClient by lazy {
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("YOUR_WEB_CLIENT_ID") // Replace with your web client ID
-            .requestEmail()
-            .build()
-        GoogleSignIn.getClient(application, gso)
-    }
+    val googleSignInClient: GoogleSignInClient
 
     init {
-        // Check if user is already signed in with a timeout
-        viewModelScope.launch {
-            try {
-                withTimeout(5000) { // 5 second timeout
-                    val currentUser = auth.currentUser
-                    Log.d("AuthViewModel", "Current user: $currentUser")
-                    if (currentUser != null) {
-                        loadUserFromFirebase(currentUser)
-                    } else {
-                        _authState.value = AuthState.Unauthenticated
-                        Log.d("AuthViewModel", "User not authenticated, state set to Unauthenticated")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("AuthViewModel", "Error initializing auth", e)
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(application.getString(com.prog7314.arcticflow.R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(application, gso)
+
+        // Check if user is already signed in
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            handleFirebaseUser(currentUser)
+        } else {
+            _authState.value = AuthState.Unauthenticated
+        }
+
+        // Listen for auth state changes
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            if (user != null) {
+                handleFirebaseUser(user)
+            } else {
                 _authState.value = AuthState.Unauthenticated
             }
         }
     }
 
-    // Email/Password Registration
+    private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
+        viewModelScope.launch {
+            try {
+                // Check if user exists in local database
+                var user = database.userDao().getUserById(firebaseUser.uid)
+                if (user == null) {
+                    // Create new user
+                    user = User(
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: "",
+                        displayName = firebaseUser.displayName,
+                        role = UserRole.TECHNICIAN, // Default role, will be updated during registration
+                        isEmailVerified = firebaseUser.isEmailVerified,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    database.userDao().insertUser(user)
+                }
+                _authState.value = AuthState.Authenticated(user)
+            } catch (e: Exception) {
+                _authState.value = AuthState.Error("Failed to load user data: ${e.message}")
+            }
+        }
+    }
+
     suspend fun registerWithEmail(
         email: String,
         password: String,
@@ -78,15 +95,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
+                // Update display name
+                val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                    .setDisplayName(displayName)
+                    .build()
+                firebaseUser.updateProfile(profileUpdates).await()
+
+                // Save user to local database
                 val user = User(
                     uid = firebaseUser.uid,
                     email = email,
                     displayName = displayName,
-                    role = role
+                    role = role,
+                    isEmailVerified = firebaseUser.isEmailVerified,
+                    createdAt = System.currentTimeMillis()
                 )
-                userDao.insertUser(user)
-                _authState.value = AuthState.Authenticated(user)
+                database.userDao().insertUser(user)
+
                 _isLoading.value = false
+                _authState.value = AuthState.Authenticated(user)
                 SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
@@ -94,34 +121,48 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             _isLoading.value = false
-            _authError.value = e.message
+            _authState.value = AuthState.Error(e.message ?: "Registration failed")
             SignInResult(success = false, message = e.message)
         }
     }
 
-    // Email/Password Login
     suspend fun loginWithEmail(email: String, password: String): SignInResult {
         _isLoading.value = true
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                val user = loadUserFromFirebase(firebaseUser)
-                _authState.value = AuthState.Authenticated(user)
+                // Get user from local database
+                val user = database.userDao().getUserById(firebaseUser.uid)
                 _isLoading.value = false
-                SignInResult(success = true, user = user)
+                if (user != null) {
+                    _authState.value = AuthState.Authenticated(user)
+                    SignInResult(success = true, user = user)
+                } else {
+                    // User not found in local DB, create from Firebase data
+                    val newUser = User(
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: "",
+                        displayName = firebaseUser.displayName,
+                        role = UserRole.TECHNICIAN,
+                        isEmailVerified = firebaseUser.isEmailVerified,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    database.userDao().insertUser(newUser)
+                    _authState.value = AuthState.Authenticated(newUser)
+                    SignInResult(success = true, user = newUser)
+                }
             } else {
                 _isLoading.value = false
                 SignInResult(success = false, message = "Login failed")
             }
         } catch (e: Exception) {
             _isLoading.value = false
-            _authError.value = e.message
+            _authState.value = AuthState.Error(e.message ?: "Login failed")
             SignInResult(success = false, message = e.message)
         }
     }
 
-    // Google Sign-In
     suspend fun signInWithGoogle(idToken: String): SignInResult {
         _isLoading.value = true
         return try {
@@ -129,9 +170,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithCredential(credential).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                val user = loadUserFromFirebase(firebaseUser)
-                _authState.value = AuthState.Authenticated(user)
+                // Check if user exists in local DB
+                var user = database.userDao().getUserById(firebaseUser.uid)
+                if (user == null) {
+                    user = User(
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: "",
+                        displayName = firebaseUser.displayName,
+                        role = UserRole.TECHNICIAN,
+                        isEmailVerified = firebaseUser.isEmailVerified,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    database.userDao().insertUser(user)
+                }
                 _isLoading.value = false
+                _authState.value = AuthState.Authenticated(user)
                 SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
@@ -139,52 +192,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             _isLoading.value = false
-            _authError.value = e.message
+            _authState.value = AuthState.Error(e.message ?: "Google Sign-In failed")
             SignInResult(success = false, message = e.message)
         }
     }
 
-    // Load user from Firebase and save to local DB
-    private fun loadUserFromFirebase(firebaseUser: FirebaseUser): User {
-        // Run blocking call to get user from DB
-        val existingUser = runBlocking { userDao.getUserById(firebaseUser.uid) }
-        return if (existingUser != null) {
-            val updatedUser = existingUser.copy(
-                displayName = firebaseUser.displayName ?: existingUser.displayName,
-                photoUrl = firebaseUser.photoUrl?.toString() ?: existingUser.photoUrl,
-                isEmailVerified = firebaseUser.isEmailVerified
-            )
-            viewModelScope.launch {
-                userDao.updateUser(updatedUser)
-            }
-            updatedUser
-        } else {
-            val newUser = User(
-                uid = firebaseUser.uid,
-                email = firebaseUser.email ?: "",
-                displayName = firebaseUser.displayName,
-                photoUrl = firebaseUser.photoUrl?.toString(),
-                isEmailVerified = firebaseUser.isEmailVerified
-            )
-            viewModelScope.launch {
-                userDao.insertUser(newUser)
-            }
-            newUser
-        }
-    }
-
-    // Sign out
     fun signOut() {
         auth.signOut()
         googleSignInClient.signOut()
         _authState.value = AuthState.Unauthenticated
     }
-
-    override fun onCleared() {
-        super.onCleared()
-    }
-}
-
-private fun <T> runBlocking(block: suspend () -> T): T {
-    return kotlinx.coroutines.runBlocking { block() }
 }

@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.data.entities.Product
 import com.prog7314.arcticflow.data.entities.SortType
+import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.ProductViewModel
 import java.util.Locale
 
@@ -22,8 +23,7 @@ import java.util.Locale
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
-    authViewModel: AuthViewModel,
-    onNavigateToSettings: () -> Unit
+    navManager: NavManager
 ) {
     val products by viewModel.products.collectAsStateWithLifecycle(initialValue = emptyList())
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -37,7 +37,7 @@ fun ProductListScreen(
             TopAppBar(
                 title = { Text("ArcticFlow") },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(onClick = { navManager.navigateToSettings() }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
@@ -50,7 +50,6 @@ fun ProductListScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.searchProducts(it) },
@@ -61,7 +60,6 @@ fun ProductListScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Brand Filter Dropdown
             if (brands.isNotEmpty()) {
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -105,7 +103,6 @@ fun ProductListScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Sort Options
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -134,7 +131,6 @@ fun ProductListScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Product List
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -191,7 +187,6 @@ fun ProductCard(
                 )
             }
 
-            // Favorite button using text/emoji
             TextButton(
                 onClick = onFavoriteClick,
                 modifier = Modifier.width(60.dp)

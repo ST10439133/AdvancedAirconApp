@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/screens/RegisterScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import android.widget.Toast
@@ -15,14 +16,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.data.entities.UserRole
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
+import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     viewModel: AuthViewModel,
-    onRegisterSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    navManager: NavManager
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -39,7 +40,10 @@ fun RegisterScreen(
 
     LaunchedEffect(authState) {
         when (authState) {
-            is AuthState.Authenticated -> onRegisterSuccess()
+            is AuthState.Authenticated -> {
+                Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
+                navManager.navigateToMain()  // Changed from role-specific navigation
+            }
             is AuthState.Error -> {
                 Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_SHORT).show()
             }
@@ -70,7 +74,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Display Name
         OutlinedTextField(
             value = displayName,
             onValueChange = { displayName = it },
@@ -81,7 +84,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Email Field
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -93,7 +95,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password Field
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -101,7 +102,7 @@ fun RegisterScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (showPassword) PasswordVisualTransformation() else PasswordVisualTransformation(),
             trailingIcon = {
-                IconButton(onClick = { showPassword = !showPassword }) {
+                TextButton(onClick = { showPassword = !showPassword }) {
                     Text(if (showPassword) "Hide" else "Show")
                 }
             },
@@ -111,7 +112,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Confirm Password
         OutlinedTextField(
             value = confirmPassword,
             onValueChange = { confirmPassword = it },
@@ -124,7 +124,6 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Role Selection
         Text(
             text = "Select Your Role",
             style = MaterialTheme.typography.bodyMedium,
@@ -149,21 +148,17 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Register Button
         Button(
             onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty() && displayName.isNotEmpty()) {
                     if (password == confirmPassword) {
                         coroutineScope.launch {
-                            val result = viewModel.registerWithEmail(
+                            viewModel.registerWithEmail(
                                 email = email,
                                 password = password,
                                 displayName = displayName,
                                 role = selectedRole
                             )
-                            if (!result.success) {
-                                Toast.makeText(context, result.message ?: "Registration failed", Toast.LENGTH_SHORT).show()
-                            }
                         }
                     } else {
                         Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
@@ -187,13 +182,12 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Login Link
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Already have an account? ")
-            TextButton(onClick = onNavigateToLogin) {
+            TextButton(onClick = { navManager.navigateBack() }) {
                 Text("Sign In")
             }
         }

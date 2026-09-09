@@ -15,14 +15,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.data.entities.UserRole
+import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     authViewModel: AuthViewModel,
-    onNavigateBack: () -> Unit,
-    onSaveSuccess: () -> Unit
+    navManager: NavManager
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -42,7 +42,7 @@ fun EditProfileScreen(
             TopAppBar(
                 title = { Text("Edit Profile") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { navManager.navigateBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -55,7 +55,7 @@ fun EditProfileScreen(
                                     // TODO: Update user in Firebase and local DB
                                     Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
                                     isSaving = false
-                                    onSaveSuccess()
+                                    navManager.navigateBack()
                                 }
                             } else {
                                 Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
@@ -76,7 +76,6 @@ fun EditProfileScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Avatar
             Surface(
                 modifier = Modifier.size(100.dp),
                 shape = MaterialTheme.shapes.medium,
@@ -104,7 +103,6 @@ fun EditProfileScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Email (read-only)
                     OutlinedTextField(
                         value = user?.email ?: "",
                         onValueChange = {},
@@ -113,7 +111,6 @@ fun EditProfileScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // Display Name
                     OutlinedTextField(
                         value = displayName,
                         onValueChange = { displayName = it },
@@ -122,7 +119,6 @@ fun EditProfileScreen(
                         enabled = !isSaving
                     )
 
-                    // Role Selection
                     Column {
                         Text(
                             text = "Role",

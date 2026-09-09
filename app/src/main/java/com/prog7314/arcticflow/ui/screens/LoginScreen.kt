@@ -1,6 +1,5 @@
 package com.prog7314.arcticflow.ui.screens
 
-import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,14 +18,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
+import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit
+    navManager: NavManager
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -37,12 +36,12 @@ fun LoginScreen(
 
     val authState by viewModel.authState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-    val authError by viewModel.authError.collectAsStateWithLifecycle()
 
-    // Handle auth state changes
     LaunchedEffect(authState) {
         when (authState) {
-            is AuthState.Authenticated -> onLoginSuccess()
+            is AuthState.Authenticated -> {
+                navManager.navigateToMain()
+            }
             is AuthState.Error -> {
                 Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_SHORT).show()
             }
@@ -50,7 +49,6 @@ fun LoginScreen(
         }
     }
 
-    // Google Sign-In Launcher
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -60,9 +58,7 @@ fun LoginScreen(
             account?.idToken?.let { idToken ->
                 coroutineScope.launch {
                     val signInResult = viewModel.signInWithGoogle(idToken)
-                    if (signInResult.success) {
-                        onLoginSuccess()
-                    } else {
+                    if (!signInResult.success) {
                         Toast.makeText(context, signInResult.message ?: "Google Sign-In failed", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -95,7 +91,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Email Field
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -107,7 +102,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password Field
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -125,7 +119,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Forgot Password
         TextButton(
             onClick = { /* TODO: Implement forgot password */ },
             modifier = Modifier.align(Alignment.End)
@@ -135,7 +128,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Login Button
         Button(
             onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty()) {
@@ -161,24 +153,22 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Divider
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Divider(modifier = Modifier.weight(1f))
+            HorizontalDivider(modifier = Modifier.weight(1f))
             Text(
                 text = " OR ",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
-            Divider(modifier = Modifier.weight(1f))
+            HorizontalDivider(modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Google Sign-In Button
         OutlinedButton(
             onClick = {
                 val signInIntent = viewModel.googleSignInClient.signInIntent
@@ -192,13 +182,12 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Register Link
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Don't have an account? ")
-            TextButton(onClick = onNavigateToRegister) {
+            TextButton(onClick = { navManager.navigateToRegister() }) {
                 Text("Register")
             }
         }

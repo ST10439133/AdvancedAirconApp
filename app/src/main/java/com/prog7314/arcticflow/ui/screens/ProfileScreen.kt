@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/ui/screens/ProfileScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -14,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
+import com.prog7314.arcticflow.navigation.NavManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -21,8 +21,7 @@ import java.util.*
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
-    onNavigateBack: () -> Unit,
-    onNavigateToEditProfile: () -> Unit
+    navManager: NavManager
 ) {
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val user = when (authState) {
@@ -35,12 +34,12 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Profile") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { navManager.navigateBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToEditProfile) {
+                    IconButton(onClick = { navManager.navigateToEditProfile() }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                     }
                 }
@@ -86,22 +85,22 @@ fun ProfileScreen(
                             label = "Name",
                             value = user.displayName ?: "Not set"
                         )
-                        Divider()
+                        HorizontalDivider()
                         ProfileDetailRow(
                             label = "Email",
                             value = user.email
                         )
-                        Divider()
+                        HorizontalDivider()
                         ProfileDetailRow(
                             label = "Role",
                             value = user.role.name
                         )
-                        Divider()
+                        HorizontalDivider()
                         ProfileDetailRow(
                             label = "Account Created",
                             value = formatDate(user.createdAt)
                         )
-                        Divider()
+                        HorizontalDivider()
                         ProfileDetailRow(
                             label = "Email Verified",
                             value = if (user.isEmailVerified) "✅ Yes" else "❌ No"

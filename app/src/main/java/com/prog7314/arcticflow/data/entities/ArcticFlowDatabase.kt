@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/data/ArcticFlowDatabase.kt
 package com.prog7314.arcticflow.data
 
 import android.content.Context
@@ -6,16 +7,21 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.prog7314.arcticflow.data.converters.DateConverter
-import com.prog7314.arcticflow.data.dao.BrochureDao
-import com.prog7314.arcticflow.data.dao.ProductDao
-import com.prog7314.arcticflow.data.dao.UserDao
-import com.prog7314.arcticflow.data.entities.Brochure
-import com.prog7314.arcticflow.data.entities.Product
-import com.prog7314.arcticflow.data.entities.User
+import com.prog7314.arcticflow.data.dao.*
+import com.prog7314.arcticflow.data.entities.*
 
 @Database(
-    entities = [Product::class, Brochure::class, User::class],
-    version = 2,  // Increment version
+    entities = [
+        Product::class,
+        Brochure::class,
+        User::class,
+        BuildingEntity::class,
+        ServiceRequest::class,
+        Quote::class,
+        Job::class,
+        Notification::class
+    ],
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -23,7 +29,12 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
 
     abstract fun productDao(): ProductDao
     abstract fun brochureDao(): BrochureDao
-    abstract fun userDao(): UserDao  // Add this
+    abstract fun userDao(): UserDao
+    abstract fun buildingDao(): BuildingDao
+    abstract fun serviceRequestDao(): ServiceRequestDao
+    abstract fun quoteDao(): QuoteDao
+    abstract fun jobDao(): JobDao
+    abstract fun notificationDao(): NotificationDao
 
     companion object {
         @Volatile
@@ -36,7 +47,7 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
                     ArcticFlowDatabase::class.java,
                     "arcticflow_database"
                 )
-                    .fallbackToDestructiveMigration()  // Will recreate DB with new schema
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

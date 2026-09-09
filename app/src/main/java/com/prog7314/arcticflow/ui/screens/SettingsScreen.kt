@@ -17,9 +17,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.prog7314.arcticflow.auth.AuthViewModel
+import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.theme.ThemeState
 import com.prog7314.arcticflow.utils.LocaleManager
-import com.prog7314.arcticflow.utils.Translations
 import com.prog7314.arcticflow.utils.rememberTranslation
 import kotlinx.coroutines.launch
 
@@ -27,12 +27,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     authViewModel: AuthViewModel,
-    onNavigateToProfile: () -> Unit,
-    onNavigateToEditProfile: () -> Unit,
-    onSignOut: () -> Unit,
+    navManager: NavManager,
     onThemeChange: (ThemeState) -> Unit,
-    currentTheme: ThemeState,
-    onNavigateBack: () -> Unit = {}
+    currentTheme: ThemeState
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -48,7 +45,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(t("settings")) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { navManager.navigateBack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -83,7 +80,7 @@ fun SettingsScreen(
                         SettingsItem(
                             icon = Icons.Default.Person,
                             title = t("view_profile"),
-                            onClick = onNavigateToProfile
+                            onClick = { navManager.navigateToProfile() }
                         )
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -91,7 +88,7 @@ fun SettingsScreen(
                         SettingsItem(
                             icon = Icons.Default.Edit,
                             title = t("edit_profile"),
-                            onClick = onNavigateToEditProfile
+                            onClick = { navManager.navigateToEditProfile() }
                         )
                     }
                 }
@@ -210,7 +207,10 @@ fun SettingsScreen(
                             title = t("sign_out"),
                             iconTint = MaterialTheme.colorScheme.error,
                             textColor = MaterialTheme.colorScheme.error,
-                            onClick = onSignOut
+                            onClick = {
+                                authViewModel.signOut()
+                                navManager.navigateToLogin()
+                            }
                         )
                     }
                 }
@@ -218,7 +218,6 @@ fun SettingsScreen(
         }
     }
 
-    // Language Selection Dialog
     if (showLanguageDialog) {
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },

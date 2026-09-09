@@ -1,3 +1,4 @@
+// app/build.gradle.kts
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -38,17 +39,6 @@ android {
     buildFeatures {
         compose = true
     }
-
-    sourceSets {
-        getByName("debug") {
-            java.srcDirs("build/generated/ksp/debug/kotlin")
-            java.srcDirs("build/generated/ksp/debug/java")
-        }
-        getByName("release") {
-            java.srcDirs("build/generated/ksp/release/kotlin")
-            java.srcDirs("build/generated/ksp/release/java")
-        }
-    }
 }
 
 kotlin {
@@ -57,7 +47,6 @@ kotlin {
     }
 }
 
-// KSP configuration
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
@@ -83,7 +72,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // Room - Using KSP
+    // Room
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
@@ -96,13 +85,12 @@ dependencies {
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // PDF Viewer
-    implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1")
-
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.8.1"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-firestore-ktx")
 
     // Google Play Services
     implementation("com.google.android.gms:play-services-auth:20.7.0")
