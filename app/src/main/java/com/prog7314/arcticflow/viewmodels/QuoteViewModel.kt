@@ -73,7 +73,7 @@ class QuoteViewModel(
         }
     }
 
-    // CRITICAL: Get ALL pending service requests (for technicians)
+    // Get ALL pending service requests (for technicians)
     fun getPendingServiceRequests(): Flow<List<ServiceRequest>> {
         Log.d(TAG, "Getting all pending service requests")
         return try {
@@ -111,6 +111,15 @@ class QuoteViewModel(
         }
     }
 
+    suspend fun updateServiceRequest(request: ServiceRequest) {
+        requestDao.updateRequestFull(request)
+    }
+
+    suspend fun deleteServiceRequest(request: ServiceRequest) {
+        requestDao.deleteRequest(request)
+    }
+
+
     // ============ QUOTE OPERATIONS ============
     suspend fun createQuote(quote: Quote): Long {
         Log.d(TAG, "Creating quote: $quote")
@@ -123,6 +132,47 @@ class QuoteViewModel(
             e.printStackTrace()
             0L
         }
+    }
+
+    // ===== NEW: Build quote from a service request (Technician auto-assigned) =====
+    suspend fun createQuoteForRequest(
+        requestId: Int,
+        technicianId: String,
+        customerId: String,
+        serviceName: String,
+        serviceFee: Double,
+        lineItems: List<Pair<String, Pair<Int, Double>>>, // name -> (qty, price)
+        notes: String
+    ): Long {
+        val request = getRequestById(requestId) ?: return 0L
+
+        val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
+        val total = serviceFee + partsSubtotal
+
+        val partsDescription = lineItems.joinToString("\n") {
+            "${it.first} x${it.second.first} - R${String.format("%.2f", it.second.first * it.second.second)}"
+        }
+
+        val quote = Quote(
+            requestId = requestId,
+            technicianId = technicianId,          // technician auto-bound
+            customerId = request.userId,          // customer auto-bound from the request
+            buildingName = request.buildingName,
+            issueType = request.issueType,
+            description = request.description,
+            scopeOfWork = "$serviceName\n\nParts:\n$partsDescription",
+            partsRequired = partsDescription,
+            laborCost = serviceFee,
+            partsCost = partsSubtotal,
+            totalCost = total,
+            grandTotal = total,
+            notes = notes
+        )
+
+        val quoteId = createQuote(quote)
+        // Mark request as QUOTED so it disappears from the pending list
+        requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
+        return quoteId
     }
 
     fun getQuotesForCustomer(customerId: String): Flow<List<Quote>> {
@@ -189,7 +239,7 @@ class QuoteViewModel(
             val job = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
-                technicianId = quote.technicianId,
+                technicianId = quote.technicianId,   // Auto-assigned technician
                 customerId = quote.customerId,
                 buildingName = quote.buildingName,
                 issueType = quote.issueType,
@@ -220,7 +270,7 @@ class QuoteViewModel(
             val job = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
-                technicianId = quote.technicianId,
+                technicianId = quote.technicianId,   // Auto-assigned technician
                 customerId = quote.customerId,
                 buildingName = quote.buildingName,
                 issueType = quote.issueType,

@@ -20,10 +20,9 @@ class NavManager(
     sealed class Destination(val route: String) {
         object Login : Destination("login")
         object Register : Destination("register")
+        object ForgotPassword : Destination("forgot_password")
+        object Fingerprint : Destination("fingerprint")
         object Main : Destination("main")
-        object ProductList : Destination("product_list")
-        object ManagerDashboard : Destination("manager_dashboard")
-        object TechnicianDashboard : Destination("technician_dashboard")
         object Settings : Destination("settings")
         object Profile : Destination("profile")
         object EditProfile : Destination("edit_profile")
@@ -33,21 +32,16 @@ class NavManager(
             fun passRequestId(requestId: Int) = "create_quote/$requestId"
         }
         object MyQuotes : Destination("my_quotes")
-        object PendingRequests : Destination("pending_requests")
+        object PendingRequests : Destination("pending_requests")   // <-- ADDED
         object Notifications : Destination("notifications")
         object CreateJobCard : Destination("create_job_card/{jobId}") {
             fun passJobId(jobId: Int) = "create_job_card/$jobId"
         }
-        object ServiceBookings : Destination("service_bookings")
         object BTUCalculator : Destination("btu_calculator")
         object FieldTracking : Destination("field_tracking")
         object ProductsList : Destination("products_list")
         object QuoteHistory : Destination("quote_history")
-        object AddBuildings : Destination("add_buildings")
-        object Jobs : Destination("jobs")
-        object JobDetails : Destination("job_details/{jobId}") {
-            fun passJobId(jobId: Int) = "job_details/$jobId"
-        }
+        object ServiceBookings : Destination("service_bookings")
     }
 
     fun navigateToLogin() {
@@ -60,34 +54,16 @@ class NavManager(
         navController.navigate(Destination.Register.route)
     }
 
+    fun navigateToForgotPassword() {
+        navController.navigate(Destination.ForgotPassword.route)
+    }
+
+    fun navigateToFingerprint() {
+        navController.navigate(Destination.Fingerprint.route)
+    }
+
     fun navigateToMain() {
         navController.navigate(Destination.Main.route) {
-            popUpTo(0) { inclusive = true }
-            launchSingleTop = true
-        }
-    }
-
-    fun navigateToMyJobs() {
-        navController.navigate(Destination.Jobs.route) {
-            launchSingleTop = true
-        }
-    }
-
-    fun navigateToProductList() {
-        navController.navigate(Destination.ProductList.route) {
-            popUpTo(0) { inclusive = true }
-        }
-    }
-
-    fun navigateToManagerDashboard() {
-        navController.navigate(Destination.ManagerDashboard.route) {
-            popUpTo(0) { inclusive = true }
-            launchSingleTop = true
-        }
-    }
-
-    fun navigateToTechnicianDashboard() {
-        navController.navigate(Destination.TechnicianDashboard.route) {
             popUpTo(0) { inclusive = true }
             launchSingleTop = true
         }
@@ -153,25 +129,7 @@ class NavManager(
         navController.navigate(Destination.QuoteHistory.route)
     }
 
-    fun navigateToAddBuildings() {
-        navController.navigate(Destination.AddBuildings.route)
-    }
-
-    fun navigateToJobDetails(jobId: Int) {
-        navController.navigate(Destination.JobDetails.passJobId(jobId))
-    }
-
     fun navigateBack() {
         navController.popBackStack()
-    }
-
-    fun navigateBackTo(destination: Destination) {
-        navController.popBackStack(destination.route, inclusive = false)
-    }
-
-    fun clearBackStackAndNavigateTo(destination: Destination) {
-        navController.navigate(destination.route) {
-            popUpTo(0) { inclusive = true }
-        }
     }
 }

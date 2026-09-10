@@ -1,22 +1,37 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/screens/ServicesScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
+import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.prog7314.arcticflow.data.entities.BuildingEntity
+import com.prog7314.arcticflow.data.entities.RequestPriority
+import com.prog7314.arcticflow.data.entities.RequestStatus
+import com.prog7314.arcticflow.data.entities.ServiceRequest
 import com.prog7314.arcticflow.navigation.NavManager
+import com.prog7314.arcticflow.viewmodels.QuoteViewModel
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicesScreen(
-    navManager: NavManager
+    navManager: NavManager,
+    userId: String,
+    viewModel: QuoteViewModel
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Request Service", "Service History")
@@ -32,7 +47,6 @@ fun ServicesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
             // Tabs
             TabRow(
@@ -47,11 +61,16 @@ fun ServicesScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             when (selectedTab) {
-                0 -> RequestServiceTab(navManager)
-                1 -> ServiceHistoryTab()
+                0 -> RequestServiceTab(
+                    navManager = navManager,
+                    userId = userId,
+                    viewModel = viewModel
+                )
+                1 -> ServiceRequestHistoryScreen(
+                    viewModel = viewModel,
+                    userId = userId
+                )
             }
         }
     }
@@ -60,49 +79,116 @@ fun ServicesScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestServiceTab(
-    navManager: NavManager
+    navManager: NavManager,
+    userId: String,
+    viewModel: QuoteViewModel
 ) {
-    var selectedBuilding by remember { mutableStateOf("Apex Tech Plaza (Suite 401)") }
-    var selectedServiceType by remember { mutableStateOf("HVAC Preventive Maintenance") }
-    var selectedPriority by remember { mutableStateOf("Medium") }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var selectedBuilding by remember { mutableStateOf<BuildingEntity?>(null) }
+    var selectedServiceType by remember { mutableStateOf("") }
+    var selectedPriority by remember { mutableStateOf(RequestPriority.MEDIUM) }
+    var preferredDate by remember { mutableStateOf<Long?>(null) }
     var description by remember { mutableStateOf("") }
-    var selectedTechnician by remember { mutableStateOf("Marcus Vance (Lead HVAC)") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var buildingDropdownExpanded by remember { mutableStateOf(false) }
+    var serviceTypeDropdownExpanded by remember { mutableStateOf(false) }
 
-    val buildings = listOf("Apex Tech Plaza (Suite 401)", "Oakwood Medical Center", "Riverview Apartments")
-    val serviceTypes = listOf("HVAC Preventive Maintenance", "AC Repair", "Heating Repair", "Installation", "Emergency Service")
-    val priorities = listOf("Low", "Medium", "High", "Emergency")
-    val technicians = listOf("Marcus Vance (Lead HVAC)", "Sarah Jenkins", "David Miller", "Terry Smith")
+    // Live list of buildings — refreshes automatically
+    val buildings by viewModel.getBuildingsForUser(userId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    LazyColumn(
+    val serviceTypes = listOf(
+        "HVAC Preventive Maintenance",
+        "AC Repair",
+        "Heating Repair",
+        "Installation",
+        "Emergency Service",
+        "Ventilation Issue",
+        "Filter Replacement",
+        "Compressor Problem",
+        "Refrigerant Leak",
+        "Thermostat Issue"
+    )
+
+    val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val cal = Calendar.getInstance()
+            cal.set(year, month, dayOfMonth, 9, 0)
+            preferredDate = cal.timeInMillis
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            // Building Selection
-            var expanded by remember { mutableStateOf(false) }
+        // ===== BUILDING SELECTION =====
+        if (buildings.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("No buildings registered yet.")
+                    TextButton(onClick = { navManager.navigateToAddBuilding() }) {
+                        Text("Add a Building")
+                    }
+                }
+            }
+        } else {
             ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
+                expanded = buildingDropdownExpanded,
+                onExpandedChange = { buildingDropdownExpanded = !buildingDropdownExpanded }
             ) {
                 OutlinedTextField(
-                    value = selectedBuilding,
+                    value = selectedBuilding?.name ?: "Select a Building",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Select Building") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = buildingDropdownExpanded)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
                 ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    expanded = buildingDropdownExpanded,
+                    onDismissRequest = { buildingDropdownExpanded = false }
                 ) {
                     buildings.forEach { building ->
                         DropdownMenuItem(
-                            text = { Text(building) },
+                            text = {
+                                Column {
+                                    Text(building.name, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        building.address,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
                             onClick = {
                                 selectedBuilding = building
-                                expanded = false
+                                buildingDropdownExpanded = false
                             }
                         )
                     }
@@ -110,165 +196,153 @@ fun RequestServiceTab(
             }
         }
 
-        item {
-            // Service Type
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
-            ) {
-                OutlinedTextField(
-                    value = selectedServiceType,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Service Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    serviceTypes.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = {
-                                selectedServiceType = type
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            // Priority
-            Column {
-                Text(
-                    text = "Priority Level",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    priorities.forEach { priority ->
-                        FilterChip(
-                            selected = selectedPriority == priority,
-                            onClick = { selectedPriority = priority },
-                            label = { Text(priority) }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            // Preferred Date
+        // ===== SERVICE TYPE =====
+        ExposedDropdownMenuBox(
+            expanded = serviceTypeDropdownExpanded,
+            onExpandedChange = { serviceTypeDropdownExpanded = !serviceTypeDropdownExpanded }
+        ) {
             OutlinedTextField(
-                value = "July 24, 2026",
+                value = selectedServiceType.ifBlank { "Select Service Type" },
                 onValueChange = {},
-                label = { Text("Preferred Date") },
-                modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
+                label = { Text("Service Type") },
                 trailingIcon = {
-                    Icon(Icons.Default.DateRange, contentDescription = "Select Date")
-                }
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeDropdownExpanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
             )
-        }
-
-        item {
-            // Description
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description of Issue") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 4,
-                maxLines = 8,
-                placeholder = {
-                    Text("Vibration reported in standard compressor B, possible loose mounting or bearing wear. Advise diagnostic testing before scheduled shutdown.")
-                }
-            )
-        }
-
-        item {
-            // Assign Lead Technician
-            var expanded by remember { mutableStateOf(false) }
-
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
+            ExposedDropdownMenu(
+                expanded = serviceTypeDropdownExpanded,
+                onDismissRequest = { serviceTypeDropdownExpanded = false }
             ) {
-                OutlinedTextField(
-                    value = selectedTechnician,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Assign Lead Technician") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    technicians.forEach { tech ->
-                        DropdownMenuItem(
-                            text = { Text(tech) },
-                            onClick = {
-                                selectedTechnician = tech
-                                expanded = false
-                            }
-                        )
-                    }
+                serviceTypes.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type) },
+                        onClick = {
+                            selectedServiceType = type
+                            serviceTypeDropdownExpanded = false
+                        }
+                    )
                 }
             }
         }
 
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { /* Submit request */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Submit Request")
-            }
-        }
-    }
-}
-
-@Composable
-fun ServiceHistoryTab() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.History,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+        // ===== PRIORITY =====
+        Column {
             Text(
-                text = "Service History",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Your service history will appear here",
+                text = "Priority Level",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RequestPriority.values().forEach { priority ->
+                    FilterChip(
+                        selected = selectedPriority == priority,
+                        onClick = { selectedPriority = priority },
+                        label = { Text(priority.name) },
+                        enabled = !isSubmitting
+                    )
+                }
+            }
+        }
+
+        // ===== PREFERRED DATE (real date picker) =====
+        OutlinedTextField(
+            value = preferredDate?.let { dateFormat.format(Date(it)) } ?: "Select preferred date",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Preferred Date") },
+            trailingIcon = {
+                IconButton(onClick = { datePickerDialog.show() }) {
+                    Icon(Icons.Default.CalendarMonth, contentDescription = "Pick Date")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // ===== DESCRIPTION =====
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Description of Issue") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 4,
+            maxLines = 8,
+            enabled = !isSubmitting,
+            placeholder = {
+                Text("Describe the issue in detail...")
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ===== SUBMIT BUTTON =====
+        Button(
+            onClick = {
+                val building = selectedBuilding
+                if (building == null) {
+                    Toast.makeText(context, "Please select a building", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (selectedServiceType.isBlank()) {
+                    Toast.makeText(context, "Please select a service type", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (description.isBlank()) {
+                    Toast.makeText(context, "Please enter a description", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                coroutineScope.launch {
+                    isSubmitting = true
+                    try {
+                        val request = ServiceRequest(
+                            userId = userId,
+                            buildingId = building.id,
+                            buildingName = building.name,
+                            issueType = selectedServiceType,
+                            description = description,
+                            priority = selectedPriority,
+                            preferredDate = preferredDate,
+                            status = RequestStatus.PENDING
+                        )
+                        val id = viewModel.createServiceRequest(request)
+                        if (id > 0L) {
+                            Toast.makeText(context, "Service request submitted!", Toast.LENGTH_SHORT).show()
+                            // Reset form
+                            selectedBuilding = null
+                            selectedServiceType = ""
+                            selectedPriority = RequestPriority.MEDIUM
+                            preferredDate = null
+                            description = ""
+                        } else {
+                            Toast.makeText(context, "Failed to submit request", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    } finally {
+                        isSubmitting = false
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isSubmitting && selectedBuilding != null &&
+                    selectedServiceType.isNotBlank() && description.isNotBlank()
+        ) {
+            if (isSubmitting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text("Submit Request")
+            }
         }
     }
 }

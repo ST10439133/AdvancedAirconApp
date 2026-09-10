@@ -57,7 +57,9 @@ fun NavGraph(
         navController = navController,
         startDestination = NavManager.Destination.Login.route
     ) {
-        // Authentication Screens
+        // ==========================================
+        // AUTHENTICATION SCREENS
+        // ==========================================
         composable(NavManager.Destination.Login.route) {
             LoginScreen(
                 viewModel = authViewModel,
@@ -72,7 +74,25 @@ fun NavGraph(
             )
         }
 
-        // Main App Screen with Bottom Navigation
+        // ===== NEW: FORGOT PASSWORD =====
+        composable(NavManager.Destination.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                viewModel = authViewModel,
+                navManager = navManager
+            )
+        }
+
+        // ===== NEW: FINGERPRINT SIGN IN =====
+        composable(NavManager.Destination.Fingerprint.route) {
+            FingerprintScreen(
+                viewModel = authViewModel,
+                navManager = navManager
+            )
+        }
+
+        // ==========================================
+        // MAIN APP (Role-Based Routing)
+        // ==========================================
         composable(NavManager.Destination.Main.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
@@ -92,7 +112,9 @@ fun NavGraph(
             )
         }
 
-        // Product List
+        // ==========================================
+        // SHARED SCREENS
+        // ==========================================
         composable(NavManager.Destination.ProductsList.route) {
             ProductListScreen(
                 viewModel = productViewModel,
@@ -100,7 +122,6 @@ fun NavGraph(
             )
         }
 
-        // Settings (kept separate for deep linking)
         composable(NavManager.Destination.Settings.route) {
             SettingsScreen(
                 authViewModel = authViewModel,
@@ -110,7 +131,6 @@ fun NavGraph(
             )
         }
 
-        // Profile
         composable(NavManager.Destination.Profile.route) {
             ProfileScreen(
                 authViewModel = authViewModel,
@@ -118,7 +138,6 @@ fun NavGraph(
             )
         }
 
-        // Edit Profile
         composable(NavManager.Destination.EditProfile.route) {
             EditProfileScreen(
                 authViewModel = authViewModel,
@@ -126,77 +145,6 @@ fun NavGraph(
             )
         }
 
-        // Building Management
-        composable(NavManager.Destination.AddBuilding.route) {
-            val userId = when (authState) {
-                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
-                else -> ""
-            }
-            AddBuildingScreen(
-                viewModel = quoteViewModel,
-                userId = userId,
-                navManager = navManager
-            )
-        }
-
-        // Service Request
-        composable(NavManager.Destination.ServiceRequest.route) {
-            val userId = when (authState) {
-                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
-                else -> ""
-            }
-            ServiceRequestScreen(
-                viewModel = quoteViewModel,
-                userId = userId,
-                navManager = navManager
-            )
-        }
-
-        // Create Quote
-        composable(NavManager.Destination.CreateQuote.route) { backStackEntry ->
-            val requestId = backStackEntry.arguments?.getString("requestId")?.toIntOrNull() ?: 0
-            val userId = when (authState) {
-                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
-                else -> ""
-            }
-            CreateQuoteScreen(
-                viewModel = quoteViewModel,
-                requestId = requestId,
-                technicianId = userId,
-                customerId = "",
-                navManager = navManager
-            )
-        }
-
-        // Quotes List (Customer)
-        composable(NavManager.Destination.MyQuotes.route) {
-            val userId = when (authState) {
-                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
-                else -> ""
-            }
-            QuotesListScreen(
-                viewModel = quoteViewModel,
-                userId = userId,
-                isCustomer = true,
-                navManager = navManager
-            )
-        }
-
-        // Pending Requests (Technician)
-        composable(NavManager.Destination.PendingRequests.route) {
-            val userId = when (authState) {
-                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
-                else -> ""
-            }
-            QuotesListScreen(
-                viewModel = quoteViewModel,
-                userId = userId,
-                isCustomer = false,
-                navManager = navManager
-            )
-        }
-
-        // Notifications
         composable(NavManager.Destination.Notifications.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
@@ -211,7 +159,91 @@ fun NavGraph(
             )
         }
 
-        // Service Bookings
+        // ==========================================
+        // MANAGER SCREENS
+        // ==========================================
+        composable(NavManager.Destination.AddBuilding.route) {
+            val userId = when (authState) {
+                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
+                else -> ""
+            }
+            AddBuildingScreen(
+                viewModel = quoteViewModel,
+                userId = userId,
+                navManager = navManager
+            )
+        }
+
+        composable(NavManager.Destination.ServiceRequest.route) {
+            val userId = when (authState) {
+                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
+                else -> ""
+            }
+            ServiceRequestScreen(
+                viewModel = quoteViewModel,
+                userId = userId,
+                navManager = navManager
+            )
+        }
+
+        composable(NavManager.Destination.QuoteHistory.route) {
+            QuoteHistoryScreen(
+                navManager = navManager
+            )
+        }
+
+        composable(NavManager.Destination.FieldTracking.route) {
+            FieldTrackingScreen(navManager = navManager)
+        }
+
+        composable(NavManager.Destination.BTUCalculator.route) {
+            BTUCalculatorScreen(navManager = navManager)
+        }
+
+        // ==========================================
+        // TECHNICIAN SCREENS
+        // ==========================================
+        composable(NavManager.Destination.CreateQuote.route) { backStackEntry ->
+            val requestId = backStackEntry.arguments?.getString("requestId")?.toIntOrNull() ?: 0
+            val userId = when (authState) {
+                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
+                else -> ""
+            }
+            CreateQuoteScreen(
+                viewModel = quoteViewModel,
+                requestId = requestId,
+                technicianId = userId,
+
+                navManager = navManager
+            )
+        }
+
+        composable(NavManager.Destination.MyQuotes.route) {
+            val userId = when (authState) {
+                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
+                else -> ""
+            }
+            QuotesListScreen(
+                viewModel = quoteViewModel,
+                userId = userId,
+                isCustomer = true,
+                navManager = navManager
+            )
+        }
+
+        composable(NavManager.Destination.PendingRequests.route) {
+            val userId = when (authState) {
+                is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
+                else -> ""
+            }
+            QuotesListScreen(
+                viewModel = quoteViewModel,
+                userId = userId,
+                isCustomer = false,
+                navManager = navManager
+            )
+        }
+
         composable(NavManager.Destination.ServiceBookings.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
@@ -223,28 +255,10 @@ fun NavGraph(
             )
         }
 
-        // Create Job Card
         composable(NavManager.Destination.CreateJobCard.route) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId")?.toIntOrNull() ?: 0
             CreateJobCardScreen(
                 jobId = jobId,
-                navManager = navManager
-            )
-        }
-
-        // BTU Calculator
-        composable(NavManager.Destination.BTUCalculator.route) {
-            BTUCalculatorScreen(navManager = navManager)
-        }
-
-        // Field Tracking
-        composable(NavManager.Destination.FieldTracking.route) {
-            FieldTrackingScreen(navManager = navManager)
-        }
-
-        // Quote History
-        composable(NavManager.Destination.QuoteHistory.route) {
-            QuoteHistoryScreen(
                 navManager = navManager
             )
         }
