@@ -196,12 +196,18 @@ fun ManagerDashboardScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(40.dp)
-                                            .background(Color(0xFF4CAF50), shape = MaterialTheme.shapes.small)
+                                            .background(
+                                                Color(0xFF4CAF50),
+                                                shape = MaterialTheme.shapes.small
+                                            )
                                     )
                                     Box(
                                         modifier = Modifier
                                             .size(40.dp)
-                                            .background(Color(0xFF2196F3), shape = MaterialTheme.shapes.small)
+                                            .background(
+                                                Color(0xFF2196F3),
+                                                shape = MaterialTheme.shapes.small
+                                            )
                                     )
                                 }
                                 Row(
@@ -251,50 +257,6 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // Quick Actions
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Quick Actions",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            QuickActionButton(
-                                icon = Icons.Default.Add,
-                                label = "Create Request",  // Changed from "Add Building"
-                                onClick = { navManager.navigateToServiceRequest() }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.RequestQuote,
-                                label = "View Quotes",
-                                onClick = { navManager.navigateToMyQuotes() }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Business,
-                                label = "Add Building",
-                                onClick = { navManager.navigateToAddBuilding() }
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.People,
-                                label = "Manage Techs",
-                                onClick = { /* Navigate to technicians */ }
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 

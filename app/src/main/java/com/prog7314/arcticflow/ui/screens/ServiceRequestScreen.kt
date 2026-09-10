@@ -1,44 +1,23 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/screens/ServiceRequestScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
+import android.app.DatePickerDialog
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.data.entities.BuildingEntity
@@ -47,6 +26,8 @@ import com.prog7314.arcticflow.data.entities.ServiceRequest
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,23 +39,47 @@ fun ServiceRequestScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var selectedBuildingId by remember { mutableStateOf<Int?>(null) }
+    var selectedBuilding by remember { mutableStateOf<BuildingEntity?>(null) }
     var issueType by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf(RequestPriority.MEDIUM) }
-    var showAddBuilding by remember { mutableStateOf(false) }
+    var preferredDate by remember { mutableStateOf<Long?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
+    var buildingDropdownExpanded by remember { mutableStateOf(false) }
+    var issueDropdownExpanded by remember { mutableStateOf(false) }
 
-    val buildings by viewModel.getBuildingsForUser(userId).collectAsStateWithLifecycle(initialValue = emptyList())
+    // LIVE buildings list — auto refreshes when a new building is added
+    val buildings by viewModel.getBuildingsForUser(userId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    if (showAddBuilding) {
-        AddBuildingScreen(
-            viewModel = viewModel,
-            userId = userId,
-            navManager = navManager
-        )
-        return
-    }
+    val issueTypes = listOf(
+        "Air Conditioning Repair",
+        "Heating System Repair",
+        "Ventilation Issue",
+        "Filter Replacement",
+        "Compressor Problem",
+        "Refrigerant Leak",
+        "Thermostat Issue",
+        "Preventive Maintenance",
+        "Emergency Service",
+        "Other"
+    )
+
+    // DATE PICKER
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val cal = Calendar.getInstance()
+            cal.set(year, month, dayOfMonth, 9, 0)
+            preferredDate = cal.timeInMillis
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
 
     Scaffold(
         topBar = {
@@ -84,11 +89,6 @@ fun ServiceRequestScreen(
                     IconButton(onClick = { navManager.navigateBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                actions = {
-                    TextButton(onClick = { showAddBuilding = true }) {
-                        Text("Add Building")
-                    }
                 }
             )
         }
@@ -97,15 +97,16 @@ fun ServiceRequestScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Building Selection
+            // ===== BUILDING SELECTOR =====
             if (buildings.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     )
                 ) {
                     Column(
@@ -113,40 +114,47 @@ fun ServiceRequestScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text("No buildings registered yet.")
-                        TextButton(onClick = { showAddBuilding = true }) {
-                            Text("Add a Building")
+                        TextButton(onClick = { navManager.navigateToAddBuilding() }) {
+                            Text("Add a Building First")
                         }
                     }
                 }
             } else {
-                var expanded by remember { mutableStateOf(false) }
-                var selectedBuilding by remember { mutableStateOf<BuildingEntity?>(null) }
-
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
+                    expanded = buildingDropdownExpanded,
+                    onExpandedChange = { buildingDropdownExpanded = !buildingDropdownExpanded }
                 ) {
                     OutlinedTextField(
                         value = selectedBuilding?.name ?: "Select a Building",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Select Building") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        label = { Text("Building") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = buildingDropdownExpanded)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor()
                     )
                     ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        expanded = buildingDropdownExpanded,
+                        onDismissRequest = { buildingDropdownExpanded = false }
                     ) {
                         buildings.forEach { building ->
                             DropdownMenuItem(
-                                text = { Text(building.name) },
+                                text = {
+                                    Column {
+                                        Text(building.name, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            building.address,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
                                 onClick = {
                                     selectedBuilding = building
-                                    selectedBuildingId = building.id
-                                    expanded = false
+                                    buildingDropdownExpanded = false
                                 }
                             )
                         }
@@ -154,52 +162,56 @@ fun ServiceRequestScreen(
                 }
             }
 
-            // Issue Type
-            var issueExpanded by remember { mutableStateOf(false) }
-            val issueTypes = listOf(
-                "Air Conditioning Repair",
-                "Heating System Repair",
-                "Ventilation Issue",
-                "Filter Replacement",
-                "Compressor Problem",
-                "Refrigerant Leak",
-                "Thermostat Issue",
-                "Preventive Maintenance",
-                "Emergency Service",
-                "Other"
-            )
-
+            // ===== ISSUE TYPE =====
             ExposedDropdownMenuBox(
-                expanded = issueExpanded,
-                onExpandedChange = { issueExpanded = !issueExpanded }
+                expanded = issueDropdownExpanded,
+                onExpandedChange = { issueDropdownExpanded = !issueDropdownExpanded }
             ) {
                 OutlinedTextField(
-                    value = issueType,
+                    value = issueType.ifBlank { "Select Service Type" },
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Service Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = issueExpanded) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = issueDropdownExpanded)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
                 ExposedDropdownMenu(
-                    expanded = issueExpanded,
-                    onDismissRequest = { issueExpanded = false }
+                    expanded = issueDropdownExpanded,
+                    onDismissRequest = { issueDropdownExpanded = false }
                 ) {
                     issueTypes.forEach { type ->
                         DropdownMenuItem(
                             text = { Text(type) },
                             onClick = {
                                 issueType = type
-                                issueExpanded = false
+                                issueDropdownExpanded = false
                             }
                         )
                     }
                 }
             }
 
-            // Description
+            // ===== PREFERRED DATE (with real picker) =====
+            OutlinedTextField(
+                value = preferredDate?.let { dateFormat.format(Date(it)) } ?: "Select preferred date",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Preferred Date") },
+                trailingIcon = {
+                    IconButton(onClick = { datePickerDialog.show() }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Pick Date")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { datePickerDialog.show() }
+            )
+
+            // ===== DESCRIPTION =====
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -211,7 +223,7 @@ fun ServiceRequestScreen(
                 placeholder = { Text("Describe the problem in detail...") }
             )
 
-            // Priority
+            // ===== PRIORITY =====
             Column {
                 Text(
                     text = "Priority Level",
@@ -236,23 +248,23 @@ fun ServiceRequestScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Submit Button
+            // ===== SUBMIT =====
             Button(
                 onClick = {
-                    if (selectedBuildingId != null && issueType.isNotBlank() && description.isNotBlank()) {
+                    val building = selectedBuilding
+                    if (building != null && issueType.isNotBlank() && description.isNotBlank()) {
                         coroutineScope.launch {
                             isSubmitting = true
                             try {
-                                val buildingId = selectedBuildingId ?: 0
-                                val buildingName = buildings.find { it.id == buildingId }?.name ?: ""
-
                                 val request = ServiceRequest(
                                     userId = userId,
-                                    buildingId = buildingId,
-                                    buildingName = buildingName,
+                                    buildingId = building.id,
+                                    buildingName = building.name,
                                     issueType = issueType,
                                     description = description,
-                                    priority = priority
+                                    priority = priority,
+                                    preferredDate = preferredDate,
+                                    status = com.prog7314.arcticflow.data.entities.RequestStatus.PENDING
                                 )
                                 viewModel.createServiceRequest(request)
                                 Toast.makeText(context, "Service request submitted!", Toast.LENGTH_SHORT).show()
@@ -264,11 +276,12 @@ fun ServiceRequestScreen(
                             }
                         }
                     } else {
-                        Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSubmitting && selectedBuildingId != null && issueType.isNotBlank() && description.isNotBlank()
+                enabled = !isSubmitting && selectedBuilding != null &&
+                        issueType.isNotBlank() && description.isNotBlank()
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(

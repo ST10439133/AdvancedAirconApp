@@ -238,9 +238,9 @@ fun TechnicianDashboardScreen(
                                 onClick = { navManager.navigateToPendingRequests() }
                             )
                             QuickActionButton(
-                                icon = Icons.Default.CheckCircle,
-                                label = "My Jobs",  // Changed from "Complete Jobs"
-                                onClick = { navManager.navigateToMyJobs() }  // Updated to navigate to My Jobs
+                                icon = Icons.Default.Build,
+                                label = "BTU Calculator",
+                                onClick = { navManager.navigateToBTUCalculator() }
                             )
                         }
                     }

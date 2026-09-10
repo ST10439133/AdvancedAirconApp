@@ -197,6 +197,31 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    suspend fun resetPassword(email: String): Boolean {
+        return try {
+            auth.sendPasswordResetEmail(email).await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun signInWithBiometric(): SignInResult {
+        // Biometric auth is handled by the system prompt.
+        // Here we just check if there's a cached user session.
+        val currentUser = auth.currentUser
+        return if (currentUser != null) {
+            handleFirebaseUser(currentUser)
+            // Wait a moment for the state to update
+            kotlinx.coroutines.delay(100)
+            val user = database.userDao().getUserById(currentUser.uid)
+            SignInResult(success = true, user = user)
+        } else {
+            SignInResult(success = false, message = "No saved session. Please sign in with password first.")
+        }
+    }
+
     fun signOut() {
         auth.signOut()
         googleSignInClient.signOut()

@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,13 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.prog7314.arcticflow.data.entities.Quote
 import com.prog7314.arcticflow.data.entities.ServiceRequest
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +28,6 @@ fun CreateQuoteScreen(
     viewModel: QuoteViewModel,
     requestId: Int,
     technicianId: String,
-    customerId: String,
     navManager: NavManager
 ) {
     val context = LocalContext.current
@@ -73,17 +68,14 @@ fun CreateQuoteScreen(
     )
 
     val availableParts = listOf(
-        // Refrigerants
         CatalogPart("R410A Refrigerant (1kg)", 180.00, "Refrigerants"),
         CatalogPart("R134A Refrigerant (1kg)", 220.00, "Refrigerants"),
         CatalogPart("R32 Refrigerant (1kg)", 200.00, "Refrigerants"),
 
-        // Copper Tubing
         CatalogPart("Copper Tubing (15m)", 350.00, "Tubing"),
         CatalogPart("Copper Tubing (50ft)", 120.00, "Tubing"),
         CatalogPart("Copper Tubing (100ft)", 220.00, "Tubing"),
 
-        // Electrical Components
         CatalogPart("Contactor (30-Amp)", 85.00, "Electrical"),
         CatalogPart("Run Capacitor (45 uF)", 65.00, "Electrical"),
         CatalogPart("Start Capacitor (88-108 uF)", 75.00, "Electrical"),
@@ -91,25 +83,21 @@ fun CreateQuoteScreen(
         CatalogPart("Thermostat (Smart/WiFi)", 280.00, "Electrical"),
         CatalogPart("Circuit Breaker (20A)", 45.00, "Electrical"),
 
-        // Motors & Fans
         CatalogPart("Condenser Fan Motor", 250.00, "Motors"),
         CatalogPart("Blower Motor (1/2 HP)", 280.00, "Motors"),
         CatalogPart("Blower Motor (1 HP)", 350.00, "Motors"),
         CatalogPart("Draft Inducer Motor", 200.00, "Motors"),
 
-        // Filters
         CatalogPart("Air Filter (14x20x1)", 25.00, "Filters"),
         CatalogPart("Air Filter (16x25x1)", 30.00, "Filters"),
         CatalogPart("Air Filter (20x20x1)", 28.00, "Filters"),
         CatalogPart("HEPA Filter", 65.00, "Filters"),
 
-        // Compressor Parts
         CatalogPart("Compressor (1.5 Ton)", 450.00, "Compressor"),
         CatalogPart("Compressor (2 Ton)", 520.00, "Compressor"),
         CatalogPart("Compressor (3 Ton)", 620.00, "Compressor"),
         CatalogPart("Compressor Overload Kit", 45.00, "Compressor"),
 
-        // Maintenance
         CatalogPart("AC Maintenance Kit", 340.00, "Maintenance"),
         CatalogPart("Coil Cleaner (1L)", 35.00, "Maintenance"),
         CatalogPart("Condenser Coil Cleaner", 40.00, "Maintenance"),
@@ -117,14 +105,12 @@ fun CreateQuoteScreen(
         CatalogPart("Leak Detection Kit", 120.00, "Maintenance"),
         CatalogPart("Vacuum Pump Oil", 30.00, "Maintenance"),
 
-        // Duct Work
         CatalogPart("Flex Duct (6\" x 25')", 180.00, "Duct Work"),
         CatalogPart("Flex Duct (8\" x 25')", 220.00, "Duct Work"),
         CatalogPart("Sheet Metal (24x24)", 75.00, "Duct Work"),
         CatalogPart("Duct Tape (Heavy Duty)", 15.00, "Duct Work"),
         CatalogPart("Insulated Duct (6\")", 200.00, "Duct Work"),
 
-        // Tools & Consumables
         CatalogPart("Manifold Gauge Set", 180.00, "Tools"),
         CatalogPart("Digital Thermometer", 65.00, "Tools"),
         CatalogPart("Vacuum Pump (5 CFM)", 350.00, "Tools"),
@@ -132,7 +118,6 @@ fun CreateQuoteScreen(
         CatalogPart("Electrical Tape", 5.00, "Consumables"),
         CatalogPart("Wire Nuts (100-pack)", 12.00, "Consumables"),
 
-        // Specialty Items
         CatalogPart("UV Light Kit", 250.00, "Specialty"),
         CatalogPart("Air Purifier Kit", 320.00, "Specialty"),
         CatalogPart("Humidifier Kit", 280.00, "Specialty"),
@@ -160,7 +145,7 @@ fun CreateQuoteScreen(
     var additionalNotes by remember { mutableStateOf("") }
     var isCreating by remember { mutableStateOf(false) }
 
-    // ============ CALCULATIONS ============
+    // ============ CALCULATIONS (for display) ============
     val serviceFee = selectedServiceFee?.fee ?: 0.0
     val partsSubtotal = lineItems.sumOf { it.price * it.quantity }
     val total = serviceFee + partsSubtotal
@@ -186,7 +171,7 @@ fun CreateQuoteScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Service Request Info
+            // ===== SERVICE REQUEST INFO =====
             if (currentRequest != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -205,7 +190,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============ SERVICE FEE SELECTION ============
+            // ===== SERVICE FEE SELECTION =====
             Text(
                 text = "Service Type & Fee",
                 style = MaterialTheme.typography.titleMedium,
@@ -261,7 +246,7 @@ fun CreateQuoteScreen(
                 )
             }
 
-            // ============ ADD PARTS SECTION ============
+            // ===== ADD PARTS SECTION =====
             Text(
                 text = "Parts & Materials",
                 style = MaterialTheme.typography.titleMedium,
@@ -269,7 +254,6 @@ fun CreateQuoteScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
 
-            // Toggle between catalog and custom part
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -287,7 +271,7 @@ fun CreateQuoteScreen(
             }
 
             if (showCustomPartInput) {
-                // Custom Part Input
+                // ===== CUSTOM PART INPUT =====
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -351,7 +335,7 @@ fun CreateQuoteScreen(
                     }
                 }
             } else {
-                // Catalog Part Selection
+                // ===== CATALOG PART SELECTION =====
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -379,9 +363,7 @@ fun CreateQuoteScreen(
                                 expanded = partDropdownExpanded,
                                 onDismissRequest = { partDropdownExpanded = false }
                             ) {
-                                // Group parts by category
                                 availableParts.groupBy { it.category }.forEach { (category, parts) ->
-                                    // Category header
                                     DropdownMenuItem(
                                         text = {
                                             Text(
@@ -415,7 +397,7 @@ fun CreateQuoteScreen(
                             }
                         }
 
-                        // Quantity selector for selected part
+                        // Quantity selector
                         var selectedPartQuantity by remember { mutableStateOf("1") }
 
                         if (selectedPart != null) {
@@ -457,7 +439,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============ LINE ITEMS LIST ============
+            // ===== LINE ITEMS LIST =====
             if (lineItems.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -474,7 +456,6 @@ fun CreateQuoteScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Header
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -488,7 +469,6 @@ fun CreateQuoteScreen(
 
                         HorizontalDivider()
 
-                        // Line items
                         lineItems.forEachIndexed { index, item ->
                             Row(
                                 modifier = Modifier
@@ -533,7 +513,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============ SUMMARY ============
+            // ===== SUMMARY =====
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -551,7 +531,6 @@ fun CreateQuoteScreen(
                     )
                     HorizontalDivider()
 
-                    // Service Fee
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -560,7 +539,6 @@ fun CreateQuoteScreen(
                         Text("R${String.format("%.2f", serviceFee)}")
                     }
 
-                    // Parts Subtotal
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -571,7 +549,6 @@ fun CreateQuoteScreen(
 
                     HorizontalDivider()
 
-                    // Total
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -591,7 +568,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============ ADDITIONAL NOTES ============
+            // ===== ADDITIONAL NOTES =====
             OutlinedTextField(
                 value = additionalNotes,
                 onValueChange = { additionalNotes = it },
@@ -604,7 +581,7 @@ fun CreateQuoteScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ============ SEND QUOTE BUTTON ============
+            // ===== SEND QUOTE BUTTON =====
             Button(
                 onClick = {
                     if (selectedServiceFee == null) {
@@ -619,30 +596,27 @@ fun CreateQuoteScreen(
                     coroutineScope.launch {
                         isCreating = true
                         try {
-                            val partsDescription = lineItems.joinToString("\n") {
-                                "${it.name} x${it.quantity} - R${String.format("%.2f", it.price * it.quantity)}"
-                            }
-
-                            val quote = Quote(
+                            // ✅ NEW: Use the ViewModel helper.
+                            // Technician is auto-bound to the quote.
+                            // Customer is auto-pulled from the request.
+                            val quoteId = viewModel.createQuoteForRequest(
                                 requestId = requestId,
                                 technicianId = technicianId,
-                                customerId = customerId,
-                                buildingName = currentRequest?.buildingName ?: "",
-                                issueType = currentRequest?.issueType ?: "",
-                                description = currentRequest?.description ?: "",
-                                scopeOfWork = "${selectedServiceFee!!.name}: ${selectedServiceFee!!.description}\n\nParts Used:\n$partsDescription",
-                                partsRequired = partsDescription,
-                                estimatedHours = 0.0,
-                                laborCost = serviceFee,
-                                partsCost = partsSubtotal,
-                                totalCost = total,
-                                taxAmount = 0.0,  // No separate tax
-                                grandTotal = total,
+                                customerId = currentRequest?.userId ?: "",
+                                serviceName = selectedServiceFee!!.name,
+                                serviceFee = selectedServiceFee!!.fee,
+                                lineItems = lineItems.map { item ->
+                                    item.name to (item.quantity to item.price)
+                                },
                                 notes = additionalNotes
                             )
-                            viewModel.createQuote(quote)
-                            Toast.makeText(context, "Quote created successfully!", Toast.LENGTH_SHORT).show()
-                            navManager.navigateBack()
+
+                            if (quoteId > 0L) {
+                                Toast.makeText(context, "Quote created successfully!", Toast.LENGTH_SHORT).show()
+                                navManager.navigateBack()
+                            } else {
+                                Toast.makeText(context, "Failed to create quote", Toast.LENGTH_SHORT).show()
+                            }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                         } finally {

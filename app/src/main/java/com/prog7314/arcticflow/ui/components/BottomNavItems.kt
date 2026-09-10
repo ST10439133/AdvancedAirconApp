@@ -10,14 +10,14 @@ sealed class BottomNavItem(
     val icon: ImageVector,
     val label: String
 ) {
-    // Common items
+    // Common
     object Dashboard : BottomNavItem(
         route = "dashboard",
         icon = Icons.Default.Dashboard,
         label = "Dashboard"
     )
 
-    // Manager only items
+    // Manager Tabs
     object Buildings : BottomNavItem(
         route = "buildings",
         icon = Icons.Default.Business,
@@ -36,7 +36,7 @@ sealed class BottomNavItem(
         label = "Services"
     )
 
-    // Technician only items
+    // Technician Tabs
     object Bookings : BottomNavItem(
         route = "bookings",
         icon = Icons.Default.Book,

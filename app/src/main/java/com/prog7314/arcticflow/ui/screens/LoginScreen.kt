@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -107,7 +110,7 @@ fun LoginScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = if (showPassword) PasswordVisualTransformation() else PasswordVisualTransformation(),
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { showPassword = !showPassword }) {
                     Text(if (showPassword) "Hide" else "Show")
@@ -119,8 +122,9 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // ===== FORGOT PASSWORD =====
         TextButton(
-            onClick = { /* TODO: Implement forgot password */ },
+            onClick = { navManager.navigateToForgotPassword() },
             modifier = Modifier.align(Alignment.End)
         ) {
             Text("Forgot Password?")
@@ -169,15 +173,30 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        OutlinedButton(
-            onClick = {
-                val signInIntent = viewModel.googleSignInClient.signInIntent
-                googleLauncher.launch(signInIntent)
-            },
+        // ===== GOOGLE & FINGERPRINT BUTTONS =====
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Sign in with Google")
+            OutlinedButton(
+                onClick = {
+                    val signInIntent = viewModel.googleSignInClient.signInIntent
+                    googleLauncher.launch(signInIntent)
+                },
+                modifier = Modifier.weight(1f),
+                enabled = !isLoading
+            ) {
+                Text("Google")
+            }
+            OutlinedButton(
+                onClick = { navManager.navigateToFingerprint() },
+                modifier = Modifier.weight(1f),
+                enabled = !isLoading
+            ) {
+                Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint")
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Fingerprint")
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))

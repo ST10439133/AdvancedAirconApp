@@ -89,7 +89,7 @@ fun MainScreen(
                 navController = bottomNavController,
                 startDestination = startDestination
             ) {
-                // Dashboard - Common
+                // ===== DASHBOARD (Common to both roles) =====
                 composable(BottomNavItem.Dashboard.route) {
                     when (userRole) {
                         "MANAGER" -> {
@@ -113,7 +113,7 @@ fun MainScreen(
                     }
                 }
 
-                // Manager only screens
+                // ===== MANAGER-ONLY SCREENS =====
                 composable(BottomNavItem.Buildings.route) {
                     val viewModel: QuoteViewModel = viewModel(
                         factory = QuoteViewModel.Factory(database)
@@ -138,11 +138,17 @@ fun MainScreen(
                 }
 
                 composable(BottomNavItem.Services.route) {
-                    // Manager Services Screen - NEW
-                    ServicesScreen(navManager = navManager)
+                    // Manager Services tab — Request Service + Service History
+                    ServicesScreen(
+                        navManager = navManager,
+                        userId = userId,
+                        viewModel = viewModel(
+                            factory = QuoteViewModel.Factory(database)
+                        )
+                    )
                 }
 
-                // Technician only screens
+                // ===== TECHNICIAN-ONLY SCREENS =====
                 composable(BottomNavItem.Bookings.route) {
                     ServiceBookingsScreen(
                         userId = userId,
