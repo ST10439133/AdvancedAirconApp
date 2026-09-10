@@ -132,7 +132,7 @@ fun MainScreen(
                     QuotesListScreen(
                         viewModel = viewModel,
                         userId = userId,
-                        isCustomer = true, // Manager sees quotes as customer
+                        isCustomer = true,
                         navManager = navManager
                     )
                 }
