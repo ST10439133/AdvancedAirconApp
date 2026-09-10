@@ -9,7 +9,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +37,14 @@ fun NotificationScreen(
 ) {
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val unreadCount by viewModel.unreadCount.collectAsStateWithLifecycle()
-    val filterType by viewModel.filterType.collectAsStateWithLifecycle()
+
+    // Local filter state — no longer tied to ViewModel
+    var filterType by remember { mutableStateOf<NotificationType?>(null) }
+
+    val filteredNotifications = remember(notifications, filterType) {
+        if (filterType == null) notifications
+        else notifications.filter { it.type == filterType }
+    }
 
     Scaffold(
         topBar = {
@@ -60,41 +70,38 @@ fun NotificationScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter Chips
+            // Filter tabs
+            val tabs = listOf<Pair<NotificationType?, String>>(
+                null to "All",
+                NotificationType.JOB to "Jobs",
+                NotificationType.QUOTE to "Quotes",
+                NotificationType.SYSTEM to "System"
+            )
+
+            val selectedIndex = tabs.indexOfFirst { it.first == filterType }
+                .coerceAtLeast(0)
+
             ScrollableTabRow(
-                selectedTabIndex = when (filterType) {
-                    null -> 0
-                    NotificationType.JOB -> 1
-                    NotificationType.QUOTE -> 2
-                    NotificationType.SYSTEM -> 3
-                },
+                selectedTabIndex = selectedIndex,
                 containerColor = MaterialTheme.colorScheme.surface,
                 edgePadding = 16.dp
             ) {
-                listOf(
-                    null to "All",
-                    NotificationType.JOB to "Jobs",
-                    NotificationType.QUOTE to "Quotes",
-                    NotificationType.SYSTEM to "System"
-                ).forEachIndexed { index, (type, label) ->
-                    val isSelected = when (filterType) {
-                        null -> index == 0
-                        else -> type == filterType
-                    }
+                tabs.forEachIndexed { index, (type, label) ->
                     Tab(
-                        selected = isSelected,
-                        onClick = { viewModel.setFilter(type) },
+                        selected = selectedIndex == index,
+                        onClick = { filterType = type },
                         text = {
                             Text(
                                 label,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (selectedIndex == index) FontWeight.Bold
+                                else FontWeight.Normal
                             )
                         }
                     )
                 }
             }
 
-            if (notifications.isEmpty()) {
+            if (filteredNotifications.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -127,7 +134,7 @@ fun NotificationScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(notifications) { notification ->
+                    items(filteredNotifications, key = { it.id }) { notification ->
                         NotificationItem(
                             notification = notification,
                             onMarkRead = { viewModel.markAsRead(notification.id) }
@@ -169,7 +176,7 @@ fun NotificationItem(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Icon based on type
+                // Type icon
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -202,7 +209,8 @@ fun NotificationItem(
                     Text(
                         text = notification.title,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Bold
+                        fontWeight = if (notification.isRead) FontWeight.Normal
+                        else FontWeight.Bold
                     )
                     Text(
                         text = notification.message,
@@ -217,7 +225,6 @@ fun NotificationItem(
                 }
             }
 
-            // Unread indicator
             if (!notification.isRead) {
                 Box(
                     modifier = Modifier

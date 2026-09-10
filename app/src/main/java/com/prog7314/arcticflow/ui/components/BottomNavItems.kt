@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/ui/components/BottomNavItems.kt
 package com.prog7314.arcticflow.ui.components
 
 import androidx.compose.material.icons.Icons
@@ -10,58 +9,19 @@ sealed class BottomNavItem(
     val icon: ImageVector,
     val label: String
 ) {
-    // Common
-    object Dashboard : BottomNavItem(
-        route = "dashboard",
-        icon = Icons.Default.Dashboard,
-        label = "Dashboard"
-    )
-
-    // Manager Tabs
-    object Buildings : BottomNavItem(
-        route = "buildings",
-        icon = Icons.Default.Business,
-        label = "Buildings"
-    )
-
-    object Quotes : BottomNavItem(
-        route = "quotes",
-        icon = Icons.Default.Receipt,
-        label = "Quotes"
-    )
-
-    object Services : BottomNavItem(
-        route = "services",
-        icon = Icons.Default.Build,
-        label = "Services"
-    )
-
-    // Technician Tabs
-    object Bookings : BottomNavItem(
-        route = "bookings",
-        icon = Icons.Default.Book,
-        label = "Bookings"
-    )
-
-    object Jobs : BottomNavItem(
-        route = "jobs",
-        icon = Icons.Default.Work,
-        label = "Jobs"
-    )
+    object Dashboard : BottomNavItem("dashboard", Icons.Default.Dashboard, "Dashboard")
+    object Buildings : BottomNavItem("buildings", Icons.Default.Business, "Buildings")
+    object Quotes : BottomNavItem("quotes", Icons.Default.Receipt, "Quotes")
+    object Services : BottomNavItem("services", Icons.Default.Build, "Services")
+    object Requests : BottomNavItem("requests", Icons.Default.Inbox, "Requests")
+    object Bookings : BottomNavItem("bookings", Icons.Default.Book, "Bookings")
+    object Jobs : BottomNavItem("jobs", Icons.Default.Work, "Jobs")
 
     companion object {
-        fun getManagerItems(): List<BottomNavItem> = listOf(
-            Dashboard,
-            Buildings,
-            Quotes,
-            Services
-        )
+        fun getManagerItems(): List<BottomNavItem> =
+            listOf(Dashboard, Buildings, Quotes, Services)
 
-        fun getTechnicianItems(): List<BottomNavItem> = listOf(
-            Dashboard,
-            Quotes,
-            Bookings,
-            Jobs
-        )
+        fun getTechnicianItems(): List<BottomNavItem> =
+            listOf(Dashboard, Requests, Quotes, Bookings, Jobs)
     }
 }

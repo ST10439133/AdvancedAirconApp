@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/data/dao/JobCardDao.kt
 package com.prog7314.arcticflow.data.dao
 
 import androidx.room.*
@@ -33,6 +32,6 @@ interface JobCardDao {
     @Query("UPDATE job_cards SET status = :status WHERE id = :jobCardId")
     suspend fun updateJobCardStatus(jobCardId: Int, status: JobCardStatus)
 
-    @Query("SELECT * FROM job_cards WHERE technicianId = :technicianId AND status = :status")
-    fun getJobCardsByTechnicianAndStatus(technicianId: String, status: JobCardStatus): Flow<List<JobCard>>
+    @Query("UPDATE job_cards SET photoPaths = :photoPaths WHERE id = :jobCardId")
+    suspend fun updateJobCardPhotos(jobCardId: Int, photoPaths: List<String>)
 }

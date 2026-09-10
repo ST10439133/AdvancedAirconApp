@@ -1,15 +1,11 @@
-// app/src/main/java/com/prog7314/arcticflow/viewmodels/JobCardViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
-import com.prog7314.arcticflow.data.entities.Job
-import com.prog7314.arcticflow.data.entities.JobCard
-import com.prog7314.arcticflow.data.entities.JobCardStatus
-import com.prog7314.arcticflow.data.entities.JobStatus
-import com.prog7314.arcticflow.data.entities.PartItem
+import com.prog7314.arcticflow.data.entities.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,13 +21,14 @@ class JobCardViewModel(
     private val _submitSuccess = MutableStateFlow(false)
     val submitSuccess: StateFlow<Boolean> = _submitSuccess.asStateFlow()
 
-    suspend fun getJobById(jobId: Int): Job? {
-        return database.jobDao().getJobById(jobId)
-    }
+    suspend fun getJobById(jobId: Int): Job? =
+        database.jobDao().getJobById(jobId)
 
-    suspend fun getJobCardByJobId(jobId: Int): JobCard? {
-        return database.jobCardDao().getJobCardByJobId(jobId)
-    }
+    suspend fun getJobCardByJobId(jobId: Int): JobCard? =
+        database.jobCardDao().getJobCardByJobId(jobId)
+
+    fun getJobCardsByTechnician(technicianId: String): Flow<List<JobCard>> =
+        database.jobCardDao().getJobCardsByTechnician(technicianId)
 
     suspend fun saveJobCard(
         jobId: Int,
@@ -43,13 +40,10 @@ class JobCardViewModel(
         endTime: Long?,
         additionalNotes: String,
         photoPaths: List<String>
-    ): Long {  // Changed to return Long
+    ): Long {
         return try {
-            // Check if job card already exists for this job
             val existing = database.jobCardDao().getJobCardByJobId(jobId)
-
             if (existing != null) {
-                // Update existing job card
                 val updated = existing.copy(
                     workSummary = workSummary,
                     partsUsed = partsUsed,
@@ -60,9 +54,8 @@ class JobCardViewModel(
                     status = JobCardStatus.DRAFT
                 )
                 database.jobCardDao().updateJobCard(updated)
-                existing.id.toLong()  // Return existing ID as Long
+                existing.id.toLong()
             } else {
-                // Create new job card
                 val jobCard = JobCard(
                     jobId = jobId,
                     technicianId = technicianId,
@@ -75,7 +68,7 @@ class JobCardViewModel(
                     photoPaths = photoPaths,
                     status = JobCardStatus.DRAFT
                 )
-                database.jobCardDao().insertJobCard(jobCard)  // This returns Long
+                database.jobCardDao().insertJobCard(jobCard)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -83,16 +76,14 @@ class JobCardViewModel(
         }
     }
 
-    suspend fun submitJobCard(jobCardId: Long) {  // Changed to Long
+    suspend fun submitJobCard(jobCardId: Long) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 database.jobCardDao().updateJobCardStatus(jobCardId.toInt(), JobCardStatus.SUBMITTED)
-
-                // Also update the job status to COMPLETED
-                val jobCard = database.jobCardDao().getJobCardById(jobCardId.toInt())
-                jobCard?.let {
-                    database.jobDao().updateJobStatus(jobCard.jobId, JobStatus.COMPLETED)
+                val jc = database.jobCardDao().getJobCardById(jobCardId.toInt())
+                jc?.let {
+                    database.jobDao().updateJobStatus(it.jobId, JobStatus.COMPLETED)
                 }
                 _submitSuccess.value = true
             } catch (e: Exception) {
@@ -103,13 +94,11 @@ class JobCardViewModel(
         }
     }
 
-    fun resetSubmitState() {
-        _submitSuccess.value = false
-    }
+    fun resetSubmitState() { _submitSuccess.value = false }
 
     companion object {
-        fun Factory(database: ArcticFlowDatabase): ViewModelProvider.Factory {
-            return object : ViewModelProvider.Factory {
+        fun Factory(database: ArcticFlowDatabase): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     if (modelClass.isAssignableFrom(JobCardViewModel::class.java)) {
@@ -118,6 +107,5 @@ class JobCardViewModel(
                     throw IllegalArgumentException("Unknown ViewModel class")
                 }
             }
-        }
     }
 }
