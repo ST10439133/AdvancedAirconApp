@@ -15,7 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
-import com.prog7314.arcticflow.viewmodels.ManagerDashboardViewModel
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,9 +73,7 @@ fun MainScreen(
                 // ============ DASHBOARD ============
                 composable(BottomNavItem.Dashboard.route) {
                     if (userRole == "MANAGER") {
-                        val vm: ManagerDashboardViewModel = viewModel()
                         ManagerDashboardScreen(
-                            viewModel = vm,
                             navManager = navManager,
                             userId = userId
                         )
