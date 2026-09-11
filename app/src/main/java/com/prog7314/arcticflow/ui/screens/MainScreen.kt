@@ -15,31 +15,25 @@ import androidx.navigation.compose.rememberNavController
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
-import com.prog7314.arcticflow.ui.theme.ThemeState
-import com.prog7314.arcticflow.viewmodels.*
+import com.prog7314.arcticflow.viewmodels.ManagerDashboardViewModel
+import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     userId: String,
     userRole: String,
-    navManager: NavManager,
-    themeState: ThemeState,
-    onThemeChange: (ThemeState) -> Unit
+    navManager: NavManager
 ) {
     val context = LocalContext.current
     val database = ArcticFlowDatabase.getDatabase(context)
-
     val bottomNavController = rememberNavController()
 
     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val navItems = if (userRole == "MANAGER") {
-        BottomNavItem.getManagerItems()
-    } else {
-        BottomNavItem.getTechnicianItems()
-    }
+    val navItems = if (userRole == "MANAGER") BottomNavItem.getManagerItems()
+    else BottomNavItem.getTechnicianItems()
 
     val startDestination = BottomNavItem.Dashboard.route
 
@@ -52,18 +46,10 @@ fun MainScreen(
             ) {
                 navItems.forEach { item ->
                     NavigationBarItem(
-                        icon = {
-                            Icon(
-                                item.icon,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
+                        icon = { Icon(item.icon, item.label, Modifier.size(24.dp)) },
                         label = {
-                            Text(
-                                item.label,
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                            Text(item.label,
+                                style = MaterialTheme.typography.labelSmall)
                         },
                         selected = currentRoute == item.route,
                         onClick = {
@@ -79,58 +65,41 @@ fun MainScreen(
                 }
             }
         }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
             NavHost(
                 navController = bottomNavController,
                 startDestination = startDestination
             ) {
-                // ===== DASHBOARD (Common to both roles) =====
+                // ============ DASHBOARD ============
                 composable(BottomNavItem.Dashboard.route) {
-                    when (userRole) {
-                        "MANAGER" -> {
-                            val viewModel: ManagerDashboardViewModel = viewModel()
-                            ManagerDashboardScreen(
-                                viewModel = viewModel,
-                                navManager = navManager,
-                                userId = userId
-                            )
-                        }
-                        else -> {
-                            val viewModel: TechnicianDashboardViewModel = viewModel(
-                                factory = TechnicianDashboardViewModel.Factory(userId)
-                            )
-                            TechnicianDashboardScreen(
-                                viewModel = viewModel,
-                                navManager = navManager,
-                                userId = userId
-                            )
-                        }
+                    if (userRole == "MANAGER") {
+                        val vm: ManagerDashboardViewModel = viewModel()
+                        ManagerDashboardScreen(
+                            viewModel = vm,
+                            navManager = navManager,
+                            userId = userId
+                        )
+                    } else {
+                        TechnicianDashboardScreen(
+                            navManager = navManager,
+                            userId = userId
+                        )
                     }
                 }
 
-                // ===== MANAGER-ONLY SCREENS =====
+                // ============ MANAGER TABS ============
                 composable(BottomNavItem.Buildings.route) {
-                    val viewModel: QuoteViewModel = viewModel(
-                        factory = QuoteViewModel.Factory(database)
-                    )
                     BuildingsScreen(
-                        viewModel = viewModel,
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database)),
                         userId = userId,
                         navManager = navManager
                     )
                 }
 
                 composable(BottomNavItem.Quotes.route) {
-                    val viewModel: QuoteViewModel = viewModel(
-                        factory = QuoteViewModel.Factory(database)
-                    )
                     QuotesListScreen(
-                        viewModel = viewModel,
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database)),
                         userId = userId,
                         isCustomer = true,
                         navManager = navManager
@@ -138,17 +107,18 @@ fun MainScreen(
                 }
 
                 composable(BottomNavItem.Services.route) {
-                    // Manager Services tab — Request Service + Service History
                     ServicesScreen(
                         navManager = navManager,
                         userId = userId,
-                        viewModel = viewModel(
-                            factory = QuoteViewModel.Factory(database)
-                        )
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database))
                     )
                 }
 
-                // ===== TECHNICIAN-ONLY SCREENS =====
+                // ============ TECHNICIAN TABS ============
+                composable(BottomNavItem.Requests.route) {
+                    PendingRequestsScreen(navManager = navManager)
+                }
+
                 composable(BottomNavItem.Bookings.route) {
                     ServiceBookingsScreen(
                         userId = userId,

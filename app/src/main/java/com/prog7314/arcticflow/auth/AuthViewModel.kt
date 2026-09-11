@@ -41,7 +41,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .build()
         googleSignInClient = GoogleSignIn.getClient(application, gso)
 
-        // Check if user is already signed in
+        // Check existing session
         val currentUser = auth.currentUser
         if (currentUser != null) {
             handleFirebaseUser(currentUser)
@@ -60,24 +60,51 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Resolve the user & role.
+     * Order of priority:
+     * 1. Local DB by UID (source of truth)
+     * 2. Firebase Auth displayName ("Name|ROLE")
+     * 3. Fallback: TECHNICIAN
+     */
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
-                // Check if user exists in local database
-                var user = database.userDao().getUserById(firebaseUser.uid)
-                if (user == null) {
-                    // Create new user
-                    user = User(
-                        uid = firebaseUser.uid,
-                        email = firebaseUser.email ?: "",
-                        displayName = firebaseUser.displayName,
-                        role = UserRole.TECHNICIAN, // Default role, will be updated during registration
-                        isEmailVerified = firebaseUser.isEmailVerified,
-                        createdAt = System.currentTimeMillis()
-                    )
-                    database.userDao().insertUser(user)
+                // 1. Try local DB first
+                val existingUser = database.userDao().getUserById(firebaseUser.uid)
+                if (existingUser != null) {
+                    _authState.value = AuthState.Authenticated(existingUser)
+                    return@launch
                 }
-                _authState.value = AuthState.Authenticated(user)
+
+                // 2. Parse role from Firebase displayName
+                val rawName = firebaseUser.displayName ?: ""
+                val displayName: String
+                val role: UserRole
+                if (rawName.contains("|")) {
+                    val parts = rawName.split("|", limit = 2)
+                    displayName = parts[0].trim()
+                    role = try {
+                        UserRole.valueOf(parts[1].trim())
+                    } catch (e: Exception) {
+                        UserRole.TECHNICIAN
+                    }
+                } else {
+                    displayName = rawName.ifBlank { firebaseUser.email ?: "User" }
+                    role = UserRole.TECHNICIAN
+                }
+
+                // 3. Create a User record using resolved role
+                val newUser = User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: "",
+                    displayName = displayName,
+                    role = role,
+                    isEmailVerified = firebaseUser.isEmailVerified,
+                    createdAt = System.currentTimeMillis()
+                )
+                database.userDao().insertUser(newUser)
+                _authState.value = AuthState.Authenticated(newUser)
             } catch (e: Exception) {
                 _authState.value = AuthState.Error("Failed to load user data: ${e.message}")
             }
@@ -95,13 +122,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Update display name
+                // ⚠️ Store role with displayName so we can rebuild on next login
                 val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                    .setDisplayName(displayName)
+                    .setDisplayName("$displayName|${role.name}")
                     .build()
                 firebaseUser.updateProfile(profileUpdates).await()
 
-                // Save user to local database
                 val user = User(
                     uid = firebaseUser.uid,
                     email = email,
@@ -132,26 +158,38 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Get user from local database
-                val user = database.userDao().getUserById(firebaseUser.uid)
-                _isLoading.value = false
-                if (user != null) {
-                    _authState.value = AuthState.Authenticated(user)
-                    SignInResult(success = true, user = user)
-                } else {
-                    // User not found in local DB, create from Firebase data
-                    val newUser = User(
+                // Look up local DB first
+                var user = database.userDao().getUserById(firebaseUser.uid)
+
+                if (user == null) {
+                    // Try to rebuild from Firebase displayName format ("Name|ROLE")
+                    val rawName = firebaseUser.displayName ?: ""
+                    val displayName: String
+                    val role: UserRole
+                    if (rawName.contains("|")) {
+                        val parts = rawName.split("|", limit = 2)
+                        displayName = parts[0].trim()
+                        role = try { UserRole.valueOf(parts[1].trim()) }
+                        catch (e: Exception) { UserRole.TECHNICIAN }
+                    } else {
+                        displayName = rawName.ifBlank { firebaseUser.email ?: "User" }
+                        role = UserRole.TECHNICIAN
+                    }
+
+                    user = User(
                         uid = firebaseUser.uid,
                         email = firebaseUser.email ?: "",
-                        displayName = firebaseUser.displayName,
-                        role = UserRole.TECHNICIAN,
+                        displayName = displayName,
+                        role = role,
                         isEmailVerified = firebaseUser.isEmailVerified,
                         createdAt = System.currentTimeMillis()
                     )
-                    database.userDao().insertUser(newUser)
-                    _authState.value = AuthState.Authenticated(newUser)
-                    SignInResult(success = true, user = newUser)
+                    database.userDao().insertUser(user)
                 }
+
+                _isLoading.value = false
+                _authState.value = AuthState.Authenticated(user)
+                SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
                 SignInResult(success = false, message = "Login failed")
@@ -170,14 +208,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithCredential(credential).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Check if user exists in local DB
                 var user = database.userDao().getUserById(firebaseUser.uid)
                 if (user == null) {
                     user = User(
                         uid = firebaseUser.uid,
                         email = firebaseUser.email ?: "",
                         displayName = firebaseUser.displayName,
-                        role = UserRole.TECHNICIAN,
+                        role = UserRole.TECHNICIAN,  // Google sign-in defaults to tech unless pre-registered
                         isEmailVerified = firebaseUser.isEmailVerified,
                         createdAt = System.currentTimeMillis()
                     )
@@ -208,17 +245,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun signInWithBiometric(): SignInResult {
-        // Biometric auth is handled by the system prompt.
-        // Here we just check if there's a cached user session.
         val currentUser = auth.currentUser
         return if (currentUser != null) {
             handleFirebaseUser(currentUser)
-            // Wait a moment for the state to update
-            kotlinx.coroutines.delay(100)
+            kotlinx.coroutines.delay(150)
             val user = database.userDao().getUserById(currentUser.uid)
             SignInResult(success = true, user = user)
         } else {
-            SignInResult(success = false, message = "No saved session. Please sign in with password first.")
+            SignInResult(success = false, message = "No saved session.")
         }
     }
 

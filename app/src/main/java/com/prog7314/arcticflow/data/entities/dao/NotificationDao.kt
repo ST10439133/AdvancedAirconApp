@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/data/dao/NotificationDao.kt
 package com.prog7314.arcticflow.data.dao
 
 import androidx.room.*
@@ -23,7 +22,7 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications WHERE userId = :userId ORDER BY timestamp DESC")
     fun getNotificationsForUser(userId: String): Flow<List<Notification>>
 
-    @Query("SELECT * FROM notifications WHERE userId = :userId AND isRead = 0")
+    @Query("SELECT * FROM notifications WHERE userId = :userId AND isRead = 0 ORDER BY timestamp DESC")
     fun getUnreadNotifications(userId: String): Flow<List<Notification>>
 
     @Query("SELECT COUNT(*) FROM notifications WHERE userId = :userId AND isRead = 0")

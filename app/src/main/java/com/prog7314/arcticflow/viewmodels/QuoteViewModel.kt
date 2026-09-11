@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/viewmodels/QuoteViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import android.util.Log
@@ -22,141 +21,71 @@ class QuoteViewModel(
 
     private val TAG = "QuoteViewModel"
 
-    // ============ BUILDING OPERATIONS ============
-    suspend fun addBuilding(userId: String, building: BuildingEntity): Long {
-        return try {
-            buildingDao.insertBuilding(building)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            0L
-        }
-    }
+    // ==================== BUILDINGS ====================
+    suspend fun addBuilding(userId: String, building: BuildingEntity): Long =
+        try { buildingDao.insertBuilding(building) } catch (e: Exception) { 0L }
 
-    fun getBuildingsForUser(userId: String): Flow<List<BuildingEntity>> {
-        return try {
-            buildingDao.getBuildingsByUser(userId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getBuildingsForUser(userId: String): Flow<List<BuildingEntity>> =
+        try { buildingDao.getBuildingsByUser(userId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    suspend fun getBuildingById(buildingId: Int): BuildingEntity? {
-        return try {
-            buildingDao.getBuildingById(buildingId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+    suspend fun getBuildingById(buildingId: Int): BuildingEntity? =
+        try { buildingDao.getBuildingById(buildingId) } catch (e: Exception) { null }
 
-    // ============ SERVICE REQUEST OPERATIONS ============
-    suspend fun createServiceRequest(request: ServiceRequest): Long {
-        Log.d(TAG, "Creating service request: $request")
-        return try {
-            val id = requestDao.insertRequest(request)
-            Log.d(TAG, "Service request created with ID: $id")
-            id
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating service request", e)
-            e.printStackTrace()
-            0L
-        }
-    }
+    // ==================== SERVICE REQUESTS ====================
+    suspend fun createServiceRequest(request: ServiceRequest): Long =
+        try { requestDao.insertRequest(request) } catch (e: Exception) { 0L }
 
-    fun getRequestsForUser(userId: String): Flow<List<ServiceRequest>> {
-        return try {
-            requestDao.getRequestsByUser(userId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getRequestsForUser(userId: String): Flow<List<ServiceRequest>> =
+        try { requestDao.getRequestsByUser(userId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    // Get ALL pending service requests (for technicians)
-    fun getPendingServiceRequests(): Flow<List<ServiceRequest>> {
-        Log.d(TAG, "Getting all pending service requests")
-        return try {
-            requestDao.getPendingRequests()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting pending requests", e)
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getPendingServiceRequests(): Flow<List<ServiceRequest>> =
+        try { requestDao.getPendingRequests() }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    fun getRequestsByStatus(status: RequestStatus): Flow<List<ServiceRequest>> {
-        return try {
-            requestDao.getRequestsByStatus(status)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getRequestsByStatus(status: RequestStatus): Flow<List<ServiceRequest>> =
+        try { requestDao.getRequestsByStatus(status) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    suspend fun getRequestById(requestId: Int): ServiceRequest? {
-        return try {
-            requestDao.getRequestById(requestId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+    suspend fun getRequestById(requestId: Int): ServiceRequest? =
+        try { requestDao.getRequestById(requestId) } catch (e: Exception) { null }
 
     suspend fun updateRequestStatus(requestId: Int, status: RequestStatus) {
-        try {
-            requestDao.updateRequestStatus(requestId, status)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        try { requestDao.updateRequestStatus(requestId, status) } catch (_: Exception) { }
     }
 
     suspend fun updateServiceRequest(request: ServiceRequest) {
-        requestDao.updateRequestFull(request)
+        try { requestDao.updateRequestFull(request) } catch (_: Exception) { }
     }
 
     suspend fun deleteServiceRequest(request: ServiceRequest) {
-        requestDao.deleteRequest(request)
+        try { requestDao.deleteRequest(request) } catch (_: Exception) { }
     }
 
+    // ==================== QUOTES ====================
+    suspend fun createQuote(quote: Quote): Long =
+        try { quoteDao.insertQuote(quote) } catch (e: Exception) { 0L }
 
-    // ============ QUOTE OPERATIONS ============
-    suspend fun createQuote(quote: Quote): Long {
-        Log.d(TAG, "Creating quote: $quote")
-        return try {
-            val id = quoteDao.insertQuote(quote)
-            Log.d(TAG, "Quote created with ID: $id")
-            id
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating quote", e)
-            e.printStackTrace()
-            0L
-        }
-    }
-
-    // ===== NEW: Build quote from a service request (Technician auto-assigned) =====
     suspend fun createQuoteForRequest(
         requestId: Int,
         technicianId: String,
-        customerId: String,
         serviceName: String,
         serviceFee: Double,
-        lineItems: List<Pair<String, Pair<Int, Double>>>, // name -> (qty, price)
+        lineItems: List<Pair<String, Pair<Int, Double>>>,
         notes: String
     ): Long {
         val request = getRequestById(requestId) ?: return 0L
-
         val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
         val total = serviceFee + partsSubtotal
-
         val partsDescription = lineItems.joinToString("\n") {
             "${it.first} x${it.second.first} - R${String.format("%.2f", it.second.first * it.second.second)}"
         }
 
         val quote = Quote(
             requestId = requestId,
-            technicianId = technicianId,          // technician auto-bound
-            customerId = request.userId,          // customer auto-bound from the request
+            technicianId = technicianId,
+            customerId = request.userId,
             buildingName = request.buildingName,
             issueType = request.issueType,
             description = request.description,
@@ -168,50 +97,37 @@ class QuoteViewModel(
             grandTotal = total,
             notes = notes
         )
-
         val quoteId = createQuote(quote)
-        // Mark request as QUOTED so it disappears from the pending list
         requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
+        createNotification(
+            userId = request.userId,
+            title = "New Quote Received",
+            message = "Technician quoted R${String.format("%.2f", total)} for ${request.buildingName}",
+            type = NotificationType.QUOTE
+        )
         return quoteId
     }
 
-    fun getQuotesForCustomer(customerId: String): Flow<List<Quote>> {
-        return try {
-            quoteDao.getQuotesByCustomer(customerId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getQuotesForCustomer(customerId: String): Flow<List<Quote>> =
+        try { quoteDao.getQuotesByCustomer(customerId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    fun getQuotesForTechnician(technicianId: String): Flow<List<Quote>> {
-        return try {
-            quoteDao.getQuotesByTechnician(technicianId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getQuotesForTechnician(technicianId: String): Flow<List<Quote>> =
+        try { quoteDao.getQuotesByTechnician(technicianId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    suspend fun getQuoteById(quoteId: Int): Quote? {
-        return try {
-            quoteDao.getQuoteById(quoteId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+    suspend fun getQuoteById(quoteId: Int): Quote? =
+        try { quoteDao.getQuoteById(quoteId) } catch (e: Exception) { null }
 
+    // ==================== QUOTE ACCEPT / DECLINE ====================
     suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
             if (status == QuoteStatus.ACCEPTED) {
                 val quote = quoteDao.getQuoteById(quoteId)
-                quote?.let { createJobFromQuote(it) }
+                quote?.let { createJobFromQuoteWithSchedule(it, null, null) }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     suspend fun updateQuoteStatusWithSchedule(
@@ -222,45 +138,29 @@ class QuoteViewModel(
     ) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
-            if (status == QuoteStatus.ACCEPTED) {
-                val quote = quoteDao.getQuoteById(quoteId)
-                quote?.let {
-                    createJobFromQuoteWithSchedule(it, scheduledDate, timeSlot)
+            val quote = quoteDao.getQuoteById(quoteId) ?: return
+
+            when (status) {
+                QuoteStatus.ACCEPTED ->
+                    createJobFromQuoteWithSchedule(quote, scheduledDate, timeSlot)
+
+                QuoteStatus.DECLINED -> {
+                    createNotification(
+                        userId = quote.technicianId,
+                        title = "Quote Declined",
+                        message = "Your quote for ${quote.buildingName} was declined.",
+                        type = NotificationType.QUOTE
+                    )
+                    requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
                 }
+                else -> { }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "updateQuoteStatusWithSchedule failed", e)
         }
     }
 
-    // ============ JOB OPERATIONS ============
-    private suspend fun createJobFromQuote(quote: Quote) {
-        try {
-            val job = Job(
-                quoteId = quote.id,
-                requestId = quote.requestId,
-                technicianId = quote.technicianId,   // Auto-assigned technician
-                customerId = quote.customerId,
-                buildingName = quote.buildingName,
-                issueType = quote.issueType,
-                description = quote.description,
-                status = JobStatus.PENDING,
-                scheduledDate = System.currentTimeMillis() + 24 * 60 * 60 * 1000
-            )
-            jobDao.insertJob(job)
-            requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
-
-            createNotification(
-                userId = quote.technicianId,
-                title = "New Job Created",
-                message = "Quote #${quote.id} has been accepted for ${quote.buildingName}",
-                type = NotificationType.JOB
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
+    // ==================== JOBS ====================
     private suspend fun createJobFromQuoteWithSchedule(
         quote: Quote,
         scheduledDate: Long?,
@@ -270,14 +170,15 @@ class QuoteViewModel(
             val job = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
-                technicianId = quote.technicianId,   // Auto-assigned technician
+                technicianId = quote.technicianId,
                 customerId = quote.customerId,
                 buildingName = quote.buildingName,
                 issueType = quote.issueType,
                 description = quote.description,
                 status = JobStatus.SCHEDULED,
-                scheduledDate = scheduledDate ?: System.currentTimeMillis() + 24 * 60 * 60 * 1000,
-                notes = "Time Slot: ${timeSlot ?: "To be confirmed"}"
+                scheduledDate = scheduledDate
+                    ?: (System.currentTimeMillis() + 24L * 60 * 60 * 1000),
+                notes = "Time Slot: ${timeSlot ?: "TBC"}"
             )
             jobDao.insertJob(job)
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
@@ -285,58 +186,52 @@ class QuoteViewModel(
             val dateStr = scheduledDate?.let { formatDate(it) } ?: "TBD"
             createNotification(
                 userId = quote.technicianId,
-                title = "New Job Scheduled",
-                message = "Quote #${quote.id} accepted for ${quote.buildingName} on $dateStr at ${timeSlot ?: "TBD"}",
+                title = "Job Scheduled",
+                message = "Quote #${quote.id} accepted for ${quote.buildingName} on $dateStr",
                 type = NotificationType.JOB
             )
-
             createNotification(
                 userId = quote.customerId,
-                title = "Job Scheduled",
-                message = "Your job for ${quote.buildingName} has been scheduled for $dateStr at ${timeSlot ?: "TBD"}",
+                title = "Job Confirmed",
+                message = "Job for ${quote.buildingName} scheduled for $dateStr",
                 type = NotificationType.JOB
             )
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "createJobFromQuoteWithSchedule failed", e)
         }
     }
 
-    fun getJobsForTechnician(technicianId: String): Flow<List<Job>> {
-        return try {
-            jobDao.getJobsByTechnician(technicianId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getJobsForTechnician(technicianId: String): Flow<List<Job>> =
+        try { jobDao.getJobsByTechnician(technicianId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
-    fun getJobsForCustomer(customerId: String): Flow<List<Job>> {
-        return try {
-            jobDao.getJobsByCustomer(customerId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            flow { emit(emptyList()) }
-        }
-    }
+    fun getJobsForCustomer(customerId: String): Flow<List<Job>> =
+        try { jobDao.getJobsByCustomer(customerId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
 
     suspend fun updateJobStatus(jobId: Int, status: JobStatus) {
+        try { jobDao.updateJobStatus(jobId, status) } catch (_: Exception) { }
+    }
+
+    suspend fun getJobById(jobId: Int): Job? =
+        try { jobDao.getJobById(jobId) } catch (e: Exception) { null }
+
+    suspend fun setTechnicianOnWay(jobId: Int, onWay: Boolean) {
         try {
-            jobDao.updateJobStatus(jobId, status)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            jobDao.updateTechnicianOnWay(jobId, onWay)
+            val job = jobDao.getJobById(jobId) ?: return
+            if (onWay) {
+                createNotification(
+                    userId = job.customerId,
+                    title = "Technician On The Way",
+                    message = "Your technician is on the way to ${job.buildingName}.",
+                    type = NotificationType.JOB
+                )
+            }
+        } catch (_: Exception) { }
     }
 
-    suspend fun getJobById(jobId: Int): Job? {
-        return try {
-            jobDao.getJobById(jobId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    // ============ NOTIFICATION OPERATIONS ============
+    // ==================== NOTIFICATIONS ====================
     private suspend fun createNotification(
         userId: String,
         title: String,
@@ -344,27 +239,24 @@ class QuoteViewModel(
         type: NotificationType
     ) {
         try {
-            val notification = Notification(
-                title = title,
-                message = message,
-                type = type,
-                userId = userId,
-                timestamp = System.currentTimeMillis()
+            notificationDao.insertNotification(
+                Notification(
+                    title = title,
+                    message = message,
+                    type = type,
+                    userId = userId,
+                    timestamp = System.currentTimeMillis()
+                )
             )
-            notificationDao.insertNotification(notification)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (_: Exception) { }
     }
 
-    private fun formatDate(timestamp: Long): String {
-        val format = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-        return format.format(Date(timestamp))
-    }
+    private fun formatDate(timestamp: Long): String =
+        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
 
     companion object {
-        fun Factory(database: ArcticFlowDatabase): ViewModelProvider.Factory {
-            return object : ViewModelProvider.Factory {
+        fun Factory(database: ArcticFlowDatabase): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     if (modelClass.isAssignableFrom(QuoteViewModel::class.java)) {
@@ -373,6 +265,5 @@ class QuoteViewModel(
                     throw IllegalArgumentException("Unknown ViewModel class")
                 }
             }
-        }
     }
 }

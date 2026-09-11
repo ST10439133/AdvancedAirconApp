@@ -59,7 +59,6 @@ fun ManagerDashboardScreen(
     val selectedJobId by viewModel.selectedJobId.collectAsStateWithLifecycle()
     val selectedAlertId by viewModel.selectedAlertId.collectAsStateWithLifecycle()
 
-    // Sample data for manager dashboard
     val activeBuildings = 14
     val openQuotes = 9
     val scheduled = 28
@@ -87,7 +86,7 @@ fun ManagerDashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Welcome Section
+            // Welcome
             item {
                 Column {
                     Text(
@@ -109,36 +108,21 @@ fun ManagerDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "OVERVIEW",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            OverviewStatItem(
-                                value = activeBuildings.toString(),
-                                label = "Active Buildings"
-                            )
-                            OverviewStatItem(
-                                value = openQuotes.toString(),
-                                label = "Open Quotes"
-                            )
-                            OverviewStatItem(
-                                value = scheduled.toString(),
-                                label = "Scheduled"
-                            )
-                            OverviewStatItem(
-                                value = "$techsOnline/15",
-                                label = "Techs Online"
-                            )
+                            OverviewStatItem(activeBuildings.toString(), "Active Buildings")
+                            OverviewStatItem(openQuotes.toString(), "Open Quotes")
+                            OverviewStatItem(scheduled.toString(), "Scheduled")
+                            OverviewStatItem("$techsOnline/15", "Techs Online")
                         }
                     }
                 }
@@ -150,69 +134,43 @@ fun ManagerDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "MONTHLY PERFORMANCE",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(
-                                    text = "Service Revenue",
+                                Text("Service Revenue",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "R84,200",
+                                    fontWeight = FontWeight.Bold)
+                                Text("R84,200",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "+24% from last month",
+                                    color = MaterialTheme.colorScheme.primary)
+                                Text("+24% from last month",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Green
-                                )
+                                    color = Color.Green)
                             }
-
                             Column {
-                                Text(
-                                    text = "Service Breakdown",
+                                Text("Service Breakdown",
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                Color(0xFF4CAF50),
-                                                shape = MaterialTheme.shapes.small
-                                            )
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                Color(0xFF2196F3),
-                                                shape = MaterialTheme.shapes.small
-                                            )
-                                    )
+                                    fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Box(Modifier.size(40.dp)
+                                        .background(Color(0xFF4CAF50),
+                                            shape = MaterialTheme.shapes.small))
+                                    Box(Modifier.size(40.dp)
+                                        .background(Color(0xFF2196F3),
+                                            shape = MaterialTheme.shapes.small))
                                 }
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text("HVAC 65%", style = MaterialTheme.typography.labelSmall)
                                     Text("Electr. 35%", style = MaterialTheme.typography.labelSmall)
                                 }
@@ -228,16 +186,13 @@ fun ManagerDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "RECENT OPERATIONS",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-
                         RecentOperationItem(
                             icon = Icons.Default.Warning,
                             title = "Emergency HVAC Repair dispatched",
@@ -256,7 +211,6 @@ fun ManagerDashboardScreen(
                     }
                 }
             }
-
         }
     }
 
@@ -286,10 +240,7 @@ fun ManagerDashboardScreen(
 }
 
 @Composable
-fun OverviewStatItem(
-    value: String,
-    label: String
-) {
+fun OverviewStatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
@@ -312,88 +263,26 @@ fun RecentOperationItem(
     time: String
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall
-            )
+                modifier = Modifier.size(20.dp))
+            Text(text = title, style = MaterialTheme.typography.bodySmall)
         }
-        Text(
-            text = time,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = time, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-fun StatsCard(
-    title: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
-) {
+fun AlertCard(alert: Alert, onResolve: () -> Unit) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(80.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            }
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(32.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun AlertCard(
-    alert: Alert,
-    onResolve: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { /* Show details */ },
+        modifier = Modifier.fillMaxWidth().clickable { },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
             containerColor = when (alert.severity) {
@@ -404,105 +293,72 @@ fun AlertCard(
         )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    text = alert.buildingName,
+                Text(alert.buildingName,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = alert.issueType,
+                    fontWeight = FontWeight.Bold)
+                Text(alert.issueType,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatTimestamp(alert.timestamp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatTimestamp(alert.timestamp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Badge(
-                    containerColor = when (alert.severity) {
-                        AlertSeverity.CRITICAL -> Color.Red
-                        AlertSeverity.HIGH -> Color(0xFFFF9800)
-                        AlertSeverity.MEDIUM -> Color.Yellow
-                        AlertSeverity.LOW -> Color.Green
-                    }
-                ) {
-                    Text(alert.severity.name)
-                }
+                Badge(containerColor = when (alert.severity) {
+                    AlertSeverity.CRITICAL -> Color.Red
+                    AlertSeverity.HIGH -> Color(0xFFFF9800)
+                    AlertSeverity.MEDIUM -> Color.Yellow
+                    AlertSeverity.LOW -> Color.Green
+                }) { Text(alert.severity.name) }
                 Spacer(modifier = Modifier.height(4.dp))
-                TextButton(onClick = onResolve) {
-                    Text("Resolve")
-                }
+                TextButton(onClick = onResolve) { Text("Resolve") }
             }
         }
     }
 }
 
 @Composable
-fun JobCard(
-    job: MaintenanceJob,
-    onClick: () -> Unit
-) {
+fun JobCard(job: MaintenanceJob, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    text = job.buildingName,
+                Text(job.buildingName,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${job.unitNumber} - ${job.issueType}",
+                    fontWeight = FontWeight.Bold)
+                Text("${job.unitNumber} - ${job.issueType}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Status: ${job.status.name}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Status: ${job.status.name}",
                     style = MaterialTheme.typography.bodySmall,
                     color = when (job.status) {
                         JobStatus.COMPLETED -> Color.Green
                         JobStatus.PENDING -> Color(0xFFFF9800)
                         JobStatus.ASSIGNED -> Color.Blue
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
+                    })
             }
             Column(horizontalAlignment = Alignment.End) {
-                Badge(
-                    containerColor = when (job.priority) {
-                        JobPriority.URGENT -> Color.Red
-                        JobPriority.HIGH -> Color(0xFFFF9800)
-                        JobPriority.MEDIUM -> Color.Yellow
-                        JobPriority.LOW -> Color.Green
-                    }
-                ) {
-                    Text(job.priority.name)
-                }
-                Text(
-                    text = job.assignedTo?.let { "Assigned: #$it" } ?: "Unassigned",
+                Badge(containerColor = when (job.priority) {
+                    JobPriority.URGENT -> Color.Red
+                    JobPriority.HIGH -> Color(0xFFFF9800)
+                    JobPriority.MEDIUM -> Color.Yellow
+                    JobPriority.LOW -> Color.Green
+                }) { Text(job.priority.name) }
+                Text(job.assignedTo?.let { "Assigned: #$it" } ?: "Unassigned",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -516,14 +372,10 @@ fun QuickActionButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
+        modifier = Modifier.fillMaxWidth().height(56.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
@@ -550,7 +402,6 @@ fun JobDetailsDialog(
                 Text("Status: ${job.status.name}")
                 Text("Description: ${job.description}")
                 Spacer(modifier = Modifier.height(8.dp))
-
                 if (job.assignedTo == null) {
                     Text("Assign Technician:")
                     technicians.forEach { tech ->
@@ -559,7 +410,6 @@ fun JobDetailsDialog(
                         }
                     }
                 }
-
                 if (job.status != JobStatus.COMPLETED && job.status != JobStatus.CANCELLED) {
                     Row {
                         listOf(JobStatus.IN_PROGRESS, JobStatus.COMPLETED).forEach { status ->
@@ -571,20 +421,12 @@ fun JobDetailsDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 
 @Composable
-fun AlertDetailsDialog(
-    alert: Alert,
-    onResolve: () -> Unit,
-    onDismiss: () -> Unit
-) {
+fun AlertDetailsDialog(alert: Alert, onResolve: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Alert Details") },
@@ -596,16 +438,10 @@ fun AlertDetailsDialog(
                 Text("Status: ${alert.status.name}")
                 Text("Time: ${formatTimestamp(alert.timestamp)}")
                 Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onResolve) {
-                    Text("Resolve Alert")
-                }
+                TextButton(onClick = onResolve) { Text("Resolve Alert") }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 

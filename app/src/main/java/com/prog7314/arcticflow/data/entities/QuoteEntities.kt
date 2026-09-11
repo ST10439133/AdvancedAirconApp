@@ -58,7 +58,7 @@ data class Quote(
     val taxAmount: Double = 0.0,
     val grandTotal: Double = 0.0,
     val status: QuoteStatus = QuoteStatus.PENDING,
-    val validUntil: Long = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000,
+    val validUntil: Long = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val notes: String? = null
@@ -68,13 +68,13 @@ data class Quote(
 data class Job(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val quoteId: Int,
-    val requestId: Int,
-    val technicianId: String,
-    val customerId: String,
-    val buildingName: String,
-    val issueType: String,
-    val description: String,
+    val quoteId: Int = 0,
+    val requestId: Int = 0,
+    val technicianId: String = "",
+    val customerId: String = "",
+    val buildingName: String = "",
+    val issueType: String = "",
+    val description: String = "",
     val status: JobStatus = JobStatus.PENDING,
     val scheduledDate: Long? = null,
     val startDate: Long? = null,
@@ -82,11 +82,12 @@ data class Job(
     val notes: String? = null,
     val rating: Float? = null,
     val review: String? = null,
+    val technicianOnWay: Boolean = false,   // ← NEW for tracking
     val createdAt: Long = System.currentTimeMillis()
 )
 
 // ============================================
-// ROOM ENTITY ENUMS - ONLY DEFINED ONCE HERE
+// ROOM ENTITY ENUMS
 // ============================================
 
 enum class BuildingType {

@@ -74,7 +74,6 @@ fun NavGraph(
             )
         }
 
-        // ===== NEW: FORGOT PASSWORD =====
         composable(NavManager.Destination.ForgotPassword.route) {
             ForgotPasswordScreen(
                 viewModel = authViewModel,
@@ -82,7 +81,6 @@ fun NavGraph(
             )
         }
 
-        // ===== NEW: FINGERPRINT SIGN IN =====
         composable(NavManager.Destination.Fingerprint.route) {
             FingerprintScreen(
                 viewModel = authViewModel,
@@ -106,9 +104,7 @@ fun NavGraph(
             MainScreen(
                 userId = userId,
                 userRole = userRole,
-                navManager = navManager,
-                themeState = themeState,
-                onThemeChange = onThemeChange
+                navManager = navManager
             )
         }
 
@@ -213,7 +209,6 @@ fun NavGraph(
                 viewModel = quoteViewModel,
                 requestId = requestId,
                 technicianId = userId,
-
                 navManager = navManager
             )
         }

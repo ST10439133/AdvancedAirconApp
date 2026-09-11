@@ -37,21 +37,14 @@ fun ServicesScreen(
     val tabs = listOf("Request Service", "Service History")
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Services") }
-            )
-        }
-    ) { paddingValues ->
+        topBar = { TopAppBar(title = { Text("Services") }) }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
         ) {
-            // Tabs
-            TabRow(
-                selectedTabIndex = selectedTab
-            ) {
+            TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -92,10 +85,7 @@ fun RequestServiceTab(
     var preferredDate by remember { mutableStateOf<Long?>(null) }
     var description by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
-    var buildingDropdownExpanded by remember { mutableStateOf(false) }
-    var serviceTypeDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Live list of buildings — refreshes automatically
     val buildings by viewModel.getBuildingsForUser(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -116,9 +106,9 @@ fun RequestServiceTab(
     val calendar = Calendar.getInstance()
     val datePickerDialog = DatePickerDialog(
         context,
-        { _, year, month, dayOfMonth ->
+        { _, year, month, day ->
             val cal = Calendar.getInstance()
-            cal.set(year, month, dayOfMonth, 9, 0)
+            cal.set(year, month, day, 9, 0)
             preferredDate = cal.timeInMillis
         },
         calendar.get(Calendar.YEAR),
@@ -133,7 +123,7 @@ fun RequestServiceTab(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ===== BUILDING SELECTION =====
+        // ===== BUILDING =====
         if (buildings.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -142,9 +132,7 @@ fun RequestServiceTab(
                 )
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text("No buildings registered yet.")
@@ -154,41 +142,36 @@ fun RequestServiceTab(
                 }
             }
         } else {
+            var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
-                expanded = buildingDropdownExpanded,
-                onExpandedChange = { buildingDropdownExpanded = !buildingDropdownExpanded }
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
             ) {
                 OutlinedTextField(
                     value = selectedBuilding?.name ?: "Select a Building",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Select Building") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = buildingDropdownExpanded)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
                 ExposedDropdownMenu(
-                    expanded = buildingDropdownExpanded,
-                    onDismissRequest = { buildingDropdownExpanded = false }
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
                 ) {
-                    buildings.forEach { building ->
+                    buildings.forEach { b ->
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(building.name, fontWeight = FontWeight.Bold)
-                                    Text(
-                                        building.address,
+                                    Text(b.name, fontWeight = FontWeight.Bold)
+                                    Text(b.address,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             },
                             onClick = {
-                                selectedBuilding = building
-                                buildingDropdownExpanded = false
+                                selectedBuilding = b
+                                expanded = false
                             }
                         )
                     }
@@ -197,32 +180,29 @@ fun RequestServiceTab(
         }
 
         // ===== SERVICE TYPE =====
+        var svcExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(
-            expanded = serviceTypeDropdownExpanded,
-            onExpandedChange = { serviceTypeDropdownExpanded = !serviceTypeDropdownExpanded }
+            expanded = svcExpanded,
+            onExpandedChange = { svcExpanded = !svcExpanded }
         ) {
             OutlinedTextField(
                 value = selectedServiceType.ifBlank { "Select Service Type" },
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Service Type") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeDropdownExpanded)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(svcExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor()
             )
             ExposedDropdownMenu(
-                expanded = serviceTypeDropdownExpanded,
-                onDismissRequest = { serviceTypeDropdownExpanded = false }
+                expanded = svcExpanded,
+                onDismissRequest = { svcExpanded = false }
             ) {
-                serviceTypes.forEach { type ->
+                serviceTypes.forEach { t ->
                     DropdownMenuItem(
-                        text = { Text(type) },
+                        text = { Text(t) },
                         onClick = {
-                            selectedServiceType = type
-                            serviceTypeDropdownExpanded = false
+                            selectedServiceType = t
+                            svcExpanded = false
                         }
                     )
                 }
@@ -231,28 +211,23 @@ fun RequestServiceTab(
 
         // ===== PRIORITY =====
         Column {
-            Text(
-                text = "Priority Level",
+            Text("Priority Level",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                RequestPriority.values().forEach { priority ->
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                RequestPriority.values().forEach { p ->
                     FilterChip(
-                        selected = selectedPriority == priority,
-                        onClick = { selectedPriority = priority },
-                        label = { Text(priority.name) },
+                        selected = selectedPriority == p,
+                        onClick = { selectedPriority = p },
+                        label = { Text(p.name) },
                         enabled = !isSubmitting
                     )
                 }
             }
         }
 
-        // ===== PREFERRED DATE (real date picker) =====
+        // ===== DATE =====
         OutlinedTextField(
             value = preferredDate?.let { dateFormat.format(Date(it)) } ?: "Select preferred date",
             onValueChange = {},
@@ -260,7 +235,7 @@ fun RequestServiceTab(
             label = { Text("Preferred Date") },
             trailingIcon = {
                 IconButton(onClick = { datePickerDialog.show() }) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = "Pick Date")
+                    Icon(Icons.Default.CalendarMonth, "Pick Date")
                 }
             },
             modifier = Modifier.fillMaxWidth()
@@ -275,27 +250,25 @@ fun RequestServiceTab(
             minLines = 4,
             maxLines = 8,
             enabled = !isSubmitting,
-            placeholder = {
-                Text("Describe the issue in detail...")
-            }
+            placeholder = { Text("Describe the problem in detail...") }
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // ===== SUBMIT BUTTON =====
+        // ===== SUBMIT =====
         Button(
             onClick = {
                 val building = selectedBuilding
                 if (building == null) {
-                    Toast.makeText(context, "Please select a building", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Select a building", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
                 if (selectedServiceType.isBlank()) {
-                    Toast.makeText(context, "Please select a service type", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Select service type", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
                 if (description.isBlank()) {
-                    Toast.makeText(context, "Please enter a description", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Enter a description", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
@@ -314,15 +287,16 @@ fun RequestServiceTab(
                         )
                         val id = viewModel.createServiceRequest(request)
                         if (id > 0L) {
-                            Toast.makeText(context, "Service request submitted!", Toast.LENGTH_SHORT).show()
-                            // Reset form
+                            Toast.makeText(context,
+                                "Request submitted! Technicians will see it now.",
+                                Toast.LENGTH_LONG).show()
                             selectedBuilding = null
                             selectedServiceType = ""
                             selectedPriority = RequestPriority.MEDIUM
                             preferredDate = null
                             description = ""
                         } else {
-                            Toast.makeText(context, "Failed to submit request", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Failed to submit", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
                         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -332,17 +306,14 @@ fun RequestServiceTab(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isSubmitting && selectedBuilding != null &&
-                    selectedServiceType.isNotBlank() && description.isNotBlank()
+            enabled = !isSubmitting &&
+                    selectedBuilding != null &&
+                    selectedServiceType.isNotBlank() &&
+                    description.isNotBlank()
         ) {
-            if (isSubmitting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text("Submit Request")
-            }
+            if (isSubmitting) CircularProgressIndicator(
+                Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+            else Text("Submit Request")
         }
     }
 }

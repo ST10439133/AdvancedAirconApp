@@ -12,99 +12,80 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.navigation.NavManager
+import com.prog7314.arcticflow.ui.components.StatsCard
+import com.prog7314.arcticflow.viewmodels.QuoteViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JobsScreen(
-    userId: String,
-    navManager: NavManager
-) {
-    // Sample jobs data
-    val jobs = listOf(
-        SampleJob("JC-1002", "Apex Tech Plaza", "AC Compressor Repair", JobStatus.COMPLETED, "09:00 AM", "1.5 hrs"),
-        SampleJob("JC-1003", "Oakwood Medical", "Scheduled HVAC Maintenance", JobStatus.IN_PROGRESS, "11:00 AM", "2.0 hrs"),
-        SampleJob("JC-1004", "Riverview Apartments", "Thermostat Calibration", JobStatus.PENDING, "02:30 PM", "1.0 hrs"),
-        SampleJob("JC-1005", "Grand Hotel & Suites", "Emergency Repair", JobStatus.PENDING, "04:00 PM", "3.0 hrs")
+fun JobsScreen(userId: String, navManager: NavManager) {
+    val context = LocalContext.current
+    val viewModel: QuoteViewModel = viewModel(
+        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context))
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("My Jobs") },
-                actions = {
-                    IconButton(onClick = { /* Refresh */ }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+    val jobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())
+
+    val todayStart = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val todayEnd = todayStart + 24L * 60 * 60 * 1000
+
+    val jobsToday = jobs.count { (it.scheduledDate ?: 0L) in todayStart until todayEnd }
+    val pending = jobs.count {
+        it.status == JobStatus.SCHEDULED || it.status == JobStatus.PENDING ||
+                it.status == JobStatus.IN_PROGRESS
+    }
+    val completed = jobs.count { it.status == JobStatus.COMPLETED }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("My Jobs") }) }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatsCard("Today", jobsToday.toString(), Icons.Default.Today, Modifier.weight(1f))
+                StatsCard("Pending", pending.toString(), Icons.Default.Pending,
+                    Modifier.weight(1f), Color(0xFFFF9800))
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatsCard("Completed", completed.toString(), Icons.Default.DoneAll,
+                    Modifier.weight(1f), Color(0xFF4CAF50))
+                StatsCard("Total", jobs.size.toString(), Icons.Default.Work,
+                    Modifier.weight(1f), Color(0xFF2196F3))
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text("All Jobs", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+
+            if (jobs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.WorkOff, null, Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        Text("No jobs assigned yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Jobs appear here once a quote is accepted.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            // Stats row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatsCard(
-                    title = "Today",
-                    value = "4",
-                    icon = Icons.Default.Today,
-                    modifier = Modifier.weight(1f)
-                )
-                StatsCard(
-                    title = "Pending",
-                    value = "3",
-                    icon = Icons.Default.Pending,
-                    modifier = Modifier.weight(1f),
-                    color = Color(0xFFFF9800)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatsCard(
-                    title = "Completed",
-                    value = "12",
-                    icon = Icons.Default.DoneAll,
-                    modifier = Modifier.weight(1f),
-                    color = Color.Green
-                )
-                StatsCard(
-                    title = "Revenue",
-                    value = "R84.2k",
-                    icon = Icons.Default.AttachMoney,
-                    modifier = Modifier.weight(1f),
-                    color = Color(0xFF2196F3)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Recent Jobs",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(jobs) { job ->
-                    JobItem(job = job) {
-                        // Navigate to job details or create job card
-                        navManager.navigateToCreateJobCard(job.id.toInt())
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(jobs, key = { it.id }) { job ->
+                        JobItem(job) { navManager.navigateToCreateJobCard(job.id) }
                     }
                 }
             }
@@ -112,69 +93,36 @@ fun JobsScreen(
     }
 }
 
-data class SampleJob(
-    val id: String,
-    val buildingName: String,
-    val title: String,
-    val status: JobStatus,
-    val time: String,
-    val duration: String
-)
-
 @Composable
-fun JobItem(
-    job: SampleJob,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+fun JobItem(job: Job, onClick: () -> Unit) {
+    val dateFormat = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault())
+    Card(Modifier.fillMaxWidth().clickable { onClick() },
+        elevation = CardDefaults.cardElevation(2.dp)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = job.title,
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(job.buildingName.ifBlank { "Unknown Building" },
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = job.buildingName,
+                    fontWeight = FontWeight.Bold)
+                Text(job.issueType.ifBlank { "No issue specified" },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = job.time,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                job.scheduledDate?.let {
+                    Text(dateFormat.format(Date(it)),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = job.duration,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Badge(
-                containerColor = when (job.status) {
-                    JobStatus.COMPLETED -> Color.Green
-                    JobStatus.IN_PROGRESS -> Color.Blue
-                    JobStatus.PENDING -> Color(0xFFFF9800)
-                    else -> Color.Gray
-                }
-            ) {
-                Text(job.status.name)
-            }
+            Badge(containerColor = when (job.status) {
+                JobStatus.COMPLETED -> Color(0xFF4CAF50)
+                JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
+                JobStatus.SCHEDULED -> Color(0xFF03A9F4)
+                JobStatus.PENDING -> Color(0xFFFF9800)
+                JobStatus.ASSIGNED -> Color(0xFF9C27B0)
+                JobStatus.CANCELLED -> Color(0xFF9E9E9E)
+            }) { Text(job.status.name, color = Color.White,
+                style = MaterialTheme.typography.labelSmall) }
         }
     }
 }
