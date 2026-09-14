@@ -1,4 +1,6 @@
 // app/build.gradle.kts
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -19,6 +21,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ============================================================
+        // Read Supabase keys from local.properties (never committed)
+        // ============================================================
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localProps.load(localPropsFile.inputStream())
+        }
+
+        val supabaseUrl = localProps.getProperty("SUPABASE_URL") ?: ""
+        val supabaseAnonKey = localProps.getProperty("SUPABASE_ANON_KEY") ?: ""
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -38,6 +55,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -115,12 +133,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Supabase
     implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4"))
-    // The Storage module for uploading files
     implementation("io.github.jan-tennert.supabase:storage-kt")
-    // Ktor Client for Android to handle network requests
     implementation("io.ktor:ktor-client-android:3.0.3")
-
-    // Existing Coil dependency for image loading
-    implementation("io.coil-kt:coil-compose:2.6.0")
 }
