@@ -32,13 +32,14 @@ class NavManager(
             fun passRequestId(requestId: Int) = "create_quote/$requestId"
         }
         object MyQuotes : Destination("my_quotes")
-        object PendingRequests : Destination("pending_requests")   // <-- ADDED
+        object PendingRequests : Destination("pending_requests")
         object Notifications : Destination("notifications")
         object CreateJobCard : Destination("create_job_card/{jobId}") {
             fun passJobId(jobId: Int) = "create_job_card/$jobId"
         }
         object BTUCalculator : Destination("btu_calculator")
         object FieldTracking : Destination("field_tracking")
+        object Products : Destination("products")                   // ← NEW
         object ProductsList : Destination("products_list")
         object QuoteHistory : Destination("quote_history")
         object ServiceBookings : Destination("service_bookings")
@@ -119,6 +120,10 @@ class NavManager(
 
     fun navigateToFieldTracking() {
         navController.navigate(Destination.FieldTracking.route)
+    }
+
+    fun navigateToProducts() {
+        navController.navigate(Destination.Products.route)          // ← NEW
     }
 
     fun navigateToProductsList() {

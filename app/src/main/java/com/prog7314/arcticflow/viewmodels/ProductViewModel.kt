@@ -1,15 +1,23 @@
+// app/src/main/java/com/prog7314/arcticflow/viewmodels/ProductViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.data.entities.FilterType
 import com.prog7314.arcticflow.data.entities.Product
 import com.prog7314.arcticflow.data.entities.SortType
+import com.prog7314.arcticflow.data.network.SupabaseManager
 import com.prog7314.arcticflow.data.repository.ProductRepository
+import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.storage.upload
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class ProductViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -38,6 +46,10 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     private val _brands = MutableStateFlow<List<String>>(emptyList())
     val brands: StateFlow<List<String>> = _brands.asStateFlow()
 
+    // Upload progress state (so the UI can show a spinner)
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
     // Combined filtered and sorted products
     val products = combine(
         _searchQuery,
@@ -46,22 +58,20 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         _filterType,
         _priceRange
     ) { query, brand, sortType, filterType, priceRange ->
-        // Get base flow based on filter
         val baseFlow = when (filterType) {
             FilterType.FAVORITES -> repository.getFavoriteProducts()
             FilterType.BY_BRAND -> {
                 if (brand != null) repository.getProductsByBrand(brand)
                 else repository.getAllProducts()
             }
-            FilterType.BY_PRICE_RANGE -> repository.getProductsByPriceRange(priceRange.first, priceRange.second)
+            FilterType.BY_PRICE_RANGE ->
+                repository.getProductsByPriceRange(priceRange.first, priceRange.second)
             else -> repository.getAllProducts()
         }
 
-        // Apply search and sorting
         baseFlow.map { products ->
             var filtered = products
 
-            // Apply search filter
             if (query.isNotEmpty()) {
                 filtered = filtered.filter { product ->
                     product.name.contains(query, ignoreCase = true) ||
@@ -70,7 +80,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
 
-            // Apply sorting
             when (sortType) {
                 SortType.NAME_ASC -> filtered.sortedBy { it.name }
                 SortType.NAME_DESC -> filtered.sortedByDescending { it.name }
@@ -147,6 +156,128 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.clearAllProducts()
             loadBrands()
+        }
+    }
+
+    // =============================================================
+    // SUPABASE IMAGE UPLOAD
+    // =============================================================
+
+    /**
+     * Uploads an image picked by the user to Supabase Storage and
+     * returns the public URL. Returns null on failure.
+     *
+     * Usage:
+     *   scope.launch {
+     *       val url = viewModel.uploadProductImage(uri, "product_${System.currentTimeMillis()}.jpg", context.contentResolver)
+     *       if (url != null) viewModel.addProduct(product.copy(imagePath = url))
+     *   }
+     */
+    suspend fun uploadProductImage(
+        uri: Uri,
+        fileName: String,
+        contentResolver: android.content.ContentResolver
+    ): String? {
+        _isUploading.value = true
+        return try {
+            withContext(Dispatchers.IO) {
+                // 1. Copy the picked image into a temp file
+                val inputStream = contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("Cannot open URI: $uri")
+
+                val tempFile = File.createTempFile("temp_upload_", ".jpg")
+                inputStream.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // 2. Upload to the "products" bucket in Supabase
+                SupabaseManager.client
+                    .storage
+                    .from("products")
+                    .upload(fileName, tempFile) {
+                        upsert = true
+                    }
+
+                // 3. Clean up the temp file
+                tempFile.delete()
+
+                // 4. Return the public URL so we can save it to RoomDB
+                val baseUrl = SupabaseManager.client.supabaseUrl
+                    .removePrefix("https://")
+                    .removePrefix("http://")
+                "https://$baseUrl/storage/v1/object/public/products/$fileName"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } finally {
+            _isUploading.value = false
+        }
+    }
+
+    // =============================================================
+    // SUPABASE PDF CATALOGUE UPLOAD
+    // =============================================================
+
+    /**
+     * Uploads a PDF picked by the user to Supabase Storage and
+     * returns the public URL. Returns null on failure.
+     *
+     * Usage:
+     *   scope.launch {
+     *       val url = viewModel.uploadProductCatalogue(
+     *           uri, "catalogue_${System.currentTimeMillis()}.pdf", context.contentResolver
+     *       )
+     *       if (url != null) viewModel.addProduct(product.copy(brochurePath = url))
+     *   }
+     */
+    suspend fun uploadProductCatalogue(
+        uri: Uri,
+        fileName: String,
+        contentResolver: android.content.ContentResolver
+    ): String? {
+        _isUploading.value = true
+        return try {
+            withContext(Dispatchers.IO) {
+                // 1. Copy the picked PDF into a temp file
+                val inputStream = contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("Cannot open URI: $uri")
+
+                // Force .pdf extension so it's unambiguous
+                val safeName = if (fileName.endsWith(".pdf", ignoreCase = true))
+                    fileName else "$fileName.pdf"
+
+                val tempFile = File.createTempFile("temp_catalogue_", ".pdf")
+                inputStream.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // 2. Upload to the "products" bucket (same bucket works fine)
+                SupabaseManager.client
+                    .storage
+                    .from("products")
+                    .upload(safeName, tempFile) {
+                        upsert = true
+                    }
+
+                // 3. Clean up
+                tempFile.delete()
+
+                // 4. Return the public URL
+                val baseUrl = SupabaseManager.client.supabaseUrl
+                    .removePrefix("https://")
+                    .removePrefix("http://")
+                "https://$baseUrl/storage/v1/object/public/products/$safeName"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } finally {
+            _isUploading.value = false
         }
     }
 

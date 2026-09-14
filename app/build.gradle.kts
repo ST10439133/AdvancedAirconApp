@@ -114,4 +114,13 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4"))
+    // The Storage module for uploading files
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    // Ktor Client for Android to handle network requests
+    implementation("io.ktor:ktor-client-android:3.0.3")
+
+    // Existing Coil dependency for image loading
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }

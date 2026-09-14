@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
+import com.prog7314.arcticflow.viewmodels.ProductViewModel
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +109,14 @@ fun MainScreen(
                         navManager = navManager,
                         userId = userId,
                         viewModel = viewModel(factory = QuoteViewModel.Factory(database))
+                    )
+                }
+
+                // ============ PRODUCTS TAB (NEW) ============
+                composable(BottomNavItem.Products.route) {
+                    ProductListScreen(
+                        viewModel = viewModel(),
+                        navManager = navManager
                     )
                 }
 

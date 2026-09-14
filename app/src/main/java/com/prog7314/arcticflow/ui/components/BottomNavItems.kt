@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/components/BottomNavItems.kt
 package com.prog7314.arcticflow.ui.components
 
 import androidx.compose.material.icons.Icons
@@ -16,10 +17,11 @@ sealed class BottomNavItem(
     object Requests : BottomNavItem("requests", Icons.Default.Inbox, "Requests")
     object Bookings : BottomNavItem("bookings", Icons.Default.Book, "Bookings")
     object Jobs : BottomNavItem("jobs", Icons.Default.Work, "Jobs")
+    object Products : BottomNavItem("products", Icons.Default.Inventory2, "Products")   // ← NEW
 
     companion object {
         fun getManagerItems(): List<BottomNavItem> =
-            listOf(Dashboard, Buildings, Quotes, Services)
+            listOf(Dashboard, Buildings, Quotes, Services, Products)                    // ← Added Products
 
         fun getTechnicianItems(): List<BottomNavItem> =
             listOf(Dashboard, Requests, Quotes, Bookings, Jobs)
