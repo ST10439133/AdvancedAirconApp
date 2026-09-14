@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/data/dao/QuoteDao.kt
 package com.prog7314.arcticflow.data.dao
 
 import androidx.room.*
@@ -33,4 +34,8 @@ interface QuoteDao {
 
     @Query("UPDATE quotes SET status = :status WHERE id = :quoteId")
     suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus)
+
+    // ===== NEW: needed by Manager DashboardViewModel =====
+    @Query("SELECT * FROM quotes ORDER BY createdAt DESC")
+    suspend fun getAllQuotesOnce(): List<Quote>
 }

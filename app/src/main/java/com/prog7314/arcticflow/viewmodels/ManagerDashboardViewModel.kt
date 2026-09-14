@@ -1,97 +1,121 @@
+// app/src/main/java/com/prog7314/arcticflow/viewmodels/ManagerDashboardViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
-import com.prog7314.arcticflow.data.entities.*
-import com.prog7314.arcticflow.data.repository.DashboardRepository
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.entities.Job
+import com.prog7314.arcticflow.data.entities.JobStatus
+import com.prog7314.arcticflow.data.entities.Notification
+import com.prog7314.arcticflow.data.entities.NotificationType
+import com.prog7314.arcticflow.data.entities.Quote
+import com.prog7314.arcticflow.data.entities.QuoteStatus
+import com.prog7314.arcticflow.data.entities.RequestStatus
+import com.prog7314.arcticflow.data.entities.ServiceRequest
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class ManagerDashboardViewModel(
-    private val repository: DashboardRepository = DashboardRepository()
+    private val database: ArcticFlowDatabase,
+    private val userId: String
 ) : ViewModel() {
 
-    val stats = repository.stats
-    val alerts = repository.alerts
-    val maintenanceJobs = repository.maintenanceJobs
-    val technicians = repository.technicians
-    val buildings = repository.buildings
+    // ===== Buildings =====
+    val buildings = database.buildingDao().getBuildingsByUser(userId)
 
-    private val _selectedJobId = MutableStateFlow<String?>(null)
-    val selectedJobId: StateFlow<String?> = _selectedJobId.asStateFlow()
+    // ===== Service requests by this manager =====
+    val requests: Flow<List<ServiceRequest>> =
+        database.serviceRequestDao().getRequestsByUser(userId)
 
-    private val _selectedAlertId = MutableStateFlow<String?>(null)
-    val selectedAlertId: StateFlow<String?> = _selectedAlertId.asStateFlow()
+    // ===== Pending requests only =====
+    val pendingRequests: Flow<List<ServiceRequest>> =
+        requests.map { list -> list.filter { it.status == RequestStatus.PENDING } }
 
-    private val _showJobDetails = MutableStateFlow(false)
-    val showJobDetails: StateFlow<Boolean> = _showJobDetails.asStateFlow()
-
-    private val _showAlertDetails = MutableStateFlow(false)
-    val showAlertDetails: StateFlow<Boolean> = _showAlertDetails.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    fun assignJobToTechnician(jobId: String, technicianId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                repository.assignJob(jobId, technicianId)
-            } finally {
-                _isLoading.value = false
-            }
-        }
+    // ===== Quotes for this manager's requests =====
+    val quotes: Flow<List<Quote>> = requests.map { reqs ->
+        val ids = reqs.map { it.id }.toSet()
+        database.quoteDao().getAllQuotesOnce()
+            .filter { it.requestId in ids }
+            .sortedByDescending { it.createdAt }
     }
 
-    fun resolveAlert(alertId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                repository.resolveAlert(alertId)
-            } finally {
-                _isLoading.value = false
-            }
-        }
+    // ===== Pending quotes only =====
+    val pendingQuotes: Flow<List<Quote>> =
+        quotes.map { list -> list.filter { it.status == QuoteStatus.PENDING } }
+
+    // ===== Accepted quotes only =====
+    val acceptedQuotes: Flow<List<Quote>> =
+        quotes.map { list -> list.filter { it.status == QuoteStatus.ACCEPTED } }
+
+    // ===== ACCEPT A QUOTE =====
+    suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
+        val quoteDao = database.quoteDao()
+        val requestDao = database.serviceRequestDao()
+        val jobDao = database.jobDao()
+        val notificationDao = database.notificationDao()
+
+        quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
+        val quote = quoteDao.getQuoteById(quoteId) ?: return
+
+        // Create the Job
+        jobDao.insertJob(
+            Job(
+                quoteId = quote.id,
+                requestId = quote.requestId,
+                technicianId = quote.technicianId,
+                customerId = quote.customerId,
+                buildingName = quote.buildingName,
+                issueType = quote.issueType,
+                description = quote.description,
+                status = JobStatus.SCHEDULED,
+                scheduledDate = scheduledDate,
+                notes = "Time Slot: $timeSlot"
+            )
+        )
+
+        // Update request status
+        requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
+
+        // Notify technician
+        notificationDao.insertNotification(
+            Notification(
+                title = "Job Scheduled",
+                message = "Your quote for ${quote.buildingName} was accepted on $timeSlot.",
+                type = NotificationType.JOB,
+                userId = quote.technicianId
+            )
+        )
     }
 
-    fun updateJobStatus(jobId: String, status: JobStatus) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                repository.updateJobStatus(jobId, status)
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+    // ===== DECLINE A QUOTE =====
+    suspend fun declineQuote(quoteId: Int) {
+        val quoteDao = database.quoteDao()
+        val requestDao = database.serviceRequestDao()
+        val notificationDao = database.notificationDao()
 
-    fun selectJob(jobId: String?) {
-        _selectedJobId.value = jobId
-        _showJobDetails.value = jobId != null
-    }
+        quoteDao.updateQuoteStatus(quoteId, QuoteStatus.DECLINED)
+        val quote = quoteDao.getQuoteById(quoteId) ?: return
 
-    fun selectAlert(alertId: String?) {
-        _selectedAlertId.value = alertId
-        _showAlertDetails.value = alertId != null
-    }
+        // Reset the request to PENDING so the technician can re-quote
+        requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
 
-    fun dismissDetails() {
-        _showJobDetails.value = false
-        _showAlertDetails.value = false
-        _selectedJobId.value = null
-        _selectedAlertId.value = null
+        notificationDao.insertNotification(
+            Notification(
+                title = "Quote Declined",
+                message = "Your quote for ${quote.buildingName} was declined.",
+                type = NotificationType.QUOTE,
+                userId = quote.technicianId
+            )
+        )
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                if (modelClass.isAssignableFrom(ManagerDashboardViewModel::class.java)) {
-                    return ManagerDashboardViewModel() as T
+        fun Factory(database: ArcticFlowDatabase, userId: String): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return ManagerDashboardViewModel(database, userId) as T
                 }
-                throw IllegalArgumentException("Unknown ViewModel class")
             }
-        }
     }
 }
