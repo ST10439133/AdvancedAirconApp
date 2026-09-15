@@ -14,14 +14,16 @@ sealed class BottomNavItem(
     object Buildings : BottomNavItem("buildings", Icons.Default.Business, "Buildings")
     object Quotes : BottomNavItem("quotes", Icons.Default.Receipt, "Quotes")
     object Services : BottomNavItem("services", Icons.Default.Build, "Services")
+    object Products : BottomNavItem("products", Icons.Default.Inventory2, "Products")
+    object Tracking : BottomNavItem("tracking", Icons.Default.LocationOn, "Tracking")   // ← NEW
+
     object Requests : BottomNavItem("requests", Icons.Default.Inbox, "Requests")
     object Bookings : BottomNavItem("bookings", Icons.Default.Book, "Bookings")
     object Jobs : BottomNavItem("jobs", Icons.Default.Work, "Jobs")
-    object Products : BottomNavItem("products", Icons.Default.Inventory2, "Products")   // ← NEW
 
     companion object {
         fun getManagerItems(): List<BottomNavItem> =
-            listOf(Dashboard, Buildings, Quotes, Services, Products)                    // ← Added Products
+            listOf(Dashboard, Buildings, Quotes, Services, Products, Tracking)   // ← Added Tracking
 
         fun getTechnicianItems(): List<BottomNavItem> =
             listOf(Dashboard, Requests, Quotes, Bookings, Jobs)

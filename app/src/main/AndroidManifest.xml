@@ -2,10 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--  EXISTING PERMISSIONS  -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- LOCATION PERMISSIONS (NEW — for technician tracking) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Foreground service for continuous tracking while the app is minimized (optional) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -19,6 +28,14 @@
         android:allowNativeHeapPointerTagging="false"
         android:hasFragileUserData="true">
 
+        <!-- GOOGLE MAPS API KEY (NEW) -->
+        <!-- Replace YOUR_MAPS_API_KEY with your actual Maps SDK for Android key
+             from Google Cloud Console → APIs & Services → Credentials -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCKt9cbUYqqU2SzaV1DwozX36Q68-q4hDw" />
+
+        <!-- FILE PROVIDER (existing) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

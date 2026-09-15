@@ -15,7 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
-import com.prog7314.arcticflow.viewmodels.ProductViewModel
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,16 +39,19 @@ fun MainScreen(
     Scaffold(
         bottomBar = {
             NavigationBar(
-                modifier = Modifier.height(64.dp),
+                modifier = Modifier.height(72.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
                 navItems.forEach { item ->
                     NavigationBarItem(
-                        icon = { Icon(item.icon, item.label, Modifier.size(24.dp)) },
+                        icon = { Icon(item.icon, item.label, Modifier.size(22.dp)) },
                         label = {
-                            Text(item.label,
-                                style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1
+                            )
                         },
                         selected = currentRoute == item.route,
                         onClick = {
@@ -112,11 +114,18 @@ fun MainScreen(
                     )
                 }
 
-                // ============ PRODUCTS TAB (NEW) ============
                 composable(BottomNavItem.Products.route) {
                     ProductListScreen(
                         viewModel = viewModel(),
                         navManager = navManager
+                    )
+                }
+
+                // ============ TRACKING TAB (THIS WAS MISSING!) ============
+                composable(BottomNavItem.Tracking.route) {
+                    FieldTrackingScreen(
+                        navManager = navManager,
+                        managerId = userId
                     )
                 }
 

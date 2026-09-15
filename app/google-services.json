@@ -12,7 +12,20 @@
           "package_name": "com.prog7314.arcticflow"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "991209034332-i881m4bh9g6kv7c6ej1649mugqgkkcuk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.prog7314.arcticflow",
+            "certificate_hash": "eea1fe26058f08d7e445ba5fb5d7ac42b9629ea0"
+          }
+        },
+        {
+          "client_id": "991209034332-s0ss0aihnnmbr0pp215dqkvrkkkoq36d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDfBatr3VJQasQPiGeCJvfdeeb23rXa7Rw"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991209034332-s0ss0aihnnmbr0pp215dqkvrkkkoq36d.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -188,9 +188,7 @@ fun NavGraph(
             )
         }
 
-        composable(NavManager.Destination.FieldTracking.route) {
-            FieldTrackingScreen(navManager = navManager)
-        }
+
 
         composable(NavManager.Destination.BTUCalculator.route) {
             BTUCalculatorScreen(navManager = navManager)

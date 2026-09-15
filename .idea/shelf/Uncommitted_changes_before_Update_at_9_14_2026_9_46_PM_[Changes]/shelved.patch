@@ -1,0 +1,95 @@
+Index: app/google-services.json
+===================================================================
+diff --git a/app/google-services.json b/app/google-services.json
+deleted file mode 100644
+--- a/app/google-services.json	(revision 17b85a88b33d0973c187132e02411205b50b8cae)
++++ /dev/null	(revision 17b85a88b33d0973c187132e02411205b50b8cae)
+@@ -1,29 +0,0 @@
+-{
+-  "project_info": {
+-    "project_number": "991209034332",
+-    "project_id": "arcticflowapp",
+-    "storage_bucket": "arcticflowapp.firebasestorage.app"
+-  },
+-  "client": [
+-    {
+-      "client_info": {
+-        "mobilesdk_app_id": "1:991209034332:android:c917fd8ef9f90a5d8fcc99",
+-        "android_client_info": {
+-          "package_name": "com.prog7314.arcticflow"
+-        }
+-      },
+-      "oauth_client": [],
+-      "api_key": [
+-        {
+-          "current_key": "AIzaSyDfBatr3VJQasQPiGeCJvfdeeb23rXa7Rw"
+-        }
+-      ],
+-      "services": {
+-        "appinvite_service": {
+-          "other_platform_oauth_client": []
+-        }
+-      }
+-    }
+-  ],
+-  "configuration_version": "1"
+-}
+\ No newline at end of file
+Index: app/google-services (1).json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/google-services (1).json b/app/google-services (1).json
+new file mode 100644
+--- /dev/null	(date 1789393658772)
++++ b/app/google-services (1).json	(date 1789393658772)
+@@ -0,0 +1,47 @@
++{
++  "project_info": {
++    "project_number": "991209034332",
++    "project_id": "arcticflowapp",
++    "storage_bucket": "arcticflowapp.firebasestorage.app"
++  },
++  "client": [
++    {
++      "client_info": {
++        "mobilesdk_app_id": "1:991209034332:android:c917fd8ef9f90a5d8fcc99",
++        "android_client_info": {
++          "package_name": "com.prog7314.arcticflow"
++        }
++      },
++      "oauth_client": [
++        {
++          "client_id": "991209034332-i881m4bh9g6kv7c6ej1649mugqgkkcuk.apps.googleusercontent.com",
++          "client_type": 1,
++          "android_info": {
++            "package_name": "com.prog7314.arcticflow",
++            "certificate_hash": "eea1fe26058f08d7e445ba5fb5d7ac42b9629ea0"
++          }
++        },
++        {
++          "client_id": "991209034332-s0ss0aihnnmbr0pp215dqkvrkkkoq36d.apps.googleusercontent.com",
++          "client_type": 3
++        }
++      ],
++      "api_key": [
++        {
++          "current_key": "AIzaSyDfBatr3VJQasQPiGeCJvfdeeb23rXa7Rw"
++        }
++      ],
++      "services": {
++        "appinvite_service": {
++          "other_platform_oauth_client": [
++            {
++              "client_id": "991209034332-s0ss0aihnnmbr0pp215dqkvrkkkoq36d.apps.googleusercontent.com",
++              "client_type": 3
++            }
++          ]
++        }
++      }
++    }
++  ],
++  "configuration_version": "1"
++}
+\ No newline at end of file
