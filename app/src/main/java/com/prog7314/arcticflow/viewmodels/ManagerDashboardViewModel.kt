@@ -1,6 +1,7 @@
 // app/src/main/java/com/prog7314/arcticflow/viewmodels/ManagerDashboardViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
@@ -19,6 +20,8 @@ class ManagerDashboardViewModel(
     private val database: ArcticFlowDatabase,
     private val userId: String
 ) : ViewModel() {
+
+    private val TAG = "ManagerDashboardVM"
 
     // ===== Buildings =====
     val buildings = database.buildingDao().getBuildingsByUser(userId)
@@ -57,6 +60,18 @@ class ManagerDashboardViewModel(
         quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
         val quote = quoteDao.getQuoteById(quoteId) ?: return
 
+        // Fetch the request to get the snapshotted full address
+        val request = requestDao.getRequestById(quote.requestId)
+
+        android.util.Log.d(
+            TAG,
+            "acceptQuote: quote.requestId=${quote.requestId}, " +
+                    "request=${request?.id}, " +
+                    "request.fullAddress='${request?.fullAddress}'"
+        )
+
+        val jobAddress = request?.fullAddress.orEmpty()
+
         // Create the Job
         jobDao.insertJob(
             Job(
@@ -69,8 +84,15 @@ class ManagerDashboardViewModel(
                 description = quote.description,
                 status = JobStatus.SCHEDULED,
                 scheduledDate = scheduledDate,
-                notes = "Time Slot: $timeSlot"
+                notes = "Time Slot: $timeSlot",
+                fullAddress = jobAddress              // ← NEW
             )
+        )
+
+        Log.d(
+            TAG,
+            "Job created for quote=${quote.id} tech=${quote.technicianId} " +
+                    "cust=${quote.customerId} addr='$jobAddress'"
         )
 
         // Update request status

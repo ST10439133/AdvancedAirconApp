@@ -167,13 +167,14 @@ class QuoteViewModel(
         timeSlot: String?
     ) {
         try {
-            // ⚠️ Safety net: refuse to create a job if we don't know who the
-            // technician is. Without this, tracking writes go to a document
-            // keyed by "" and the customer can never find them.
             if (quote.technicianId.isBlank()) {
                 Log.e(TAG, "Quote #${quote.id} has blank technicianId — aborting job creation")
                 return
             }
+
+            // Look up the address from the original service request.
+            val request = requestDao.getRequestById(quote.requestId)
+            val jobAddress = request?.fullAddress.orEmpty()
 
             val job = Job(
                 quoteId = quote.id,
@@ -186,14 +187,15 @@ class QuoteViewModel(
                 status = JobStatus.SCHEDULED,
                 scheduledDate = scheduledDate
                     ?: (System.currentTimeMillis() + 24L * 60 * 60 * 1000),
-                notes = "Time Slot: ${timeSlot ?: "TBC"}"
+                notes = "Time Slot: ${timeSlot ?: "TBC"}",
+                fullAddress = jobAddress
             )
 
-            // insertJob returns the auto-generated rowId (Long)
             val newJobId = jobDao.insertJob(job)
             Log.d(
                 TAG,
-                "Job created: roomId=$newJobId tech=${quote.technicianId} cust=${quote.customerId}"
+                "Job created: roomId=$newJobId tech=${quote.technicianId} " +
+                        "cust=${quote.customerId} addr='$jobAddress'"
             )
 
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
@@ -230,6 +232,71 @@ class QuoteViewModel(
 
     suspend fun getJobById(jobId: Int): Job? =
         try { jobDao.getJobById(jobId) } catch (e: Exception) { null }
+
+    /**
+     * Resolves the best available address for a job by walking the chain:
+     *
+     *   1. Job.fullAddress            (fastest, if populated)
+     *   2. ServiceRequest.fullAddress (via job.requestId)
+     *   3. Building's fullAddress     (via request.buildingId)
+     *   4. Compose from Building's individual fields (address/suburb/city/province/postal)
+     *   5. Legacy Building.address + Building.city + Building.postalCode
+     *
+     * Returns an empty string only if truly nothing is available.
+     */
+    suspend fun resolveJobAddress(job: Job): String {
+        // 1. Direct hit on the job
+        if (job.fullAddress.isNotBlank()) return job.fullAddress.trim()
+
+        // 2. Look up the service request
+        val request = try {
+            requestDao.getRequestById(job.requestId)
+        } catch (e: Exception) {
+            Log.w(TAG, "resolveJobAddress: request lookup failed", e)
+            null
+        }
+
+        if (request != null) {
+            if (request.fullAddress.isNotBlank()) return request.fullAddress.trim()
+
+            // 3. Look up the building
+            val building = try {
+                buildingDao.getBuildingById(request.buildingId)
+            } catch (e: Exception) {
+                Log.w(TAG, "resolveJobAddress: building lookup failed", e)
+                null
+            }
+
+            if (building != null) {
+                // 4. Cached building fullAddress
+                if (building.fullAddress.isNotBlank()) return building.fullAddress.trim()
+
+                // 4b. Compose from individual building fields
+                val composed = listOf(
+                    building.address,
+                    building.suburb,
+                    building.city,
+                    building.province,
+                    building.postalCode
+                )
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .joinToString(", ")
+
+                if (composed.isNotBlank()) return composed
+
+                // 5. Legacy fallback
+                val legacy = listOf(building.address, building.city, building.postalCode)
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .joinToString(", ")
+
+                if (legacy.isNotBlank()) return legacy
+            }
+        }
+
+        return ""
+    }
 
     suspend fun setTechnicianOnWay(jobId: Int, onWay: Boolean) {
         try {

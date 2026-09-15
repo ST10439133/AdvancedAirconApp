@@ -50,6 +50,24 @@ fun ServiceBookingsScreen(userId: String, navManager: NavManager) {
 
     val jobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())
 
+    // Track resolved addresses keyed by job id. We resolve them on demand
+    // (when the list changes) so the map button always has the best data.
+    var addressMap by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+
+    LaunchedEffect(jobs) {
+        val resolved = mutableMapOf<Int, String>()
+        for (job in jobs) {
+            resolved[job.id] = try {
+                viewModel.resolveJobAddress(job)
+            } catch (e: Exception) {
+                Log.e("ServiceBookings", "resolveJobAddress failed for job ${job.id}", e)
+                ""
+            }
+        }
+        addressMap = resolved
+        Log.d("ServiceBookings", "Resolved addresses: $resolved")
+    }
+
     // Tracks which job we're currently trying to start tracking
     var pendingTrackingJob by remember { mutableStateOf<Job?>(null) }
 
@@ -127,13 +145,17 @@ fun ServiceBookingsScreen(userId: String, navManager: NavManager) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(jobs, key = { it.id }) { job ->
+                    val resolvedAddress = addressMap[job.id].orEmpty()
                     BookingCard(
                         job = job,
+                        resolvedAddress = resolvedAddress,
                         onCall = {
                             Toast.makeText(context, "Calling customer...", Toast.LENGTH_SHORT).show()
                         },
                         onMap = {
-                            openMapForJob(context, job)
+                            scope.launch {
+                                openMapForJob(context, job, viewModel)
+                            }
                         },
                         onOnMyWay = {
                             scope.launch {
@@ -205,7 +227,7 @@ private suspend fun startTrackingForJob(
         jobId = job.id,
         customerId = job.customerId,
         buildingName = job.buildingName,
-        onMyWay = true,                       // ← renamed parameter
+        onMyWay = true,
         lastUpdated = System.currentTimeMillis(),
         status = "on_the_way"
     )
@@ -217,13 +239,35 @@ private suspend fun startTrackingForJob(
 }
 
 // ============================================================
-// Helper: open Google Maps with the building's address.
+// Helper: open Google Maps with the SERVICE ADDRESS.
+//
+// Address resolution walks the chain (job → request → building)
+// so it works even if the Job row was created before the address
+// pipeline was added.
+//
+// Three-tier fallback:
+//   1. Native Google Maps app via `geo:` URI
+//   2. Any app that can handle `geo:`
+//   3. Universal HTTPS Google Maps URL — opens in browser
 // ============================================================
-private fun openMapForJob(context: android.content.Context, job: Job) {
-    val target = job.buildingName.ifBlank {
-        job.issueType.ifBlank { "Service location" }
+private suspend fun openMapForJob(
+    context: android.content.Context,
+    job: Job,
+    viewModel: QuoteViewModel
+) {
+    val target = viewModel.resolveJobAddress(job).trim()
+
+    if (target.isBlank()) {
+        Toast.makeText(
+            context,
+            "No address saved for this job",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
     }
+
     val encoded = Uri.encode(target)
+    Log.d("ServiceBookings", "Opening map for address: '$target'")
 
     // --- Attempt 1: native Google Maps app via geo: URI ---
     val geoUri = Uri.parse("geo:0,0?q=$encoded")
@@ -273,6 +317,7 @@ private fun openMapForJob(context: android.content.Context, job: Job) {
 @Composable
 fun BookingCard(
     job: Job,
+    resolvedAddress: String,
     onCall: () -> Unit,
     onMap: () -> Unit,
     onOnMyWay: () -> Unit,
@@ -280,11 +325,9 @@ fun BookingCard(
 ) {
     val dateFormat = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault())
 
-    // ===== Local state for the toggle (prevents rapid ON/OFF firing) =====
     var isLocalToggleOn by remember { mutableStateOf(job.technicianOnWay) }
     var isProcessing by remember { mutableStateOf(false) }
 
-    // Keep the local toggle state synced with the DB-backed job state
     LaunchedEffect(job.technicianOnWay) {
         isLocalToggleOn = job.technicianOnWay
         isProcessing = false
@@ -292,7 +335,6 @@ fun BookingCard(
 
     Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(Modifier.padding(16.dp)) {
-            // ===== Top row: building + status =====
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -309,6 +351,14 @@ fun BookingCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
+                    // Show the resolved address (job → request → building chain)
+                    if (resolvedAddress.isNotBlank()) {
+                        Text(
+                            resolvedAddress,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     job.scheduledDate?.let {
                         Text(
                             dateFormat.format(Date(it)),
@@ -329,7 +379,7 @@ fun BookingCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // ===== Tracking toggle (DEBOUNCED) =====
+            // Tracking toggle
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = if (isLocalToggleOn)
@@ -376,7 +426,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // ===== Action buttons =====
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onCall, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Phone, null, Modifier.size(16.dp))

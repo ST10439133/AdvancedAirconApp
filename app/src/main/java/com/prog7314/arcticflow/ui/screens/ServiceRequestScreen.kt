@@ -2,6 +2,7 @@
 package com.prog7314.arcticflow.ui.screens
 
 import android.app.DatePickerDialog
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,8 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -145,8 +144,13 @@ fun ServiceRequestScreen(
                                 text = {
                                     Column {
                                         Text(building.name, fontWeight = FontWeight.Bold)
+                                        // Prefer the cached full address; fall back
+                                        // to the legacy street-only `address` field
+                                        // for buildings created before the upgrade.
+                                        val displayAddress =
+                                            building.fullAddress.ifBlank { building.address }
                                         Text(
-                                            building.address,
+                                            displayAddress,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -157,6 +161,40 @@ fun ServiceRequestScreen(
                                     buildingDropdownExpanded = false
                                 }
                             )
+                        }
+                    }
+                }
+
+                // ===== FULL-ADDRESS PREVIEW =====
+                // Shows the customer exactly what will be sent to the technician
+                // and what will be used to open Google Maps.
+                selectedBuilding?.let { b ->
+                    val preview = b.fullAddress.ifBlank {
+                        // Fallback for legacy buildings that predate the new columns
+                        listOf(b.address, b.city, b.postalCode)
+                            .filter { it.isNotBlank() }
+                            .joinToString(", ")
+                    }
+                    if (preview.isNotBlank()) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    "Service location",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    preview,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -256,6 +294,35 @@ fun ServiceRequestScreen(
                         coroutineScope.launch {
                             isSubmitting = true
                             try {
+                                // Build the full address, preferring the cached field.
+                                val fullAddr = building.fullAddress.ifBlank {
+                                    listOf(
+                                        building.address,
+                                        building.suburb,
+                                        building.city,
+                                        building.province,
+                                        building.postalCode
+                                    )
+                                        .map { it.trim() }
+                                        .filter { it.isNotEmpty() }
+                                        .joinToString(", ")
+                                }
+
+                                // ⚠️ DIAGNOSTIC — verify the address pipeline
+                                Log.d(
+                                    "ServiceRequestScreen",
+                                    "Submitting request:\n" +
+                                            "  building.id        = ${building.id}\n" +
+                                            "  building.name      = ${building.name}\n" +
+                                            "  building.address   = '${building.address}'\n" +
+                                            "  building.suburb    = '${building.suburb}'\n" +
+                                            "  building.city      = '${building.city}'\n" +
+                                            "  building.province  = '${building.province}'\n" +
+                                            "  building.postalCode= '${building.postalCode}'\n" +
+                                            "  building.fullAddress = '${building.fullAddress}'\n" +
+                                            "  → RESOLVED fullAddr = '$fullAddr'"
+                                )
+
                                 val request = ServiceRequest(
                                     userId = userId,
                                     buildingId = building.id,
@@ -264,7 +331,8 @@ fun ServiceRequestScreen(
                                     description = description,
                                     priority = priority,
                                     preferredDate = preferredDate,
-                                    status = com.prog7314.arcticflow.data.entities.RequestStatus.PENDING
+                                    status = com.prog7314.arcticflow.data.entities.RequestStatus.PENDING,
+                                    fullAddress = fullAddr
                                 )
                                 viewModel.createServiceRequest(request)
                                 Toast.makeText(context, "Service request submitted!", Toast.LENGTH_SHORT).show()

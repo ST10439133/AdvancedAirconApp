@@ -24,7 +24,7 @@ import com.prog7314.arcticflow.data.entities.*
         Notification::class,
         JobCard::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(

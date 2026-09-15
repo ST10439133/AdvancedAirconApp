@@ -14,8 +14,11 @@ data class BuildingEntity(
     val userId: String,
     val name: String,
     val address: String,
-    val city: String,
-    val postalCode: String,
+    val suburb: String = "",
+    val city: String = "",
+    val province: String = "",
+    val postalCode: String = "",
+    val fullAddress: String = "",     // computed, cached for maps
     val unitCount: Int = 1,
     val floors: Int = 1,
     val buildingType: BuildingType = BuildingType.RESIDENTIAL,
@@ -35,6 +38,7 @@ data class ServiceRequest(
     val priority: RequestPriority = RequestPriority.MEDIUM,
     val preferredDate: Long? = null,
     val status: RequestStatus = RequestStatus.PENDING,
+    val fullAddress: String = "",      // ← NEW: survives even if building is later deleted
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
@@ -82,7 +86,8 @@ data class Job(
     val notes: String? = null,
     val rating: Float? = null,
     val review: String? = null,
-    val technicianOnWay: Boolean = false,   // ← NEW for tracking
+    val technicianOnWay: Boolean = false,
+    val fullAddress: String = "",     // ← NEW: used for Google Maps
     val createdAt: Long = System.currentTimeMillis()
 )
 
