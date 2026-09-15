@@ -133,6 +133,26 @@ fun FieldTrackingScreen(
                 }
             }
 
+            // ============ DEBUG STATUS (temporary — remove in production) ============
+            val debugMsg by viewModel.debugMessage.collectAsState()
+            if (debugMsg.isNotBlank()) {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.Black.copy(alpha = 0.7f)
+                    )
+                ) {
+                    Text(
+                        debugMsg,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+
             // ============ EMPTY STATE OVERLAY ============
             if (!isLoading && activeLocations.isEmpty()) {
                 Card(

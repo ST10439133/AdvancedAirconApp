@@ -167,6 +167,14 @@ class QuoteViewModel(
         timeSlot: String?
     ) {
         try {
+            // ⚠️ Safety net: refuse to create a job if we don't know who the
+            // technician is. Without this, tracking writes go to a document
+            // keyed by "" and the customer can never find them.
+            if (quote.technicianId.isBlank()) {
+                Log.e(TAG, "Quote #${quote.id} has blank technicianId — aborting job creation")
+                return
+            }
+
             val job = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
@@ -180,7 +188,14 @@ class QuoteViewModel(
                     ?: (System.currentTimeMillis() + 24L * 60 * 60 * 1000),
                 notes = "Time Slot: ${timeSlot ?: "TBC"}"
             )
-            jobDao.insertJob(job)
+
+            // insertJob returns the auto-generated rowId (Long)
+            val newJobId = jobDao.insertJob(job)
+            Log.d(
+                TAG,
+                "Job created: roomId=$newJobId tech=${quote.technicianId} cust=${quote.customerId}"
+            )
+
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
 
             val dateStr = scheduledDate?.let { formatDate(it) } ?: "TBD"

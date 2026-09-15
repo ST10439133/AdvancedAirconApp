@@ -1,4 +1,3 @@
-// app/src/main/java/com/prog7314/arcticflow/viewmodels/ManagerTrackingViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import android.util.Log
@@ -16,7 +15,7 @@ import kotlinx.coroutines.launch
 
 class ManagerTrackingViewModel(
     private val database: ArcticFlowDatabase,
-    private val managerId: String
+    private val managerId: String       // = customer UID
 ) : ViewModel() {
 
     private val _activeLocations = MutableStateFlow<List<TechLocation>>(emptyList())
@@ -25,6 +24,9 @@ class ManagerTrackingViewModel(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _debugMessage = MutableStateFlow("")
+    val debugMessage: StateFlow<String> = _debugMessage.asStateFlow()
+
     init {
         startTracking()
     }
@@ -32,9 +34,9 @@ class ManagerTrackingViewModel(
     private fun startTracking() {
         viewModelScope.launch {
             try {
-                Log.d("ManagerTracking", "Starting for manager=$managerId")
+                Log.d("ManagerTracking", "=== START managerId=$managerId ===")
 
-                // 1. Try to find the technician IDs from the manager's jobs (Room DB)
+                // 1. Load this customer's jobs from Room
                 val jobs = try {
                     database.jobDao().getJobsByCustomer(managerId).first()
                 } catch (e: Exception) {
@@ -46,18 +48,26 @@ class ManagerTrackingViewModel(
                     .mapNotNull { it.technicianId.takeIf { id -> id.isNotBlank() } }
                     .toSet()
 
+                val jobIds: Set<Int> = jobs.map { it.id }.toSet()
+
                 Log.d("ManagerTracking",
-                    "Manager has ${jobs.size} jobs, " +
-                            "found ${technicianIds.size} technicians: $technicianIds")
+                    "Customer has ${jobs.size} jobs → techs=$technicianIds jobIds=$jobIds")
 
-                // 2. Stream Firestore locations
-                //    If we found specific technician IDs, filter by them.
-                //    Otherwise, stream ALL active locations (so testing works even without jobs).
-                val filter = if (technicianIds.isNotEmpty()) technicianIds else null
+                _debugMessage.value =
+                    "Jobs: ${jobs.size} | Techs: ${technicianIds.size}"
 
-                LocationTrackingManager.streamActiveLocations(filter)
+                // 2. Stream Firestore. We pass customerId + jobIds so the
+                //    filter is very precise. If techIds is empty, that's OK —
+                //    we still filter by customerId + jobId.
+                LocationTrackingManager
+                    .streamActiveLocations(
+                        customerId = managerId,
+                        technicianIds = technicianIds.ifEmpty { null },
+                        jobIds = jobIds.ifEmpty { null }
+                    )
                     .collect { locations ->
-                        Log.d("ManagerTracking", "Received ${locations.size} locations")
+                        Log.d("ManagerTracking",
+                            "Live update: ${locations.size} active locations")
                         _activeLocations.value = locations
                         _isLoading.value = false
                     }

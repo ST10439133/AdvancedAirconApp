@@ -2,19 +2,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--  EXISTING PERMISSIONS  -->
+    <!-- ============================================================ -->
+    <!-- EXISTING PERMISSIONS                                          -->
+    <!-- ============================================================ -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- LOCATION PERMISSIONS (NEW — for technician tracking) -->
+    <!-- ============================================================ -->
+    <!-- LOCATION PERMISSIONS (for technician tracking)                -->
+    <!-- ============================================================ -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Foreground service for continuous tracking while the app is minimized (optional) -->
+    <!-- ============================================================ -->
+    <!-- FOREGROUND SERVICE (keeps tracking alive when minimized)      -->
+    <!-- ============================================================ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
         android:allowBackup="true"
@@ -26,16 +33,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ArcticFlow"
         android:allowNativeHeapPointerTagging="false"
-        android:hasFragileUserData="true">
+        android:hasFragileUserData="true"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true">
 
-        <!-- GOOGLE MAPS API KEY (NEW) -->
-        <!-- Replace YOUR_MAPS_API_KEY with your actual Maps SDK for Android key
-             from Google Cloud Console → APIs & Services → Credentials -->
+        <!-- ============================================================ -->
+        <!-- GOOGLE MAPS API KEY                                          -->
+        <!-- ============================================================ -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCKt9cbUYqqU2SzaV1DwozX36Q68-q4hDw" />
 
-        <!-- FILE PROVIDER (existing) -->
+        <!-- ============================================================ -->
+        <!-- FILE PROVIDER (existing)                                     -->
+        <!-- ============================================================ -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -50,6 +61,9 @@
             android:name="android.16kb_page_size_compatibility"
             android:value="true" />
 
+        <!-- ============================================================ -->
+        <!-- MAIN ACTIVITY                                                -->
+        <!-- ============================================================ -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

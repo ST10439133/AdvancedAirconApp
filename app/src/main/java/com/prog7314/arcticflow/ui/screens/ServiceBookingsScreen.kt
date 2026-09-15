@@ -4,6 +4,7 @@ package com.prog7314.arcticflow.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -181,6 +182,13 @@ private suspend fun startTrackingForJob(
     viewModel: QuoteViewModel,
     onDone: (Boolean) -> Unit
 ) {
+    val technicianId = job.technicianId
+    if (technicianId.isBlank()) {
+        Log.e("ServiceBookings", "Job #${job.id} has blank technicianId — cannot track")
+        onDone(false)
+        return
+    }
+
     val location = LocationHelper.getCurrentLocation(context)
     if (location == null) {
         onDone(false)
@@ -190,41 +198,70 @@ private suspend fun startTrackingForJob(
     viewModel.setTechnicianOnWay(job.id, true)
 
     val techLocation = TechLocation(
-        technicianId = job.technicianId,
+        technicianId = technicianId,
         technicianName = "Technician",
         latitude = location.latitude,
         longitude = location.longitude,
         jobId = job.id,
+        customerId = job.customerId,
         buildingName = job.buildingName,
-        isOnMyWay = true,
+        onMyWay = true,                       // ← renamed parameter
         lastUpdated = System.currentTimeMillis(),
         status = "on_the_way"
     )
 
     val ok = LocationTrackingManager.updateLocation(techLocation)
+    Log.d("ServiceBookings",
+        "startTracking job=${job.id} tech=$technicianId cust=${job.customerId} → $ok")
     onDone(ok)
 }
 
 // ============================================================
-// Helper: open Google Maps with the building's address
+// Helper: open Google Maps with the building's address.
 // ============================================================
 private fun openMapForJob(context: android.content.Context, job: Job) {
-    val target = job.buildingName.ifBlank { job.issueType.ifBlank { "Service location" } }
-    val uri = Uri.parse("geo:0,0?q=${Uri.encode(target)}")
+    val target = job.buildingName.ifBlank {
+        job.issueType.ifBlank { "Service location" }
+    }
+    val encoded = Uri.encode(target)
 
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-        intent.setPackage("com.google.android.apps.maps")
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            val fallback = Intent(Intent.ACTION_VIEW, uri)
-            context.startActivity(fallback)
+    // --- Attempt 1: native Google Maps app via geo: URI ---
+    val geoUri = Uri.parse("geo:0,0?q=$encoded")
+    val geoIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
+        setPackage("com.google.android.apps.maps")
+    }
+    if (geoIntent.resolveActivity(context.packageManager) != null) {
+        try {
+            context.startActivity(geoIntent)
+            return
+        } catch (e: Exception) {
+            Log.w("ServiceBookings", "geo intent failed, falling back", e)
         }
+    }
+
+    // --- Attempt 2: any app that can handle geo: URIs ---
+    val anyGeoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+    if (anyGeoIntent.resolveActivity(context.packageManager) != null) {
+        try {
+            context.startActivity(anyGeoIntent)
+            return
+        } catch (e: Exception) {
+            Log.w("ServiceBookings", "any geo intent failed, falling back", e)
+        }
+    }
+
+    // --- Attempt 3: HTTPS Google Maps URL — opens in browser ---
+    val httpsUri = Uri.parse(
+        "https://www.google.com/maps/search/?api=1&query=$encoded"
+    )
+    val webIntent = Intent(Intent.ACTION_VIEW, httpsUri)
+    try {
+        context.startActivity(webIntent)
     } catch (e: Exception) {
+        Log.e("ServiceBookings", "All map intents failed", e)
         Toast.makeText(
             context,
-            "Could not open map: ${e.message}",
+            "No app available to open maps",
             Toast.LENGTH_SHORT
         ).show()
     }
