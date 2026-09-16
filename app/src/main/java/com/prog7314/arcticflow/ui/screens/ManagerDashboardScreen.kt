@@ -14,8 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -80,12 +82,16 @@ fun ManagerDashboardScreen(
             // ===== WELCOME =====
             item {
                 Column {
-                    Text("Welcome back,",
+                    Text(
+                        "Welcome back,",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Manager",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Manager",
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold)
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -96,9 +102,11 @@ fun ManagerDashboardScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("OVERVIEW",
+                        Text(
+                            "OVERVIEW",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary)
+                            color = MaterialTheme.colorScheme.primary
+                        )
                         Spacer(Modifier.height(12.dp))
                         Row(
                             Modifier.fillMaxWidth(),
@@ -113,40 +121,84 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // ===== QUICK ACTION =====
+            // =========================================================
+            // ===== QUICK ACTIONS =====
+            // =========================================================
             item {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { navManager.navigateToServiceRequest() },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Add, null,
-                            tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Request a Service",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold)
-                            Text("Send a job request to a technician",
-                                style = MaterialTheme.typography.bodySmall)
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Quick Actions",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        // ===== Row 1 =====
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionButton(
+                                icon = Icons.Default.Add,
+                                label = "Request",
+                                onClick = { navManager.navigateToServiceRequest() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.RequestQuote,
+                                label = "Quotes",
+                                onClick = { navManager.navigateToMyQuotes() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.Business,
+                                label = "Add Building",
+                                onClick = { navManager.navigateToAddBuilding() },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                        Icon(Icons.Default.ChevronRight, null)
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // ===== Row 2 =====
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionButton(
+                                icon = Icons.Default.Calculate,
+                                label = "BTU Calc",
+                                onClick = { navManager.navigateToBTUCalculator() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.Store,
+                                label = "Products",
+                                onClick = { navManager.navigateToProducts() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.People,
+                                label = "Technicians",
+                                onClick = { /* TODO: navigate to technicians list */ },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
 
-            // ===== PENDING QUOTES =====
+            // ===== PENDING QUOTES HEADER =====
             item {
-                Text("Quotes Awaiting Your Approval",
+                Text(
+                    "Quotes Awaiting Your Approval",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold)
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             if (pendingQuotes.isEmpty()) {
@@ -156,12 +208,17 @@ fun ManagerDashboardScreen(
                             Modifier.fillMaxWidth().padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Default.ReceiptLong, null,
+                            Icon(
+                                Icons.Default.ReceiptLong,
+                                null,
                                 Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(Modifier.height(8.dp))
-                            Text("No pending quotes",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "No pending quotes",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -173,9 +230,11 @@ fun ManagerDashboardScreen(
                         onDecline = {
                             scope.launch {
                                 viewModel.declineQuote(quote.id)
-                                Toast.makeText(context,
+                                Toast.makeText(
+                                    context,
                                     "Quote declined.",
-                                    Toast.LENGTH_SHORT).show()
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     )
@@ -192,9 +251,11 @@ fun ManagerDashboardScreen(
             onConfirm = { date, slot ->
                 scope.launch {
                     viewModel.acceptQuote(quote.id, date, slot)
-                    Toast.makeText(context,
+                    Toast.makeText(
+                        context,
                         "Quote accepted. Job scheduled.",
-                        Toast.LENGTH_LONG).show()
+                        Toast.LENGTH_LONG
+                    ).show()
                     quoteToSchedule = null
                 }
             }
@@ -203,22 +264,68 @@ fun ManagerDashboardScreen(
 }
 
 // ============================================================
-// Components
+// OVERVIEW STAT ITEM
 // ============================================================
-
 @Composable
 fun OverviewStatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value,
+        Text(
+            value,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary)
-        Text(label,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
+// ============================================================
+// QUICK ACTION BUTTON (fixed — modifier passed in)
+// ============================================================
+@Composable
+fun QuickActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
+    }
+}
+
+// ============================================================
+// PENDING QUOTE CARD
+// ============================================================
 @Composable
 fun PendingQuoteCard(
     quote: Quote,
@@ -237,37 +344,51 @@ fun PendingQuoteCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Quote #${quote.id}",
+                    Text(
+                        "Quote #${quote.id}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    Text(quote.buildingName,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        quote.buildingName,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text(quote.issueType,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        quote.issueType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Submitted: ${dateFmt.format(Date(quote.createdAt))}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Submitted: ${dateFmt.format(Date(quote.createdAt))}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text("R${String.format("%.2f", quote.grandTotal)}",
+                Text(
+                    "R${String.format("%.2f", quote.grandTotal)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary)
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
-            Text("Scope of Work:",
+            Text(
+                "Scope of Work:",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold)
-            Text(quote.scopeOfWork,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                quote.scopeOfWork,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 4)
+                maxLines = 4
+            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -302,6 +423,9 @@ fun PendingQuoteCard(
     }
 }
 
+// ============================================================
+// SCHEDULE ACCEPT DIALOG
+// ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleAcceptDialog(
@@ -342,9 +466,11 @@ fun ScheduleAcceptDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Quote #${quote.id} for ${quote.buildingName}")
-                Text("Total: R${String.format("%.2f", quote.grandTotal)}",
+                Text(
+                    "Total: R${String.format("%.2f", quote.grandTotal)}",
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary)
+                    color = MaterialTheme.colorScheme.primary
+                )
 
                 OutlinedTextField(
                     value = selectedDate?.let { dateFmt.format(Date(it)) } ?: "Select date",
@@ -362,7 +488,9 @@ fun ScheduleAcceptDialog(
                 Text("Select Time Slot:", fontWeight = FontWeight.Bold)
                 slots.forEach { slot ->
                     Row(
-                        Modifier.fillMaxWidth().clickable { selectedSlot = slot },
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedSlot = slot },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
