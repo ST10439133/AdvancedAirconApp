@@ -3,12 +3,17 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
@@ -23,8 +28,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
+import com.prog7314.arcticflow.data.entities.TechLocation
+import com.prog7314.arcticflow.data.network.LocationTrackingManager
 import com.prog7314.arcticflow.navigation.NavManager
+import com.prog7314.arcticflow.utils.LocationHelper
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,16 +44,18 @@ fun ServiceBookingsScreen(
     navManager: NavManager
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
     val viewModel: QuoteViewModel = viewModel(
         factory = QuoteViewModel.Factory(database)
     )
 
-    var selectedFilter by remember { mutableStateOf("Today") }
-    val filters = listOf("Today", "This Week", "This Month", "All")
-
     val allJobs by viewModel.getJobsForTechnician(userId)
         .collectAsState(initial = emptyList())
+
+    // ---------- Time filter (from version 2) ----------
+    var selectedFilter by remember { mutableStateOf("Today") }
+    val filters = listOf("Today", "This Week", "This Month", "All")
 
     val filteredJobs = remember(allJobs, selectedFilter) {
         val now = Calendar.getInstance()
@@ -65,14 +76,72 @@ fun ServiceBookingsScreen(
         }.timeInMillis
 
         allJobs.filter { job ->
-            val d = job.scheduledDate ?: return@filter false
-            when (selectedFilter) {
-                "Today" -> d in startOfDay until endOfDay
-                "This Week" -> d >= startOfWeek
-                "This Month" -> d >= startOfMonth
-                else -> true
+            val d = job.scheduledDate
+            if (selectedFilter == "All") {
+                true
+            } else if (d == null) {
+                false
+            } else {
+                when (selectedFilter) {
+                    "Today" -> d in startOfDay until endOfDay
+                    "This Week" -> d >= startOfWeek
+                    "This Month" -> d >= startOfMonth
+                    else -> true
+                }
             }
-        }.sortedBy { it.scheduledDate }
+        }.sortedBy { it.scheduledDate ?: Long.MAX_VALUE }
+    }
+
+    // ---------- Address resolution map ----------
+    var addressMap by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+
+    LaunchedEffect(allJobs) {
+        val resolved = mutableMapOf<Int, String>()
+        for (job in allJobs) {
+            resolved[job.id] = try {
+                viewModel.resolveJobAddress(job)
+            } catch (e: Exception) {
+                Log.e("ServiceBookings", "resolveJobAddress failed for job ${job.id}", e)
+                ""
+            }
+        }
+        addressMap = resolved
+        Log.d("ServiceBookings", "Resolved addresses: $resolved")
+    }
+
+    // ---------- Tracking permission + start ----------
+    var pendingTrackingJob by remember { mutableStateOf<Job?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        val hasPermission = granted.values.any { it }
+        val job = pendingTrackingJob
+        pendingTrackingJob = null
+
+        if (hasPermission && job != null) {
+            scope.launch {
+                startTrackingForJob(
+                    context = context,
+                    job = job,
+                    viewModel = viewModel,
+                    onDone = { ok ->
+                        Toast.makeText(
+                            context,
+                            if (ok) "Customer can track you now"
+                            else "Failed to start tracking",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+            }
+        } else {
+            Toast.makeText(
+                context,
+                "Location permission is required for tracking",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     Scaffold(
@@ -81,10 +150,7 @@ fun ServiceBookingsScreen(
                 title = { Text("Service Bookings") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
@@ -96,6 +162,7 @@ fun ServiceBookingsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            // ----- Filter chips -----
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -112,23 +179,72 @@ fun ServiceBookingsScreen(
             Spacer(Modifier.height(16.dp))
 
             if (filteredJobs.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No bookings", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Jobs assigned to you will appear here", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            Icons.Default.EventBusy, null, Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "No bookings",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "Jobs assigned to you will appear here",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(filteredJobs) { job ->
+                    items(filteredJobs, key = { it.id }) { job ->
+                        val resolvedAddress = addressMap[job.id].orEmpty()
                         BookingCard(
                             job = job,
-                            onCallClick = {
+                            resolvedAddress = resolvedAddress,
+                            onCall = {
                                 Toast.makeText(context, "Calling customer...", Toast.LENGTH_SHORT).show()
                             },
-                            onNavigateClick = {
-                                val uri = Uri.parse("geo:0,0?q=${Uri.encode(job.buildingName)}")
-                                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            onMap = {
+                                scope.launch {
+                                    openMapForJob(context, job, viewModel)
+                                }
+                            },
+                            onOnMyWay = {
+                                scope.launch {
+                                    if (job.technicianOnWay) {
+                                        // STOP tracking
+                                        viewModel.setTechnicianOnWay(job.id, false)
+                                        LocationTrackingManager.stopTracking(userId)
+                                        Toast.makeText(context, "Tracking stopped", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        // START tracking — request permission first
+                                        if (LocationHelper.hasLocationPermission(context)) {
+                                            startTrackingForJob(
+                                                context = context,
+                                                job = job,
+                                                viewModel = viewModel,
+                                                onDone = { ok ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        if (ok) "Customer can track you now"
+                                                        else "Failed to start tracking",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            )
+                                        } else {
+                                            pendingTrackingJob = job
+                                            permissionLauncher.launch(LocationHelper.PERMISSIONS)
+                                        }
+                                    }
+                                }
                             },
                             onOpenJobCard = { navManager.navigateToCreateJobCard(job.id) }
                         )
@@ -139,54 +255,245 @@ fun ServiceBookingsScreen(
     }
 }
 
+// ============================================================
+// Helper: start tracking for a job
+// ============================================================
+private suspend fun startTrackingForJob(
+    context: android.content.Context,
+    job: Job,
+    viewModel: QuoteViewModel,
+    onDone: (Boolean) -> Unit
+) {
+    val technicianId = job.technicianId
+    if (technicianId.isBlank()) {
+        Log.e("ServiceBookings", "Job #${job.id} has blank technicianId — cannot track")
+        onDone(false)
+        return
+    }
+
+    val location = LocationHelper.getCurrentLocation(context)
+    if (location == null) {
+        onDone(false)
+        return
+    }
+
+    viewModel.setTechnicianOnWay(job.id, true)
+
+    val techLocation = TechLocation(
+        technicianId = technicianId,
+        technicianName = "Technician",
+        latitude = location.latitude,
+        longitude = location.longitude,
+        jobId = job.id,
+        customerId = job.customerId,
+        buildingName = job.buildingName,
+        onMyWay = true,
+        lastUpdated = System.currentTimeMillis(),
+        status = "on_the_way"
+    )
+
+    val ok = LocationTrackingManager.updateLocation(techLocation)
+    Log.d(
+        "ServiceBookings",
+        "startTracking job=${job.id} tech=$technicianId cust=${job.customerId} → $ok"
+    )
+    onDone(ok)
+}
+
+// ============================================================
+// Helper: open Google Maps with the SERVICE ADDRESS.
+// ============================================================
+private suspend fun openMapForJob(
+    context: android.content.Context,
+    job: Job,
+    viewModel: QuoteViewModel
+) {
+    val target = viewModel.resolveJobAddress(job).trim()
+
+    if (target.isBlank()) {
+        Toast.makeText(
+            context,
+            "No address saved for this job",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
+
+    val encoded = Uri.encode(target)
+    Log.d("ServiceBookings", "Opening map for address: '$target'")
+
+    // --- Attempt 1: native Google Maps app via geo: URI ---
+    val geoUri = Uri.parse("geo:0,0?q=$encoded")
+    val geoIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
+        setPackage("com.google.android.apps.maps")
+    }
+    if (geoIntent.resolveActivity(context.packageManager) != null) {
+        try {
+            context.startActivity(geoIntent)
+            return
+        } catch (e: Exception) {
+            Log.w("ServiceBookings", "geo intent failed, falling back", e)
+        }
+    }
+
+    // --- Attempt 2: any app that can handle geo: URIs ---
+    val anyGeoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+    if (anyGeoIntent.resolveActivity(context.packageManager) != null) {
+        try {
+            context.startActivity(anyGeoIntent)
+            return
+        } catch (e: Exception) {
+            Log.w("ServiceBookings", "any geo intent failed, falling back", e)
+        }
+    }
+
+    // --- Attempt 3: HTTPS Google Maps URL — opens in browser ---
+    val httpsUri = Uri.parse(
+        "https://www.google.com/maps/search/?api=1&query=$encoded"
+    )
+    val webIntent = Intent(Intent.ACTION_VIEW, httpsUri)
+    try {
+        context.startActivity(webIntent)
+    } catch (e: Exception) {
+        Log.e("ServiceBookings", "All map intents failed", e)
+        Toast.makeText(
+            context,
+            "No app available to open maps",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
+
+// ============================================================
+// Booking Card UI — with tracking toggle, address, and buttons
+// ============================================================
 @Composable
 fun BookingCard(
     job: Job,
-    onCallClick: () -> Unit,
-    onNavigateClick: () -> Unit,
+    resolvedAddress: String,
+    onCall: () -> Unit,
+    onMap: () -> Unit,
+    onOnMyWay: () -> Unit,
     onOpenJobCard: () -> Unit
 ) {
-    val dateFmt = SimpleDateFormat("EEE, MMM d, h:mm a", Locale.getDefault())
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    val dateFormat = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault())
+
+    var isLocalToggleOn by remember { mutableStateOf(job.technicianOnWay) }
+    var isProcessing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(job.technicianOnWay) {
+        isLocalToggleOn = job.technicianOnWay
+        isProcessing = false
+    }
+
+    Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            // ----- Top row: building + status -----
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(job.buildingName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(job.issueType, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        job.buildingName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        job.issueType,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (resolvedAddress.isNotBlank()) {
+                        Text(
+                            resolvedAddress,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     job.scheduledDate?.let {
-                        Text(dateFmt.format(Date(it)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            dateFormat.format(Date(it)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 Badge(
                     containerColor = when (job.status) {
-                        JobStatus.COMPLETED -> Color.Green
-                        JobStatus.IN_PROGRESS -> Color.Blue
-                        JobStatus.SCHEDULED -> Color(0xFF2196F3)
+                        JobStatus.COMPLETED -> Color(0xFF4CAF50)
+                        JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
+                        JobStatus.SCHEDULED -> Color(0xFF03A9F4)
                         JobStatus.PENDING -> Color(0xFFFF9800)
-                        else -> Color.Gray
+                        else -> Color(0xFF9E9E9E)
                     }
-                ) { Text(job.status.name) }
+                ) { Text(job.status.name, color = Color.White) }
             }
 
             Spacer(Modifier.height(8.dp))
 
+            // ----- Tracking toggle -----
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isLocalToggleOn)
+                        Color(0xFF4CAF50).copy(alpha = 0.15f)
+                    else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.DirectionsCar, null,
+                        tint = if (isLocalToggleOn) Color(0xFF4CAF50)
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (isLocalToggleOn) "Customer can track you" else "Not tracking yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (isLocalToggleOn) "Tap to stop tracking" else "Tap when you depart",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isLocalToggleOn,
+                        enabled = !isProcessing,
+                        onCheckedChange = { checked ->
+                            if (!isProcessing) {
+                                isProcessing = true
+                                isLocalToggleOn = checked
+                                onOnMyWay()
+                            }
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // ----- Action buttons -----
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = onCallClick, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Phone, "Call", Modifier.size(16.dp))
+                OutlinedButton(onClick = onCall, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Phone, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Call", style = MaterialTheme.typography.labelSmall)
                 }
-                OutlinedButton(onClick = onNavigateClick, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Navigation, "Navigate", Modifier.size(16.dp))
+                OutlinedButton(onClick = onMap, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Navigation, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Navigate", style = MaterialTheme.typography.labelSmall)
+                    Text("Map", style = MaterialTheme.typography.labelSmall)
                 }
                 Button(onClick = onOpenJobCard, modifier = Modifier.weight(1f)) {
                     Text("Job Card", style = MaterialTheme.typography.labelSmall)
