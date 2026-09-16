@@ -284,7 +284,8 @@ fun OverviewStatItem(value: String, label: String) {
 }
 
 // ============================================================
-// QUICK ACTION BUTTON (fixed — modifier passed in)
+// QUICK ACTION BUTTON
+// — Accepts a modifier, since weight() only works inside Row/Column scope.
 // ============================================================
 @Composable
 fun QuickActionButton(

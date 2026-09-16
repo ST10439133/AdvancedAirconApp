@@ -70,14 +70,17 @@ class QuoteViewModel(
     suspend fun createQuoteForRequest(
         requestId: Int,
         technicianId: String,
+        customerId: String,                     // ← add this parameter
         serviceName: String,
         serviceFee: Double,
         lineItems: List<Pair<String, Pair<Int, Double>>>,
         notes: String
     ): Long {
         val request = getRequestById(requestId) ?: return 0L
+
         val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
         val total = serviceFee + partsSubtotal
+
         val partsDescription = lineItems.joinToString("\n") {
             "${it.first} x${it.second.first} - R${String.format("%.2f", it.second.first * it.second.second)}"
         }
@@ -85,7 +88,7 @@ class QuoteViewModel(
         val quote = Quote(
             requestId = requestId,
             technicianId = technicianId,
-            customerId = request.userId,
+            customerId = customerId.ifBlank { request.userId },  // use passed value, or fallback
             buildingName = request.buildingName,
             issueType = request.issueType,
             description = request.description,
@@ -97,14 +100,9 @@ class QuoteViewModel(
             grandTotal = total,
             notes = notes
         )
+
         val quoteId = createQuote(quote)
         requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
-        createNotification(
-            userId = request.userId,
-            title = "New Quote Received",
-            message = "Technician quoted R${String.format("%.2f", total)} for ${request.buildingName}",
-            type = NotificationType.QUOTE
-        )
         return quoteId
     }
 

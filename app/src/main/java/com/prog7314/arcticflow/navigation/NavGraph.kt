@@ -111,7 +111,7 @@ fun NavGraph(
         // ==========================================
         // SHARED SCREENS
         // ==========================================
-        composable(NavManager.Destination.ProductsList.route) {
+        composable(NavManager.Destination.Products.route) {
             ProductListScreen(
                 viewModel = productViewModel,
                 navManager = navManager

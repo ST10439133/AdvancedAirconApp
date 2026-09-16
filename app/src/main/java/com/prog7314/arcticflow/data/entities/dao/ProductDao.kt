@@ -54,4 +54,8 @@ interface ProductDao {
 
     @Query("SELECT COUNT(*) FROM products")
     suspend fun getProductCount(): Int
+
+    // app/src/main/java/com/prog7314/arcticflow/data/dao/ProductDao.kt
+    @Query("SELECT * FROM products")
+    suspend fun getAllProductsOnce(): List<Product>
 }

@@ -17,4 +17,27 @@ object SupabaseManager {
     ) {
         install(Storage)
     }
+
+    /**
+     * Public base URL for product assets (images, PDFs) stored in the
+     * "products" bucket on Supabase Storage.
+     *
+     * Example result:
+     *   https://<your-project>.supabase.co/storage/v1/object/public/products/
+     *
+     * Usage:
+     *   productBaseUrl + "Samsung_Inverter_12000.png"
+     */
+    val productBaseUrl: String
+        get() {
+            // Normalise: strip any scheme, then strip any leading/trailing slashes
+            // so we never end up with a double slash in the final URL.
+            val host = client.supabaseUrl
+                .removePrefix("https://")
+                .removePrefix("http://")
+                .trimStart('/')
+                .trimEnd('/')
+
+            return "https://$host/storage/v1/object/public/products/"
+        }
 }

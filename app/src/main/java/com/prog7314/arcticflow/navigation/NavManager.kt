@@ -123,11 +123,11 @@ class NavManager(
     }
 
     fun navigateToProducts() {
-        navController.navigate(Destination.Products.route)          // ← NEW
+        navController.navigate(Destination.Products.route)   // ← we'll add this composable
     }
 
     fun navigateToProductsList() {
-        navController.navigate(Destination.ProductsList.route)
+        navController.navigate(Destination.Products.route)
     }
 
     fun navigateToQuoteHistory() {

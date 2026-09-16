@@ -2,7 +2,6 @@
 package com.prog7314.arcticflow.ui.screens
 
 import android.app.DatePickerDialog
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.data.entities.BuildingEntity
 import com.prog7314.arcticflow.data.entities.RequestPriority
+import com.prog7314.arcticflow.data.entities.RequestStatus
 import com.prog7314.arcticflow.data.entities.ServiceRequest
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
@@ -47,31 +47,22 @@ fun ServiceRequestScreen(
     var buildingDropdownExpanded by remember { mutableStateOf(false) }
     var issueDropdownExpanded by remember { mutableStateOf(false) }
 
-    // LIVE buildings list — auto refreshes when a new building is added
     val buildings by viewModel.getBuildingsForUser(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
     val issueTypes = listOf(
-        "Air Conditioning Repair",
-        "Heating System Repair",
-        "Ventilation Issue",
-        "Filter Replacement",
-        "Compressor Problem",
-        "Refrigerant Leak",
-        "Thermostat Issue",
-        "Preventive Maintenance",
-        "Emergency Service",
-        "Other"
+        "Air Conditioning Repair", "Heating System Repair", "Ventilation Issue",
+        "Filter Replacement", "Compressor Problem", "Refrigerant Leak",
+        "Thermostat Issue", "Preventive Maintenance", "Emergency Service", "Other"
     )
 
-    // DATE PICKER
     val calendar = Calendar.getInstance()
     val datePickerDialog = DatePickerDialog(
         context,
-        { _, year, month, dayOfMonth ->
-            val cal = Calendar.getInstance()
-            cal.set(year, month, dayOfMonth, 9, 0)
-            preferredDate = cal.timeInMillis
+        { _, year, month, day ->
+            val c = Calendar.getInstance()
+            c.set(year, month, day, 9, 0)
+            preferredDate = c.timeInMillis
         },
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
@@ -86,7 +77,10 @@ fun ServiceRequestScreen(
                 title = { Text("Request Service") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -100,7 +94,6 @@ fun ServiceRequestScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ===== BUILDING SELECTOR =====
             if (buildings.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -139,68 +132,28 @@ fun ServiceRequestScreen(
                         expanded = buildingDropdownExpanded,
                         onDismissRequest = { buildingDropdownExpanded = false }
                     ) {
-                        buildings.forEach { building ->
+                        buildings.forEach { b ->
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(building.name, fontWeight = FontWeight.Bold)
-                                        // Prefer the cached full address; fall back
-                                        // to the legacy street-only `address` field
-                                        // for buildings created before the upgrade.
-                                        val displayAddress =
-                                            building.fullAddress.ifBlank { building.address }
+                                        Text(b.name, fontWeight = FontWeight.Bold)
                                         Text(
-                                            displayAddress,
+                                            b.address,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 },
                                 onClick = {
-                                    selectedBuilding = building
+                                    selectedBuilding = b
                                     buildingDropdownExpanded = false
                                 }
                             )
                         }
                     }
                 }
-
-                // ===== FULL-ADDRESS PREVIEW =====
-                // Shows the customer exactly what will be sent to the technician
-                // and what will be used to open Google Maps.
-                selectedBuilding?.let { b ->
-                    val preview = b.fullAddress.ifBlank {
-                        // Fallback for legacy buildings that predate the new columns
-                        listOf(b.address, b.city, b.postalCode)
-                            .filter { it.isNotBlank() }
-                            .joinToString(", ")
-                    }
-                    if (preview.isNotBlank()) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(
-                                    "Service location",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    preview,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
             }
 
-            // ===== ISSUE TYPE =====
             ExposedDropdownMenuBox(
                 expanded = issueDropdownExpanded,
                 onExpandedChange = { issueDropdownExpanded = !issueDropdownExpanded }
@@ -221,11 +174,11 @@ fun ServiceRequestScreen(
                     expanded = issueDropdownExpanded,
                     onDismissRequest = { issueDropdownExpanded = false }
                 ) {
-                    issueTypes.forEach { type ->
+                    issueTypes.forEach { t ->
                         DropdownMenuItem(
-                            text = { Text(type) },
+                            text = { Text(t) },
                             onClick = {
-                                issueType = type
+                                issueType = t
                                 issueDropdownExpanded = false
                             }
                         )
@@ -233,7 +186,6 @@ fun ServiceRequestScreen(
                 }
             }
 
-            // ===== PREFERRED DATE (with real picker) =====
             OutlinedTextField(
                 value = preferredDate?.let { dateFormat.format(Date(it)) } ?: "Select preferred date",
                 onValueChange = {},
@@ -241,7 +193,7 @@ fun ServiceRequestScreen(
                 label = { Text("Preferred Date") },
                 trailingIcon = {
                     IconButton(onClick = { datePickerDialog.show() }) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = "Pick Date")
+                        Icon(Icons.Default.CalendarMonth, "Pick Date")
                     }
                 },
                 modifier = Modifier
@@ -249,7 +201,6 @@ fun ServiceRequestScreen(
                     .clickable { datePickerDialog.show() }
             )
 
-            // ===== DESCRIPTION =====
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -257,18 +208,16 @@ fun ServiceRequestScreen(
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 4,
                 maxLines = 8,
-                enabled = !isSubmitting,
-                placeholder = { Text("Describe the problem in detail...") }
+                enabled = !isSubmitting
             )
 
-            // ===== PRIORITY =====
             Column {
                 Text(
-                    text = "Priority Level",
+                    "Priority Level",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -284,58 +233,25 @@ fun ServiceRequestScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            // ===== SUBMIT =====
             Button(
                 onClick = {
-                    val building = selectedBuilding
-                    if (building != null && issueType.isNotBlank() && description.isNotBlank()) {
+                    val b = selectedBuilding
+                    if (b != null && issueType.isNotBlank() && description.isNotBlank()) {
                         coroutineScope.launch {
                             isSubmitting = true
                             try {
-                                // Build the full address, preferring the cached field.
-                                val fullAddr = building.fullAddress.ifBlank {
-                                    listOf(
-                                        building.address,
-                                        building.suburb,
-                                        building.city,
-                                        building.province,
-                                        building.postalCode
-                                    )
-                                        .map { it.trim() }
-                                        .filter { it.isNotEmpty() }
-                                        .joinToString(", ")
-                                }
-
-                                // ⚠️ DIAGNOSTIC — verify the address pipeline
-                                Log.d(
-                                    "ServiceRequestScreen",
-                                    "Submitting request:\n" +
-                                            "  building.id        = ${building.id}\n" +
-                                            "  building.name      = ${building.name}\n" +
-                                            "  building.address   = '${building.address}'\n" +
-                                            "  building.suburb    = '${building.suburb}'\n" +
-                                            "  building.city      = '${building.city}'\n" +
-                                            "  building.province  = '${building.province}'\n" +
-                                            "  building.postalCode= '${building.postalCode}'\n" +
-                                            "  building.fullAddress = '${building.fullAddress}'\n" +
-                                            "  → RESOLVED fullAddr = '$fullAddr'"
-                                )
-
                                 val request = ServiceRequest(
                                     userId = userId,
-                                    buildingId = building.id,
-                                    buildingName = building.name,
+                                    buildingId = b.id,
+                                    buildingName = b.name,
                                     issueType = issueType,
                                     description = description,
                                     priority = priority,
                                     preferredDate = preferredDate,
-                                    status = com.prog7314.arcticflow.data.entities.RequestStatus.PENDING,
-                                    fullAddress = fullAddr
+                                    status = RequestStatus.PENDING
                                 )
                                 viewModel.createServiceRequest(request)
-                                Toast.makeText(context, "Service request submitted!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Request submitted!", Toast.LENGTH_SHORT).show()
                                 navManager.navigateBack()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
