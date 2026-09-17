@@ -38,8 +38,6 @@ fun MainScreen(
 
     // ------------------------------------------------------------------
     // navigateToDashboard — used by every sub-screen's back arrow.
-    // Navigates the INNER bottom-nav controller back to Dashboard without
-    // recreating MainScreen, so tab state is preserved.
     // ------------------------------------------------------------------
     val navigateToDashboard: () -> Unit = {
         bottomNavController.navigate(BottomNavItem.Dashboard.route) {
@@ -49,6 +47,21 @@ fun MainScreen(
             }
             launchSingleTop = true
             restoreState = false
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // navigateToRequests — used by the technician Dashboard's
+    // "new job requests" card so it selects the Requests tab instead of
+    // pushing a duplicate screen onto the outer graph.
+    // ------------------------------------------------------------------
+    val navigateToRequests: () -> Unit = {
+        bottomNavController.navigate(BottomNavItem.Requests.route) {
+            popUpTo(bottomNavController.graph.startDestinationId) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
@@ -99,7 +112,8 @@ fun MainScreen(
                     } else {
                         TechnicianDashboardScreen(
                             navManager = navManager,
-                            userId = userId
+                            userId = userId,
+                            onViewRequests = navigateToRequests
                         )
                     }
                 }

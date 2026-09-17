@@ -9,8 +9,6 @@ import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -27,19 +25,26 @@ fun AppTopBar(
     showBackButton: Boolean = false,
     actions: @Composable () -> Unit = {}
 ) {
-    val unreadCount by notificationViewModel?.unreadCount?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0) }
+    // Only collect when a VM is present — avoids fabricating a fake state
+    val unreadCount: Int = if (notificationViewModel != null) {
+        notificationViewModel.unreadCount.collectAsStateWithLifecycle().value
+    } else {
+        0
+    }
 
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
             if (showBackButton) {
                 IconButton(onClick = { navManager.navigateToMain() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Dashboard")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back to Dashboard"
+                    )
                 }
             }
         },
         actions = {
-            // Notification Bell
             if (notificationViewModel != null) {
                 BadgedBox(
                     badge = {
@@ -59,7 +64,8 @@ fun AppTopBar(
                 ) {
                     IconButton(onClick = { navManager.navigateToNotifications() }) {
                         Icon(
-                            if (unreadCount > 0) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                            if (unreadCount > 0) Icons.Default.Notifications
+                            else Icons.Default.NotificationsNone,
                             contentDescription = "Notifications"
                         )
                     }

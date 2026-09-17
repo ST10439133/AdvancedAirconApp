@@ -1,6 +1,7 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/screens/TechnicianDashboardScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,7 +31,8 @@ import java.util.*
 @Composable
 fun TechnicianDashboardScreen(
     navManager: NavManager,
-    userId: String
+    userId: String,
+    onViewRequests: () -> Unit
 ) {
     val context = LocalContext.current
     val viewModel: QuoteViewModel = viewModel(
@@ -149,7 +151,9 @@ fun TechnicianDashboardScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onViewRequests() }
                     ) {
                         Row(
                             modifier = Modifier
@@ -169,7 +173,7 @@ fun TechnicianDashboardScreen(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
-                            Button(onClick = { navManager.navigateToPendingRequests() }) {
+                            Button(onClick = onViewRequests) {
                                 Text("View")
                             }
                         }

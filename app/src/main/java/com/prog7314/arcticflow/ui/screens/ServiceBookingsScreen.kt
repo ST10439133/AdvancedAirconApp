@@ -7,15 +7,16 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -78,42 +79,73 @@ fun ServiceBookingsScreen(
     var selectedFilter by remember { mutableStateOf("Today") }
     val filters = listOf("Today", "This Week", "This Month", "All")
 
-    val filteredJobs = remember(allJobs, selectedFilter) {
+    // ------------------------------------------------------------------
+    // Pre-computed ranges. All four are anchored to midnight today so a
+    // job scheduled at 23:59 tonight still falls into "Today".
+    // "This Week" respects the locale's firstDayOfWeek (Sunday or Monday).
+    // "This Week" and "This Month" are BOUNDED at the end, so jobs in the
+    // distant future don't accidentally match.
+    // ------------------------------------------------------------------
+    val ranges = remember {
         val now = Calendar.getInstance()
+
         val startOfDay = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startOfDayMs = startOfDay.timeInMillis
+        val endOfDayMs   = startOfDayMs + 86_400_000L
+
+        val startOfWeekMs = (startOfDay.clone() as Calendar).apply {
+            val offset = (get(Calendar.DAY_OF_WEEK) - firstDayOfWeek + 7) % 7
+            add(Calendar.DAY_OF_MONTH, -offset)
         }.timeInMillis
-        val endOfDay = startOfDay + 86_400_000L
-        val startOfWeek = (now.clone() as Calendar).apply {
-            set(Calendar.DAY_OF_WEEK, now.firstDayOfWeek)
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val startOfMonth = (now.clone() as Calendar).apply {
+        val endOfWeekMs = startOfWeekMs + 7L * 86_400_000L
+
+        val startOfMonthMs = (startOfDay.clone() as Calendar).apply {
             set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val endOfMonthMs = (startOfDay.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.MONTH, 1)
         }.timeInMillis
 
-        allJobs.filter { job ->
-            val d = job.scheduledDate
-            if (selectedFilter == "All") {
-                true
-            } else if (d == null) {
-                false
-            } else {
-                when (selectedFilter) {
-                    "Today" -> d in startOfDay until endOfDay
-                    "This Week" -> d >= startOfWeek
-                    "This Month" -> d >= startOfMonth
-                    else -> true
-                }
-            }
-        }.sortedBy { it.scheduledDate ?: Long.MAX_VALUE }
+        mapOf(
+            "Today"      to (startOfDayMs until endOfDayMs),
+            "This Week"  to (startOfWeekMs until endOfWeekMs),
+            "This Month" to (startOfMonthMs until endOfMonthMs)
+        )
     }
 
-    // ---------- Address resolution map ----------
+    // ---------- Per-chip counts ----------
+    val counts = remember(allJobs, ranges) {
+        mapOf(
+            "Today"      to allJobs.count { it.scheduledDate?.let { d -> d in ranges.getValue("Today") } == true },
+            "This Week"  to allJobs.count { it.scheduledDate?.let { d -> d in ranges.getValue("This Week") } == true },
+            "This Month" to allJobs.count { it.scheduledDate?.let { d -> d in ranges.getValue("This Month") } == true },
+            "All"        to allJobs.size
+        )
+    }
+
+    // ---------- Filtered + sorted list ----------
+    val filteredJobs = remember(allJobs, selectedFilter, ranges) {
+        allJobs
+            .filter { job ->
+                val d = job.scheduledDate
+                when (selectedFilter) {
+                    "All"        -> true
+                    "Today"      -> d != null && d in ranges.getValue("Today")
+                    "This Week"  -> d != null && d in ranges.getValue("This Week")
+                    "This Month" -> d != null && d in ranges.getValue("This Month")
+                    else         -> true
+                }
+            }
+            .sortedBy { it.scheduledDate ?: Long.MAX_VALUE }
+    }
+
+    // ---------- Address resolution ----------
     var addressMap by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
     LaunchedEffect(allJobs) {
@@ -130,7 +162,7 @@ fun ServiceBookingsScreen(
         Log.d("ServiceBookings", "Resolved addresses: $resolved")
     }
 
-    // ---------- Tracking permission + start ----------
+    // ---------- Tracking permission ----------
     var pendingTrackingJob by remember { mutableStateOf<Job?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -186,15 +218,21 @@ fun ServiceBookingsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            // Filter chips — horizontally scrollable so 4 fit on small screens
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 filters.forEach { f ->
+                    val n = counts[f] ?: 0
                     FilterChip(
                         selected = selectedFilter == f,
                         onClick = { selectedFilter = f },
-                        label = { Text(f) }
+                        label = {
+                            Text(if (n > 0) "$f ($n)" else f)
+                        }
                     )
                 }
             }
@@ -218,7 +256,7 @@ fun ServiceBookingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "Jobs assigned to you will appear here",
+                            "No jobs match the \"$selectedFilter\" filter",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -231,27 +269,17 @@ fun ServiceBookingsScreen(
                         BookingCard(
                             job = job,
                             resolvedAddress = resolvedAddress,
-                            onCall = {
-                                Toast.makeText(context, "Calling customer...", Toast.LENGTH_SHORT).show()
-                            },
                             onMap = {
-                                scope.launch {
-                                    openMapForJob(context, job, viewModel)
-                                }
+                                scope.launch { openMapForJob(context, job, viewModel) }
                             },
                             onOnMyWay = {
                                 scope.launch {
                                     if (job.technicianOnWay) {
-                                        // STOP tracking
                                         viewModel.setTechnicianOnWay(job.id, false)
                                         LocationTrackingManager.stopTracking(userId)
-
-                                        // Remove the technician from the API's active list
                                         ApiRepository.stopTracking(context, job.technicianId)
-
                                         Toast.makeText(context, "Tracking stopped", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        // START tracking — request permission first
                                         if (LocationHelper.hasLocationPermission(context)) {
                                             startTrackingForJob(
                                                 context = context,
@@ -410,13 +438,12 @@ private suspend fun openMapForJob(
 }
 
 // ============================================================
-// Booking Card UI
+// Booking Card UI — Call button removed
 // ============================================================
 @Composable
 fun BookingCard(
     job: Job,
     resolvedAddress: String,
-    onCall: () -> Unit,
     onMap: () -> Unit,
     onOnMyWay: () -> Unit,
     onOpenJobCard: () -> Unit
@@ -523,15 +550,11 @@ fun BookingCard(
 
             Spacer(Modifier.height(8.dp))
 
+            // Call button removed — Map + Job Card only
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = onCall, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Phone, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Call", style = MaterialTheme.typography.labelSmall)
-                }
                 OutlinedButton(onClick = onMap, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Navigation, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))

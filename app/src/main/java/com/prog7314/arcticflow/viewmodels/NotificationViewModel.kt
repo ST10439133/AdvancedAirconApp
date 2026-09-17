@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/viewmodels/NotificationViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
 import android.content.Context
@@ -21,17 +22,26 @@ class NotificationViewModel(
         dao.getNotificationsForUser(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // CHANGED: observe the DAO's COUNT query directly instead of
+    // loading the whole unread list and calling .size on it.
     val unreadCount: StateFlow<Int> =
-        dao.getUnreadNotifications(userId)
-            .map { it.size }
+        dao.getUnreadCount(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     fun markAsRead(id: Int) = viewModelScope.launch { dao.markAsRead(id) }
     fun markAllAsRead() = viewModelScope.launch { dao.markAllAsRead(userId) }
 
+    /**
+     * Insert the sample "Welcome" notification ONLY if the user has never
+     * had one. We check the DB once instead of relying on
+     * `notifications.value.isEmpty()` (which can race when the flow has
+     * no collector yet).
+     */
     fun addSampleNotifications() {
         viewModelScope.launch {
-            if (notifications.value.isEmpty()) {
+            val existing = dao.getNotificationsForUser(userId).first()
+            val alreadyHasWelcome = existing.any { it.type == NotificationType.SYSTEM }
+            if (!alreadyHasWelcome) {
                 dao.insertNotification(
                     Notification(
                         title = "Welcome to ArcticFlow",

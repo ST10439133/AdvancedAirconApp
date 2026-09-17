@@ -3,7 +3,6 @@ package com.prog7314.arcticflow.data.repository
 
 import com.prog7314.arcticflow.data.dao.NotificationDao
 import com.prog7314.arcticflow.data.entities.Notification
-import com.prog7314.arcticflow.data.entities.NotificationType
 import kotlinx.coroutines.flow.Flow
 
 class NotificationRepository(
@@ -33,7 +32,8 @@ class NotificationRepository(
         notificationDao.deleteReadNotifications(userId)
     }
 
-    suspend fun getUnreadCount(userId: String): Int {
+    // CHANGED: now returns a Flow<Int> instead of a suspend Int
+    fun getUnreadCount(userId: String): Flow<Int> {
         return notificationDao.getUnreadCount(userId)
     }
 

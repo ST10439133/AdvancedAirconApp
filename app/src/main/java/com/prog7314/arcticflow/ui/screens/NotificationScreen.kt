@@ -38,7 +38,7 @@ fun NotificationScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val unreadCount by viewModel.unreadCount.collectAsStateWithLifecycle()
 
-    // Local filter state — no longer tied to ViewModel
+    // Local filter state
     var filterType by remember { mutableStateOf<NotificationType?>(null) }
 
     val filteredNotifications = remember(notifications, filterType) {
@@ -51,8 +51,11 @@ fun NotificationScreen(
             TopAppBar(
                 title = { Text("Notifications") },
                 navigationIcon = {
-                    IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = { navManager.navigateToMain() }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
                     }
                 },
                 actions = {
@@ -70,7 +73,6 @@ fun NotificationScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter tabs
             val tabs = listOf<Pair<NotificationType?, String>>(
                 null to "All",
                 NotificationType.JOB to "Jobs",
@@ -87,12 +89,16 @@ fun NotificationScreen(
                 edgePadding = 16.dp
             ) {
                 tabs.forEachIndexed { index, (type, label) ->
+                    val count = remember(notifications, type) {
+                        if (type == null) notifications.size
+                        else notifications.count { it.type == type }
+                    }
                     Tab(
                         selected = selectedIndex == index,
                         onClick = { filterType = type },
                         text = {
                             Text(
-                                label,
+                                if (count > 0) "$label ($count)" else label,
                                 fontWeight = if (selectedIndex == index) FontWeight.Bold
                                 else FontWeight.Normal
                             )
@@ -176,7 +182,6 @@ fun NotificationItem(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Type icon
                 Box(
                     modifier = Modifier
                         .size(40.dp)
