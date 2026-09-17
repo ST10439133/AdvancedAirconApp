@@ -99,10 +99,12 @@ interface ArcticFlowApi {
     ): List<TechLocationDto>
 
     @PUT("api/locations/{technicianId}")
-    suspend fun updateLocation(
+    suspend fun updateLocationRaw(
         @Path("technicianId") technicianId: String,
-        @Body body: TechLocationDto
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
     )
+
+
 
     @DELETE("api/locations/{technicianId}")
     suspend fun stopTracking(@Path("technicianId") technicianId: String)

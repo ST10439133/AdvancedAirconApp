@@ -1,10 +1,14 @@
 // app/src/main/java/com/prog7314/arcticflow/viewmodels/ManagerDashboardViewModel.kt
 package com.prog7314.arcticflow.viewmodels
 
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.api.ApiRepository
+import com.prog7314.arcticflow.data.api.IdMap
 import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.data.entities.Notification
@@ -17,11 +21,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ManagerDashboardViewModel(
+    application: Application,
     private val database: ArcticFlowDatabase,
     private val userId: String
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     private val TAG = "ManagerDashboardVM"
+
+    private val appContext get() = getApplication<Application>()
 
     // ===== Buildings owned by this manager =====
     val buildings: Flow<List<com.prog7314.arcticflow.data.entities.BuildingEntity>> =
@@ -58,6 +65,7 @@ class ManagerDashboardViewModel(
      *  - Creates a Job for the technician
      *  - Marks the service request ACCEPTED
      *  - Notifies the technician
+     *  - Mirrors quote/job/request to the REST API (using server ids)
      */
     suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
         val quoteDao = database.quoteDao()
@@ -66,7 +74,7 @@ class ManagerDashboardViewModel(
         val notificationDao = database.notificationDao()
 
         try {
-            // 1. Update the quote status
+            // 1. Update the quote status locally
             quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
             val quote = quoteDao.getQuoteById(quoteId)
             if (quote == null) {
@@ -85,7 +93,7 @@ class ManagerDashboardViewModel(
 
             val jobAddress = request?.fullAddress ?: ""
 
-            // 3. Create the Job
+            // 3. Create the Job locally
             val newJob = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
@@ -99,7 +107,7 @@ class ManagerDashboardViewModel(
                 notes = "Time Slot: $timeSlot",
                 fullAddress = jobAddress
             )
-            jobDao.insertJob(newJob)
+            val newJobId = jobDao.insertJob(newJob)
 
             Log.d(
                 TAG,
@@ -107,7 +115,7 @@ class ManagerDashboardViewModel(
                         "cust=${quote.customerId} addr='$jobAddress'"
             )
 
-            // 4. Update request status
+            // 4. Update request status locally
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
 
             // 5. Notify the technician
@@ -119,6 +127,33 @@ class ManagerDashboardViewModel(
                     userId = quote.technicianId
                 )
             )
+
+            // ============================ API SYNC ============================
+            // Translate local Room ids → server Postgres ids for the foreign keys
+            val serverQuoteId   = IdMap.getQuote(appContext, quote.id)
+            val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
+
+            // Push quote status change (server id translation happens inside)
+            ApiRepository.updateQuoteStatus(appContext, quote.id, QuoteStatus.ACCEPTED.name)
+
+            // Push the newly-created job with the correct server-side foreign keys
+            val dto = ApiRepository.pushJob(
+                context = appContext,
+                job = newJob.copy(id = newJobId.toInt()),
+                serverQuoteId = serverQuoteId,
+                serverRequestId = serverRequestId
+            )
+            if (dto != null) {
+                IdMap.putJob(appContext, newJobId.toInt(), dto.id)
+            }
+
+            // Push request status change
+            ApiRepository.updateRequestStatus(
+                appContext,
+                quote.requestId,
+                RequestStatus.ACCEPTED.name
+            )
+            // =================================================================
         } catch (e: Exception) {
             Log.e(TAG, "acceptQuote failed for quote=$quoteId", e)
         }
@@ -129,6 +164,7 @@ class ManagerDashboardViewModel(
      *  - Marks the quote DECLINED
      *  - Resets the service request to PENDING so the technician can re-quote
      *  - Notifies the technician
+     *  - Mirrors quote/request to the REST API
      */
     suspend fun declineQuote(quoteId: Int) {
         val quoteDao = database.quoteDao()
@@ -154,17 +190,30 @@ class ManagerDashboardViewModel(
                     userId = quote.technicianId
                 )
             )
+
+            // ============================ API SYNC ============================
+            ApiRepository.updateQuoteStatus(appContext, quote.id, QuoteStatus.DECLINED.name)
+            ApiRepository.updateRequestStatus(
+                appContext,
+                quote.requestId,
+                RequestStatus.PENDING.name
+            )
+            // =================================================================
         } catch (e: Exception) {
             Log.e(TAG, "declineQuote failed for quote=$quoteId", e)
         }
     }
 
     companion object {
-        fun Factory(database: ArcticFlowDatabase, userId: String): ViewModelProvider.Factory =
+        fun Factory(
+            application: Application,
+            database: ArcticFlowDatabase,
+            userId: String
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return ManagerDashboardViewModel(database, userId) as T
+                    return ManagerDashboardViewModel(application, database, userId) as T
                 }
             }
     }

@@ -41,8 +41,13 @@ fun ManagerDashboardScreen(
     val scope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
 
+    // ManagerDashboardViewModel now takes Application + DB + userId
     val viewModel: ManagerDashboardViewModel = viewModel(
-        factory = ManagerDashboardViewModel.Factory(database, userId)
+        factory = ManagerDashboardViewModel.Factory(
+            context.applicationContext as android.app.Application,
+            database,
+            userId
+        )
     )
     val notificationViewModel: NotificationViewModel = viewModel(
         factory = NotificationViewModel.Factory(context, userId)
@@ -55,6 +60,7 @@ fun ManagerDashboardScreen(
     val pendingQuotes by viewModel.pendingQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val acceptedQuotes by viewModel.acceptedQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
 
+    // ... rest of the file unchanged
     // Dialog state for accepting a quote
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
 
