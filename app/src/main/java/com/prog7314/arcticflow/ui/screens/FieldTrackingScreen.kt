@@ -16,14 +16,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import com.prog7314.arcticflow.data.ArcticFlowDatabase
-import com.prog7314.arcticflow.data.entities.TechLocation
+import com.prog7314.arcticflow.data.api.TechLocationDto          // 🔽 API SYNC
 import com.prog7314.arcticflow.navigation.NavManager
-import com.prog7314.arcticflow.viewmodels.ManagerTrackingViewModel
+import com.prog7314.arcticflow.viewmodels.ManagerTrackingViewModel // 🔽 API SYNC
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,28 +31,31 @@ import java.util.*
 @Composable
 fun FieldTrackingScreen(
     navManager: NavManager,
-    managerId: String
+    managerId: String               // kept for signature compatibility — API doesn't need it
 ) {
     val context = LocalContext.current
-    val database = ArcticFlowDatabase.getDatabase(context)
 
-    val viewModel: ManagerTrackingViewModel = viewModel(
-        factory = ManagerTrackingViewModel.Factory(database, managerId)
-    )
+    // 🔽 API SYNC — new polling ViewModel (no Room, no Firestore)
+    val viewModel: ManagerTrackingViewModel = viewModel()
 
-    val activeLocations by viewModel.activeLocations.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    // 🔽 API SYNC — `technicians` comes from GET /api/locations via the ViewModel
+    val technicians by viewModel.technicians.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isPolling.collectAsStateWithLifecycle()
+
+    // Start/stop polling tied to this screen's lifecycle
+    LaunchedEffect(Unit) {
+        viewModel.startPolling(customerId = null)   // manager sees ALL technicians
+    }
+    DisposableEffect(Unit) {
+        onDispose { viewModel.stopPolling() }
+    }
 
     // Default camera position (Johannesburg as fallback)
     val defaultPosition = LatLng(-26.2041, 28.0473)
 
-    // If we have techs, center the map on the first one
-    val initialPosition = remember(activeLocations) {
-        if (activeLocations.isNotEmpty()) {
-            LatLng(
-                activeLocations.first().latitude,
-                activeLocations.first().longitude
-            )
+    val initialPosition = remember(technicians) {
+        if (technicians.isNotEmpty()) {
+            LatLng(technicians.first().latitude, technicians.first().longitude)
         } else defaultPosition
     }
 
@@ -61,13 +64,10 @@ fun FieldTrackingScreen(
     }
 
     // Recenter when first tech appears
-    LaunchedEffect(activeLocations) {
-        if (activeLocations.isNotEmpty()) {
+    LaunchedEffect(technicians.size) {
+        if (technicians.isNotEmpty()) {
             cameraPositionState.position = CameraPosition.fromLatLngZoom(
-                LatLng(
-                    activeLocations.first().latitude,
-                    activeLocations.first().longitude
-                ),
+                LatLng(technicians.first().latitude, technicians.first().longitude),
                 12f
             )
         }
@@ -78,7 +78,7 @@ fun FieldTrackingScreen(
             TopAppBar(
                 title = { Text("Technician Tracking") },
                 actions = {
-                    IconButton(onClick = { /* ViewModel auto-refreshes */ }) {
+                    IconButton(onClick = { /* ViewModel auto-refreshes every 5s */ }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 }
@@ -100,21 +100,27 @@ fun FieldTrackingScreen(
                     myLocationButtonEnabled = false
                 )
             ) {
-                // Add a marker for each tracking technician
-                activeLocations.forEach { location ->
+                // 🔽 API SYNC — iterate technicians from the REST API
+                technicians.forEach { tech ->
                     Marker(
                         state = MarkerState(
-                            position = LatLng(location.latitude, location.longitude)
+                            position = LatLng(tech.latitude, tech.longitude)
                         ),
-                        title = location.technicianName.ifBlank { "Technician" },
-                        snippet = "${location.buildingName} • ${location.status}",
+                        title = tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
+                        snippet = buildString {
+                            if (!tech.buildingName.isNullOrBlank()) {
+                                append(tech.buildingName)
+                                append(" • ")
+                            }
+                            append(tech.status)
+                        },
                         icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
                             .defaultMarker(
-                                when (location.status) {
-                                    "on_the_way" -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
-                                    "on_site"     -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
-                                    "completed"   -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET
-                                    else          -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
+                                when (tech.status) {
+                                    "on_the_way", "ON_MY_WAY" -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
+                                    "on_site"                 -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
+                                    "completed"               -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET
+                                    else                      -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
                                 }
                             )
                     )
@@ -122,7 +128,7 @@ fun FieldTrackingScreen(
             }
 
             // ============ LOADING OVERLAY ============
-            if (isLoading) {
+            if (isLoading && technicians.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -133,28 +139,8 @@ fun FieldTrackingScreen(
                 }
             }
 
-            // ============ DEBUG STATUS (temporary — remove in production) ============
-            val debugMsg by viewModel.debugMessage.collectAsState()
-            if (debugMsg.isNotBlank()) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Black.copy(alpha = 0.7f)
-                    )
-                ) {
-                    Text(
-                        debugMsg,
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-            }
-
             // ============ EMPTY STATE OVERLAY ============
-            if (!isLoading && activeLocations.isEmpty()) {
+            if (!isLoading && technicians.isEmpty()) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -192,7 +178,7 @@ fun FieldTrackingScreen(
             }
 
             // ============ TECH COUNT BADGE (top-right) ============
-            if (activeLocations.isNotEmpty()) {
+            if (technicians.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -206,11 +192,13 @@ fun FieldTrackingScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.DirectionsCar, null,
-                            tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.DirectionsCar, null,
+                            tint = Color.White, modifier = Modifier.size(18.dp)
+                        )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "${activeLocations.size} active",
+                            "${technicians.size} active",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium
@@ -220,7 +208,7 @@ fun FieldTrackingScreen(
             }
 
             // ============ BOTTOM SHEET WITH TECH LIST ============
-            if (activeLocations.isNotEmpty()) {
+            if (technicians.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -241,8 +229,8 @@ fun FieldTrackingScreen(
                         )
                         Spacer(Modifier.height(8.dp))
 
-                        activeLocations.take(3).forEach { location ->
-                            TechRow(location)
+                        technicians.take(3).forEach { tech ->
+                            TechRow(tech)
                             Spacer(Modifier.height(4.dp))
                         }
                     }
@@ -252,8 +240,11 @@ fun FieldTrackingScreen(
     }
 }
 
+// ============================================================
+// Row item — takes TechLocationDto (API) instead of TechLocation (Firestore)
+// ============================================================
 @Composable
-private fun TechRow(location: TechLocation) {
+private fun TechRow(tech: TechLocationDto) {
     val df = SimpleDateFormat("h:mm a", Locale.getDefault())
     Row(
         modifier = Modifier
@@ -265,11 +256,11 @@ private fun TechRow(location: TechLocation) {
             modifier = Modifier
                 .size(10.dp)
                 .background(
-                    when (location.status) {
-                        "on_the_way" -> Color(0xFF03A9F4)
-                        "on_site"     -> Color(0xFF4CAF50)
-                        "completed"   -> Color(0xFF9C27B0)
-                        else          -> Color(0xFFFF9800)
+                    when (tech.status) {
+                        "on_the_way", "ON_MY_WAY" -> Color(0xFF03A9F4)
+                        "on_site"                 -> Color(0xFF4CAF50)
+                        "completed"               -> Color(0xFF9C27B0)
+                        else                      -> Color(0xFFFF9800)
                     },
                     shape = RoundedCornerShape(50)
                 )
@@ -277,18 +268,18 @@ private fun TechRow(location: TechLocation) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                location.technicianName.ifBlank { "Technician" },
+                tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                location.buildingName.ifBlank { "Idle" },
+                tech.buildingName?.takeIf { it.isNotBlank() } ?: "Idle",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Text(
-            df.format(Date(location.lastUpdated)),
+            df.format(Date(tech.lastUpdated)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

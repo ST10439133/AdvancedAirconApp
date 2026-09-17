@@ -26,11 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.api.ApiRepository             // 🔽 API SYNC
 import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.data.entities.TechLocation
 import com.prog7314.arcticflow.data.network.LocationTrackingManager
 import com.prog7314.arcticflow.navigation.NavManager
+import com.prog7314.arcticflow.ui.components.LocationPusher       // 🔽 API SYNC
 import com.prog7314.arcticflow.utils.LocationHelper
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
@@ -47,13 +49,31 @@ fun ServiceBookingsScreen(
     val scope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
     val viewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(database)
+        factory = QuoteViewModel.Factory(database, context)   // 🔽 API SYNC: pass context
     )
 
     val allJobs by viewModel.getJobsForTechnician(userId)
         .collectAsState(initial = emptyList())
 
-    // ---------- Time filter (from version 2) ----------
+    // 🔽 API SYNC: active tracking job (the one with technicianOnWay = true)
+    val activeTrackingJob = remember(allJobs) {
+        allJobs.firstOrNull { it.technicianOnWay }
+    }
+
+    // 🔽 API SYNC: push technician GPS to the REST API while any job is being tracked
+    if (activeTrackingJob != null) {
+        LocationPusher(
+            enabled = true,
+            context = context,
+            technicianId = activeTrackingJob.technicianId,
+            technicianName = "Technician",
+            jobId = activeTrackingJob.id,
+            customerId = activeTrackingJob.customerId,
+            buildingName = activeTrackingJob.buildingName
+        )
+    }
+
+    // ---------- Time filter ----------
     var selectedFilter by remember { mutableStateOf("Today") }
     val filters = listOf("Today", "This Week", "This Month", "All")
 
@@ -162,7 +182,6 @@ fun ServiceBookingsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            // ----- Filter chips -----
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -222,6 +241,10 @@ fun ServiceBookingsScreen(
                                         // STOP tracking
                                         viewModel.setTechnicianOnWay(job.id, false)
                                         LocationTrackingManager.stopTracking(userId)
+
+                                        // 🔽 API SYNC: remove the technician from the API's active list
+                                        ApiRepository.stopTracking(context, job.technicianId)
+
                                         Toast.makeText(context, "Tracking stopped", Toast.LENGTH_SHORT).show()
                                     } else {
                                         // START tracking — request permission first
@@ -277,8 +300,11 @@ private suspend fun startTrackingForJob(
         return
     }
 
+    // Persist the "on my way" flag in Room — this also mirrors to the API
+    // because we updated QuoteViewModel.setTechnicianOnWay()
     viewModel.setTechnicianOnWay(job.id, true)
 
+    // Existing Firestore-based tracking
     val techLocation = TechLocation(
         technicianId = technicianId,
         technicianName = "Technician",
@@ -293,6 +319,26 @@ private suspend fun startTrackingForJob(
     )
 
     val ok = LocationTrackingManager.updateLocation(techLocation)
+
+    // 🔽 API SYNC: push the initial GPS fix to the REST API immediately
+    // (so the manager sees the tech right away, not after the first 10s poll)
+    ApiRepository.pushLocation(
+        context = context,
+        technicianId = technicianId,
+        dto = com.prog7314.arcticflow.data.api.TechLocationDto(
+            technicianId = technicianId,
+            technicianName = "Technician",
+            latitude = location.latitude,
+            longitude = location.longitude,
+            jobId = job.id,
+            customerId = job.customerId,
+            buildingName = job.buildingName,
+            isOnMyWay = true,
+            lastUpdated = System.currentTimeMillis(),
+            status = "ON_MY_WAY"
+        )
+    )
+
     Log.d(
         "ServiceBookings",
         "startTracking job=${job.id} tech=$technicianId cust=${job.customerId} → $ok"
@@ -322,7 +368,6 @@ private suspend fun openMapForJob(
     val encoded = Uri.encode(target)
     Log.d("ServiceBookings", "Opening map for address: '$target'")
 
-    // --- Attempt 1: native Google Maps app via geo: URI ---
     val geoUri = Uri.parse("geo:0,0?q=$encoded")
     val geoIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
         setPackage("com.google.android.apps.maps")
@@ -336,7 +381,6 @@ private suspend fun openMapForJob(
         }
     }
 
-    // --- Attempt 2: any app that can handle geo: URIs ---
     val anyGeoIntent = Intent(Intent.ACTION_VIEW, geoUri)
     if (anyGeoIntent.resolveActivity(context.packageManager) != null) {
         try {
@@ -347,7 +391,6 @@ private suspend fun openMapForJob(
         }
     }
 
-    // --- Attempt 3: HTTPS Google Maps URL — opens in browser ---
     val httpsUri = Uri.parse(
         "https://www.google.com/maps/search/?api=1&query=$encoded"
     )
@@ -365,7 +408,7 @@ private suspend fun openMapForJob(
 }
 
 // ============================================================
-// Booking Card UI — with tracking toggle, address, and buttons
+// Booking Card UI — unchanged
 // ============================================================
 @Composable
 fun BookingCard(
@@ -388,7 +431,6 @@ fun BookingCard(
 
     Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(Modifier.padding(16.dp)) {
-            // ----- Top row: building + status -----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -433,7 +475,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // ----- Tracking toggle -----
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = if (isLocalToggleOn)
@@ -480,7 +521,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // ----- Action buttons -----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)

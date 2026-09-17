@@ -31,7 +31,7 @@ fun NavGraph(
     val authViewModel: AuthViewModel = viewModel()
     val productViewModel: ProductViewModel = viewModel()
     val quoteViewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context))
+        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
     )
 
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
@@ -49,7 +49,7 @@ fun NavGraph(
                 hasNavigated = false
                 navManager.navigateToLogin()
             }
-            else -> { /* Loading state */ }
+            else -> { }
         }
     }
 
@@ -57,9 +57,6 @@ fun NavGraph(
         navController = navController,
         startDestination = NavManager.Destination.Login.route
     ) {
-        // ==========================================
-        // AUTHENTICATION SCREENS
-        // ==========================================
         composable(NavManager.Destination.Login.route) {
             LoginScreen(
                 viewModel = authViewModel,
@@ -88,9 +85,6 @@ fun NavGraph(
             )
         }
 
-        // ==========================================
-        // MAIN APP (Role-Based Routing)
-        // ==========================================
         composable(NavManager.Destination.Main.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
@@ -108,9 +102,6 @@ fun NavGraph(
             )
         }
 
-        // ==========================================
-        // SHARED SCREENS
-        // ==========================================
         composable(NavManager.Destination.Products.route) {
             ProductListScreen(
                 viewModel = productViewModel,
@@ -155,9 +146,6 @@ fun NavGraph(
             )
         }
 
-        // ==========================================
-        // MANAGER SCREENS
-        // ==========================================
         composable(NavManager.Destination.AddBuilding.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid
@@ -188,15 +176,10 @@ fun NavGraph(
             )
         }
 
-
-
         composable(NavManager.Destination.BTUCalculator.route) {
             BTUCalculatorScreen(navManager = navManager)
         }
 
-        // ==========================================
-        // TECHNICIAN SCREENS
-        // ==========================================
         composable(NavManager.Destination.CreateQuote.route) { backStackEntry ->
             val requestId = backStackEntry.arguments?.getString("requestId")?.toIntOrNull() ?: 0
             val userId = when (authState) {

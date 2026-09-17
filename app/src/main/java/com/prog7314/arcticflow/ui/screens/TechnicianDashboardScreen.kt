@@ -34,7 +34,7 @@ fun TechnicianDashboardScreen(
 ) {
     val context = LocalContext.current
     val viewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context))
+        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
     )
     val notificationViewModel: NotificationViewModel = viewModel(
         factory = NotificationViewModel.Factory(context, userId)
@@ -86,7 +86,6 @@ fun TechnicianDashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ===== WELCOME =====
             item {
                 Column {
                     Text(
@@ -102,7 +101,6 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // ===== METRICS =====
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -145,7 +143,6 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // ===== PENDING REQUESTS BANNER =====
             if (pendingRequests.isNotEmpty()) {
                 item {
                     Card(
@@ -180,7 +177,6 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // ===== TODAY'S SCHEDULE =====
             item {
                 Text(
                     "Today's Schedule",

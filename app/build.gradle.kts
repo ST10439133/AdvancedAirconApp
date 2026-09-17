@@ -23,7 +23,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // ============================================================
-        // Read Supabase keys from local.properties (never committed)
+        // Read Supabase keys and API URL from local.properties
+        // (never committed to Git)
         // ============================================================
         val localProps = Properties()
         val localPropsFile = rootProject.file("local.properties")
@@ -33,9 +34,12 @@ android {
 
         val supabaseUrl = localProps.getProperty("SUPABASE_URL") ?: ""
         val supabaseAnonKey = localProps.getProperty("SUPABASE_ANON_KEY") ?: ""
+        val apiBaseUrl = localProps.getProperty("API_BASE_URL")
+            ?: "https://arcticflow-api-production.up.railway.app/"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {

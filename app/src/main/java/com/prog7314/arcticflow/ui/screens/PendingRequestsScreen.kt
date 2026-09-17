@@ -31,13 +31,12 @@ import java.util.*
 fun PendingRequestsScreen(navManager: NavManager) {
     val context = LocalContext.current
     val viewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context))
+        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
     )
 
     val requests by viewModel.getPendingServiceRequests()
         .collectAsState(initial = emptyList())
 
-    // 🔍 Debug: log every emission
     LaunchedEffect(requests) {
         Log.d("PendingRequestsScreen",
             "Received ${requests.size} pending requests")

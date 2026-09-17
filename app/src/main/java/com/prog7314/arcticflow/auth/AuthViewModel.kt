@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.prog7314.arcticflow.data.api.ApiClient
+import com.prog7314.arcticflow.data.api.UserSyncRequest
+import com.prog7314.arcticflow.data.api.safeApiCall
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -70,10 +73,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
-                // 1. Try local DB first
                 val existingUser = database.userDao().getUserById(firebaseUser.uid)
                 if (existingUser != null) {
                     _authState.value = AuthState.Authenticated(existingUser)
+                    syncUserToApi(existingUser)
                     return@launch
                 }
 
@@ -105,6 +108,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 database.userDao().insertUser(newUser)
                 _authState.value = AuthState.Authenticated(newUser)
+                syncUserToApi(newUser)
             } catch (e: Exception) {
                 _authState.value = AuthState.Error("Failed to load user data: ${e.message}")
             }
@@ -140,6 +144,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
                 _isLoading.value = false
                 _authState.value = AuthState.Authenticated(user)
+                syncUserToApi(user)
                 SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
@@ -189,12 +194,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
                 _isLoading.value = false
                 _authState.value = AuthState.Authenticated(user)
+                syncUserToApi(user)
                 SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
                 SignInResult(success = false, message = "Login failed")
             }
         } catch (e: Exception) {
+            // ❌ REMOVED the 3 bogus lines that referenced `user` here:
+            //    _isLoading.value = false
+            //    _authState.value = AuthState.Authenticated(user)   <-- error
+            //    syncUserToApi(user)                                 <-- error
+            //    SignInResult(success = true, user = user)           <-- error
+            //
+            // ✅ Correct catch behaviour: report the failure.
             _isLoading.value = false
             _authState.value = AuthState.Error(e.message ?: "Login failed")
             SignInResult(success = false, message = e.message)
@@ -222,6 +235,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _isLoading.value = false
                 _authState.value = AuthState.Authenticated(user)
+                syncUserToApi(user)
                 SignInResult(success = true, user = user)
             } else {
                 _isLoading.value = false
@@ -256,9 +270,34 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Mirrors the local User into the REST API and stores the JWT
+     * returned by POST /api/users/sync. Fails silently if the API
+     * is unreachable — the app keeps working offline.
+     */
+    private suspend fun syncUserToApi(user: User) {
+        val ctx = getApplication<Application>()
+        val api = ApiClient.get(ctx)
+        val response = safeApiCall("AuthViewModel") {
+            api.syncUser(
+                UserSyncRequest(
+                    uid = user.uid,
+                    email = user.email,
+                    displayName = user.displayName,
+                    role = user.role.name,
+                    phoneNumber = user.phoneNumber
+                )
+            )
+        }
+        if (response != null) {
+            ApiClient.saveToken(ctx, response.token)
+        }
+    }
+
     fun signOut() {
         auth.signOut()
         googleSignInClient.signOut()
+        ApiClient.clearToken(getApplication())
         _authState.value = AuthState.Unauthenticated
     }
 }

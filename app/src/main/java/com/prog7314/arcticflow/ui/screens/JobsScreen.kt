@@ -30,7 +30,7 @@ import java.util.*
 fun JobsScreen(userId: String, navManager: NavManager) {
     val context = LocalContext.current
     val viewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context))
+        factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
     )
 
     val jobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())

@@ -91,7 +91,7 @@ fun MainScreen(
                 // ============ MANAGER TABS ============
                 composable(BottomNavItem.Buildings.route) {
                     BuildingsScreen(
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database)),
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
                         userId = userId,
                         navManager = navManager
                     )
@@ -99,7 +99,7 @@ fun MainScreen(
 
                 composable(BottomNavItem.Quotes.route) {
                     QuotesListScreen(
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database)),
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
                         userId = userId,
                         isCustomer = true,
                         navManager = navManager
@@ -110,7 +110,7 @@ fun MainScreen(
                     ServicesScreen(
                         navManager = navManager,
                         userId = userId,
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database))
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context))
                     )
                 }
 
@@ -121,7 +121,7 @@ fun MainScreen(
                     )
                 }
 
-                // ============ TRACKING TAB (THIS WAS MISSING!) ============
+                // ============ TRACKING TAB ============
                 composable(BottomNavItem.Tracking.route) {
                     FieldTrackingScreen(
                         navManager = navManager,

@@ -1,16 +1,20 @@
 package com.prog7314.arcticflow.viewmodels
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.api.ApiRepository
+import com.prog7314.arcticflow.data.api.ApiClient
 import com.prog7314.arcticflow.data.entities.*
 import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat
 import java.util.*
 
 class QuoteViewModel(
-    private val database: ArcticFlowDatabase
+    private val database: ArcticFlowDatabase,
+    private val appContext: Context                 // 🔽 API SYNC (needed by ApiRepository)
 ) : ViewModel() {
 
     private val buildingDao = database.buildingDao()
@@ -23,7 +27,17 @@ class QuoteViewModel(
 
     // ==================== BUILDINGS ====================
     suspend fun addBuilding(userId: String, building: BuildingEntity): Long =
-        try { buildingDao.insertBuilding(building) } catch (e: Exception) { 0L }
+        try {
+            val id = buildingDao.insertBuilding(building)
+
+            // 🔽 API SYNC: push the new building to the REST API
+            ApiRepository.pushBuilding(
+                context = appContext,
+                building = building.copy(id = id.toInt())
+            )
+
+            id
+        } catch (e: Exception) { 0L }
 
     fun getBuildingsForUser(userId: String): Flow<List<BuildingEntity>> =
         try { buildingDao.getBuildingsByUser(userId) }
@@ -34,7 +48,20 @@ class QuoteViewModel(
 
     // ==================== SERVICE REQUESTS ====================
     suspend fun createServiceRequest(request: ServiceRequest): Long =
-        try { requestDao.insertRequest(request) } catch (e: Exception) { 0L }
+        try {
+            val id = requestDao.insertRequest(request)
+
+            // 🔽 API SYNC: resolve building name + address, then push to REST API
+            val building = try { buildingDao.getBuildingById(request.buildingId) } catch (_: Exception) { null }
+            ApiRepository.pushServiceRequest(
+                context = appContext,
+                request = request.copy(id = id.toInt()),
+                buildingName = building?.name,
+                fullAddress = building?.fullAddress
+            )
+
+            id
+        } catch (e: Exception) { 0L }
 
     fun getRequestsForUser(userId: String): Flow<List<ServiceRequest>> =
         try { requestDao.getRequestsByUser(userId) }
@@ -52,7 +79,12 @@ class QuoteViewModel(
         try { requestDao.getRequestById(requestId) } catch (e: Exception) { null }
 
     suspend fun updateRequestStatus(requestId: Int, status: RequestStatus) {
-        try { requestDao.updateRequestStatus(requestId, status) } catch (_: Exception) { }
+        try {
+            requestDao.updateRequestStatus(requestId, status)
+
+            // 🔽 API SYNC: mirror status change to the REST API
+            ApiRepository.updateRequestStatus(appContext, requestId, status.name)
+        } catch (_: Exception) { }
     }
 
     suspend fun updateServiceRequest(request: ServiceRequest) {
@@ -65,12 +97,19 @@ class QuoteViewModel(
 
     // ==================== QUOTES ====================
     suspend fun createQuote(quote: Quote): Long =
-        try { quoteDao.insertQuote(quote) } catch (e: Exception) { 0L }
+        try {
+            val id = quoteDao.insertQuote(quote)
+
+            // 🔽 API SYNC: push the new quote to the REST API
+            ApiRepository.pushQuote(appContext, quote.copy(id = id.toInt()))
+
+            id
+        } catch (e: Exception) { 0L }
 
     suspend fun createQuoteForRequest(
         requestId: Int,
         technicianId: String,
-        customerId: String,                     // ← NEW: explicit customer link
+        customerId: String,                     // ← explicit customer link
         serviceName: String,
         serviceFee: Double,
         lineItems: List<Pair<String, Pair<Int, Double>>>,
@@ -87,7 +126,7 @@ class QuoteViewModel(
         val quote = Quote(
             requestId = requestId,
             technicianId = technicianId,
-            customerId = customerId.ifBlank { request.userId },  // use passed value, or fallback
+            customerId = customerId.ifBlank { request.userId },
             buildingName = request.buildingName,
             issueType = request.issueType,
             description = request.description,
@@ -99,8 +138,12 @@ class QuoteViewModel(
             grandTotal = total,
             notes = notes
         )
-        val quoteId = createQuote(quote)
+        val quoteId = createQuote(quote)          // 🔽 API push happens inside createQuote()
         requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
+
+        // 🔽 API SYNC: reflect the QUOTED status on the request too
+        ApiRepository.updateRequestStatus(appContext, requestId, RequestStatus.QUOTED.name)
+
         createNotification(
             userId = quote.customerId,
             title = "New Quote Received",
@@ -125,6 +168,10 @@ class QuoteViewModel(
     suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
+
+            // 🔽 API SYNC
+            ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+
             if (status == QuoteStatus.ACCEPTED) {
                 val quote = quoteDao.getQuoteById(quoteId)
                 quote?.let { createJobFromQuoteWithSchedule(it, null, null) }
@@ -140,6 +187,10 @@ class QuoteViewModel(
     ) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
+
+            // 🔽 API SYNC
+            ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+
             val quote = quoteDao.getQuoteById(quoteId) ?: return
 
             when (status) {
@@ -154,6 +205,9 @@ class QuoteViewModel(
                         type = NotificationType.QUOTE
                     )
                     requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
+
+                    // 🔽 API SYNC: reflect PENDING on the request
+                    ApiRepository.updateRequestStatus(appContext, quote.requestId, RequestStatus.PENDING.name)
                 }
                 else -> { }
             }
@@ -174,7 +228,6 @@ class QuoteViewModel(
                 return
             }
 
-            // Look up the address from the original service request.
             val request = requestDao.getRequestById(quote.requestId)
             val jobAddress = request?.fullAddress.orEmpty()
 
@@ -194,6 +247,10 @@ class QuoteViewModel(
             )
 
             val newJobId = jobDao.insertJob(job)
+
+            // 🔽 API SYNC: push the new job to the REST API
+            ApiRepository.pushJob(appContext, job.copy(id = newJobId.toInt()))
+
             Log.d(
                 TAG,
                 "Job created: roomId=$newJobId tech=${quote.technicianId} " +
@@ -201,6 +258,9 @@ class QuoteViewModel(
             )
 
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
+
+            // 🔽 API SYNC
+            ApiRepository.updateRequestStatus(appContext, quote.requestId, RequestStatus.ACCEPTED.name)
 
             val dateStr = scheduledDate?.let { formatDate(it) } ?: "TBD"
             createNotification(
@@ -229,28 +289,20 @@ class QuoteViewModel(
         catch (e: Exception) { flow { emit(emptyList()) } }
 
     suspend fun updateJobStatus(jobId: Int, status: JobStatus) {
-        try { jobDao.updateJobStatus(jobId, status) } catch (_: Exception) { }
+        try {
+            jobDao.updateJobStatus(jobId, status)
+
+            // 🔽 API SYNC
+            ApiRepository.updateJobStatus(appContext, jobId, status.name)
+        } catch (_: Exception) { }
     }
 
     suspend fun getJobById(jobId: Int): Job? =
         try { jobDao.getJobById(jobId) } catch (e: Exception) { null }
 
-    /**
-     * Resolves the best available address for a job by walking the chain:
-     *
-     *   1. Job.fullAddress            (fastest, if populated)
-     *   2. ServiceRequest.fullAddress (via job.requestId)
-     *   3. Building's fullAddress     (via request.buildingId)
-     *   4. Compose from Building's individual fields (address/suburb/city/province/postal)
-     *   5. Legacy Building.address + Building.city + Building.postalCode
-     *
-     * Returns an empty string only if truly nothing is available.
-     */
     suspend fun resolveJobAddress(job: Job): String {
-        // 1. Direct hit on the job
         if (job.fullAddress.isNotBlank()) return job.fullAddress.trim()
 
-        // 2. Look up the service request
         val request = try {
             requestDao.getRequestById(job.requestId)
         } catch (e: Exception) {
@@ -261,7 +313,6 @@ class QuoteViewModel(
         if (request != null) {
             if (request.fullAddress.isNotBlank()) return request.fullAddress.trim()
 
-            // 3. Look up the building
             val building = try {
                 buildingDao.getBuildingById(request.buildingId)
             } catch (e: Exception) {
@@ -270,10 +321,8 @@ class QuoteViewModel(
             }
 
             if (building != null) {
-                // 4. Cached building fullAddress
                 if (building.fullAddress.isNotBlank()) return building.fullAddress.trim()
 
-                // 4b. Compose from individual building fields
                 val composed = listOf(
                     building.address,
                     building.suburb,
@@ -287,7 +336,6 @@ class QuoteViewModel(
 
                 if (composed.isNotBlank()) return composed
 
-                // 5. Legacy fallback
                 val legacy = listOf(building.address, building.city, building.postalCode)
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
@@ -303,6 +351,10 @@ class QuoteViewModel(
     suspend fun setTechnicianOnWay(jobId: Int, onWay: Boolean) {
         try {
             jobDao.updateTechnicianOnWay(jobId, onWay)
+
+            // 🔽 API SYNC: mirror the "on my way" flag
+            ApiRepository.setJobOnWay(appContext, jobId, onWay)
+
             val job = jobDao.getJobById(jobId) ?: return
             if (onWay) {
                 createNotification(
@@ -339,12 +391,12 @@ class QuoteViewModel(
         SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
 
     companion object {
-        fun Factory(database: ArcticFlowDatabase): ViewModelProvider.Factory =
+        fun Factory(database: ArcticFlowDatabase, context: Context): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     if (modelClass.isAssignableFrom(QuoteViewModel::class.java)) {
-                        return QuoteViewModel(database) as T
+                        return QuoteViewModel(database, context.applicationContext) as T
                     }
                     throw IllegalArgumentException("Unknown ViewModel class")
                 }

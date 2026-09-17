@@ -1,90 +1,82 @@
 package com.prog7314.arcticflow.viewmodels
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.prog7314.arcticflow.data.ArcticFlowDatabase
-import com.prog7314.arcticflow.data.entities.TechLocation
-import com.prog7314.arcticflow.data.network.LocationTrackingManager
+import com.prog7314.arcticflow.data.api.ApiRepository
+import com.prog7314.arcticflow.data.api.TechLocationDto
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class ManagerTrackingViewModel(
-    private val database: ArcticFlowDatabase,
-    private val managerId: String       // = customer UID
-) : ViewModel() {
+// ============================================================
+// Polls GET /api/locations every 5 seconds and exposes the
+// list of active technicians as a StateFlow. Replaces the
+// previous Firestore-based live-tracking implementation.
+//
+// Usage (from a Composable):
+//   val vm: ManagerTrackingViewModel = viewModel()
+//   val techs by vm.technicians.collectAsStateWithLifecycle()
+//   LaunchedEffect(Unit) { vm.startPolling(customerId = null) }
+//   DisposableEffect(Unit) { onDispose { vm.stopPolling() } }
+// ============================================================
+class ManagerTrackingViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _activeLocations = MutableStateFlow<List<TechLocation>>(emptyList())
-    val activeLocations: StateFlow<List<TechLocation>> = _activeLocations.asStateFlow()
+    private val TAG = "ManagerTrackingVM"
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _technicians = MutableStateFlow<List<TechLocationDto>>(emptyList())
+    val technicians: StateFlow<List<TechLocationDto>> = _technicians.asStateFlow()
 
-    private val _debugMessage = MutableStateFlow("")
-    val debugMessage: StateFlow<String> = _debugMessage.asStateFlow()
+    private val _lastUpdated = MutableStateFlow(0L)
+    val lastUpdated: StateFlow<Long> = _lastUpdated.asStateFlow()
 
-    init {
-        startTracking()
-    }
+    private val _isPolling = MutableStateFlow(false)
+    val isPolling: StateFlow<Boolean> = _isPolling.asStateFlow()
 
-    private fun startTracking() {
-        viewModelScope.launch {
-            try {
-                Log.d("ManagerTracking", "=== START managerId=$managerId ===")
+    private var pollJob: Job? = null
 
-                // 1. Load this customer's jobs from Room
-                val jobs = try {
-                    database.jobDao().getJobsByCustomer(managerId).first()
-                } catch (e: Exception) {
-                    Log.e("ManagerTracking", "Jobs lookup failed", e)
-                    emptyList()
-                }
-
-                val technicianIds: Set<String> = jobs
-                    .mapNotNull { it.technicianId.takeIf { id -> id.isNotBlank() } }
-                    .toSet()
-
-                val jobIds: Set<Int> = jobs.map { it.id }.toSet()
-
-                Log.d("ManagerTracking",
-                    "Customer has ${jobs.size} jobs → techs=$technicianIds jobIds=$jobIds")
-
-                _debugMessage.value =
-                    "Jobs: ${jobs.size} | Techs: ${technicianIds.size}"
-
-                // 2. Stream Firestore. We pass customerId + jobIds so the
-                //    filter is very precise. If techIds is empty, that's OK —
-                //    we still filter by customerId + jobId.
-                LocationTrackingManager
-                    .streamActiveLocations(
-                        customerId = managerId,
-                        technicianIds = technicianIds.ifEmpty { null },
-                        jobIds = jobIds.ifEmpty { null }
+    /**
+     * Start polling the REST API.
+     *
+     * @param customerId  when non-null, only returns the technician assigned
+     *                    to that customer (used by the customer's tracking screen).
+     *                    Pass null for the manager view (all technicians).
+     */
+    fun startPolling(customerId: String? = null) {
+        if (pollJob?.isActive == true) return
+        _isPolling.value = true
+        pollJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    val list = ApiRepository.fetchLocations(getApplication(), customerId)
+                    _technicians.value = list
+                    _lastUpdated.value = System.currentTimeMillis()
+                    Log.d(
+                        TAG,
+                        "polled ${list.size} active technicians" +
+                                if (customerId != null) " for customer=$customerId" else ""
                     )
-                    .collect { locations ->
-                        Log.d("ManagerTracking",
-                            "Live update: ${locations.size} active locations")
-                        _activeLocations.value = locations
-                        _isLoading.value = false
-                    }
-            } catch (e: Exception) {
-                Log.e("ManagerTracking", "Tracking failed", e)
-                _isLoading.value = false
+                } catch (e: Exception) {
+                    Log.w(TAG, "poll failed: ${e.message}")
+                }
+                delay(5_000L)
             }
         }
     }
 
-    companion object {
-        fun Factory(database: ArcticFlowDatabase, managerId: String): ViewModelProvider.Factory =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return ManagerTrackingViewModel(database, managerId) as T
-                }
-            }
+    fun stopPolling() {
+        pollJob?.cancel()
+        pollJob = null
+        _isPolling.value = false
+    }
+
+    override fun onCleared() {
+        stopPolling()
+        super.onCleared()
     }
 }
