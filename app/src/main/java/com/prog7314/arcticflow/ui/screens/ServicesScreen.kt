@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,13 +32,26 @@ import java.util.*
 fun ServicesScreen(
     navManager: NavManager,
     userId: String,
-    viewModel: QuoteViewModel
+    viewModel: QuoteViewModel,
+    onBackToDashboard: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Request Service", "Service History")
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Services") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Services") },
+                navigationIcon = {
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                }
+            )
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -164,9 +178,11 @@ fun RequestServiceTab(
                             text = {
                                 Column {
                                     Text(b.name, fontWeight = FontWeight.Bold)
-                                    Text(b.address,
+                                    Text(
+                                        b.address,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
@@ -211,9 +227,11 @@ fun RequestServiceTab(
 
         // ===== PRIORITY =====
         Column {
-            Text("Priority Level",
+            Text(
+                "Priority Level",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 RequestPriority.values().forEach { p ->
@@ -229,7 +247,8 @@ fun RequestServiceTab(
 
         // ===== DATE =====
         OutlinedTextField(
-            value = preferredDate?.let { dateFormat.format(Date(it)) } ?: "Select preferred date",
+            value = preferredDate?.let { dateFormat.format(Date(it)) }
+                ?: "Select preferred date",
             onValueChange = {},
             readOnly = true,
             label = { Text("Preferred Date") },
@@ -287,9 +306,11 @@ fun RequestServiceTab(
                         )
                         val id = viewModel.createServiceRequest(request)
                         if (id > 0L) {
-                            Toast.makeText(context,
+                            Toast.makeText(
+                                context,
                                 "Request submitted! Technicians will see it now.",
-                                Toast.LENGTH_LONG).show()
+                                Toast.LENGTH_LONG
+                            ).show()
                             selectedBuilding = null
                             selectedServiceType = ""
                             selectedPriority = RequestPriority.MEDIUM
@@ -312,7 +333,9 @@ fun RequestServiceTab(
                     description.isNotBlank()
         ) {
             if (isSubmitting) CircularProgressIndicator(
-                Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                Modifier.size(20.dp),
+                color = MaterialTheme.colorScheme.onPrimary
+            )
             else Text("Submit Request")
         }
     }

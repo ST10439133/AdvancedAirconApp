@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/screens/QuotesListScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import androidx.compose.foundation.clickable
@@ -26,7 +27,8 @@ fun QuotesListScreen(
     viewModel: QuoteViewModel,
     userId: String,
     isCustomer: Boolean,
-    navManager: NavManager
+    navManager: NavManager,
+    onBackToDashboard: () -> Unit
 ) {
     val quotes by (if (isCustomer) viewModel.getQuotesForCustomer(userId)
     else viewModel.getQuotesForTechnician(userId))
@@ -37,25 +39,38 @@ fun QuotesListScreen(
             TopAppBar(
                 title = { Text(if (isCustomer) "My Quotes" else "Sent Quotes") },
                 navigationIcon = {
-                    IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
                     }
                 }
             )
         }
     ) { padding ->
         if (quotes.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No quotes yet",
+            Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "No quotes yet",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(quotes, key = { it.id }) { quote -> QuoteRow(quote) { } }
+                items(quotes, key = { it.id }) { quote ->
+                    QuoteRow(quote) { }
+                }
             }
         }
     }
@@ -64,38 +79,63 @@ fun QuotesListScreen(
 @Composable
 fun QuoteRow(quote: Quote, onClick: () -> Unit) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(),
+            Row(
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Quote #${quote.id}", style = MaterialTheme.typography.titleSmall,
+                    Text(
+                        "Quote #${quote.id}",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    Text(quote.buildingName, style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text(quote.issueType, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Created: ${dateFormat.format(Date(quote.createdAt))}",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        quote.buildingName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        quote.issueType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Created: ${dateFormat.format(Date(quote.createdAt))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Badge(containerColor = when (quote.status) {
-                    QuoteStatus.PENDING -> Color(0xFFFF9800)
-                    QuoteStatus.ACCEPTED -> Color(0xFF4CAF50)
-                    QuoteStatus.DECLINED -> Color(0xFFF44336)
-                    QuoteStatus.EXPIRED -> Color.Gray
-                }) { Text(quote.status.name, color = Color.White) }
+
+                Badge(
+                    containerColor = when (quote.status) {
+                        QuoteStatus.PENDING  -> Color(0xFFFF9800)
+                        QuoteStatus.ACCEPTED -> Color(0xFF4CAF50)
+                        QuoteStatus.DECLINED -> Color(0xFFF44336)
+                        QuoteStatus.EXPIRED  -> Color.Gray
+                    }
+                ) {
+                    Text(quote.status.name, color = Color.White)
+                }
             }
+
             Spacer(Modifier.height(4.dp))
-            Text("Total: R${String.format("%.2f", quote.grandTotal)}",
+
+            Text(
+                "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

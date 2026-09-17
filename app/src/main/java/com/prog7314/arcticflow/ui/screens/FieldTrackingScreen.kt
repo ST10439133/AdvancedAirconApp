@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
@@ -21,9 +22,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import com.prog7314.arcticflow.data.api.TechLocationDto          // 🔽 API SYNC
+import com.prog7314.arcticflow.data.api.TechLocationDto
 import com.prog7314.arcticflow.navigation.NavManager
-import com.prog7314.arcticflow.viewmodels.ManagerTrackingViewModel // 🔽 API SYNC
+import com.prog7314.arcticflow.viewmodels.ManagerTrackingViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,14 +32,13 @@ import java.util.*
 @Composable
 fun FieldTrackingScreen(
     navManager: NavManager,
-    managerId: String               // kept for signature compatibility — API doesn't need it
+    onBackToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
 
-    // 🔽 API SYNC — new polling ViewModel (no Room, no Firestore)
+    // API SYNC — polling ViewModel (no Room, no Firestore)
     val viewModel: ManagerTrackingViewModel = viewModel()
 
-    // 🔽 API SYNC — `technicians` comes from GET /api/locations via the ViewModel
     val technicians by viewModel.technicians.collectAsStateWithLifecycle()
     val isLoading by viewModel.isPolling.collectAsStateWithLifecycle()
 
@@ -77,6 +77,14 @@ fun FieldTrackingScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Technician Tracking") },
+                navigationIcon = {
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { /* ViewModel auto-refreshes every 5s */ }) {
                         Icon(Icons.Default.Refresh, "Refresh")
@@ -100,7 +108,6 @@ fun FieldTrackingScreen(
                     myLocationButtonEnabled = false
                 )
             ) {
-                // 🔽 API SYNC — iterate technicians from the REST API
                 technicians.forEach { tech ->
                     Marker(
                         state = MarkerState(
@@ -117,10 +124,14 @@ fun FieldTrackingScreen(
                         icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
                             .defaultMarker(
                                 when (tech.status) {
-                                    "on_the_way", "ON_MY_WAY" -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
-                                    "on_site"                 -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
-                                    "completed"               -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET
-                                    else                      -> com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
+                                    "on_the_way", "ON_MY_WAY" ->
+                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
+                                    "on_site" ->
+                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
+                                    "completed" ->
+                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET
+                                    else ->
+                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
                                 }
                             )
                     )

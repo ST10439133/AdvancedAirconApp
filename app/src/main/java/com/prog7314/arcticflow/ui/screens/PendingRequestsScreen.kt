@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material3.*
@@ -28,7 +29,10 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PendingRequestsScreen(navManager: NavManager) {
+fun PendingRequestsScreen(
+    navManager: NavManager,
+    onBackToDashboard: () -> Unit
+) {
     val context = LocalContext.current
     val viewModel: QuoteViewModel = viewModel(
         factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
@@ -48,7 +52,17 @@ fun PendingRequestsScreen(navManager: NavManager) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Job Requests") })
+            TopAppBar(
+                title = { Text("Job Requests") },
+                navigationIcon = {
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                }
+            )
         }
     ) { padding ->
         if (requests.isEmpty()) {
@@ -57,15 +71,21 @@ fun PendingRequestsScreen(navManager: NavManager) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Inbox, null, Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(
+                        Icons.Default.Inbox, null, Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(Modifier.height(8.dp))
-                    Text("No pending requests",
+                    Text(
+                        "No pending requests",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("New manager requests will appear here.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "New manager requests will appear here.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         } else {
@@ -100,28 +120,38 @@ fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(request.buildingName,
+                    Text(
+                        request.buildingName,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text(request.issueType,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        request.issueType,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary)
-                    Text(request.description,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        request.description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2)
+                        maxLines = 2
+                    )
                     request.preferredDate?.let {
-                        Text("Preferred: ${dateFormat.format(Date(it))}",
+                        Text(
+                            "Preferred: ${dateFormat.format(Date(it))}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                Badge(containerColor = when (request.priority) {
-                    RequestPriority.URGENT -> Color.Red
-                    RequestPriority.HIGH -> Color(0xFFFF9800)
-                    RequestPriority.MEDIUM -> Color(0xFF2196F3)
-                    RequestPriority.LOW -> Color(0xFF4CAF50)
-                }) { Text(request.priority.name, color = Color.White) }
+                Badge(
+                    containerColor = when (request.priority) {
+                        RequestPriority.URGENT -> Color.Red
+                        RequestPriority.HIGH   -> Color(0xFFFF9800)
+                        RequestPriority.MEDIUM -> Color(0xFF2196F3)
+                        RequestPriority.LOW    -> Color(0xFF4CAF50)
+                    }
+                ) { Text(request.priority.name, color = Color.White) }
             }
 
             Spacer(Modifier.height(12.dp))

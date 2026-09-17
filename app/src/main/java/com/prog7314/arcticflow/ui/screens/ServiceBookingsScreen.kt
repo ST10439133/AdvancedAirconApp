@@ -26,13 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
-import com.prog7314.arcticflow.data.api.ApiRepository             // 🔽 API SYNC
+import com.prog7314.arcticflow.data.api.ApiRepository
 import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.data.entities.TechLocation
 import com.prog7314.arcticflow.data.network.LocationTrackingManager
 import com.prog7314.arcticflow.navigation.NavManager
-import com.prog7314.arcticflow.ui.components.LocationPusher       // 🔽 API SYNC
+import com.prog7314.arcticflow.ui.components.LocationPusher
 import com.prog7314.arcticflow.utils.LocationHelper
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
@@ -43,24 +43,25 @@ import java.util.*
 @Composable
 fun ServiceBookingsScreen(
     userId: String,
-    navManager: NavManager
+    navManager: NavManager,
+    onBackToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
     val viewModel: QuoteViewModel = viewModel(
-        factory = QuoteViewModel.Factory(database, context)   // 🔽 API SYNC: pass context
+        factory = QuoteViewModel.Factory(database, context)
     )
 
     val allJobs by viewModel.getJobsForTechnician(userId)
         .collectAsState(initial = emptyList())
 
-    // 🔽 API SYNC: active tracking job (the one with technicianOnWay = true)
+    // Active tracking job (the one with technicianOnWay = true)
     val activeTrackingJob = remember(allJobs) {
         allJobs.firstOrNull { it.technicianOnWay }
     }
 
-    // 🔽 API SYNC: push technician GPS to the REST API while any job is being tracked
+    // Push technician GPS to the REST API while any job is being tracked
     if (activeTrackingJob != null) {
         LocationPusher(
             enabled = true,
@@ -169,8 +170,11 @@ fun ServiceBookingsScreen(
             TopAppBar(
                 title = { Text("Service Bookings") },
                 navigationIcon = {
-                    IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
                     }
                 }
             )
@@ -242,7 +246,7 @@ fun ServiceBookingsScreen(
                                         viewModel.setTechnicianOnWay(job.id, false)
                                         LocationTrackingManager.stopTracking(userId)
 
-                                        // 🔽 API SYNC: remove the technician from the API's active list
+                                        // Remove the technician from the API's active list
                                         ApiRepository.stopTracking(context, job.technicianId)
 
                                         Toast.makeText(context, "Tracking stopped", Toast.LENGTH_SHORT).show()
@@ -301,7 +305,6 @@ private suspend fun startTrackingForJob(
     }
 
     // Persist the "on my way" flag in Room — this also mirrors to the API
-    // because we updated QuoteViewModel.setTechnicianOnWay()
     viewModel.setTechnicianOnWay(job.id, true)
 
     // Existing Firestore-based tracking
@@ -320,8 +323,7 @@ private suspend fun startTrackingForJob(
 
     val ok = LocationTrackingManager.updateLocation(techLocation)
 
-    // 🔽 API SYNC: push the initial GPS fix to the REST API immediately
-    // (so the manager sees the tech right away, not after the first 10s poll)
+    // Push the initial GPS fix to the REST API immediately
     ApiRepository.pushLocation(
         context = context,
         technicianId = technicianId,
@@ -408,7 +410,7 @@ private suspend fun openMapForJob(
 }
 
 // ============================================================
-// Booking Card UI — unchanged
+// Booking Card UI
 // ============================================================
 @Composable
 fun BookingCard(
@@ -464,11 +466,11 @@ fun BookingCard(
                 }
                 Badge(
                     containerColor = when (job.status) {
-                        JobStatus.COMPLETED -> Color(0xFF4CAF50)
+                        JobStatus.COMPLETED   -> Color(0xFF4CAF50)
                         JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
-                        JobStatus.SCHEDULED -> Color(0xFF03A9F4)
-                        JobStatus.PENDING -> Color(0xFFFF9800)
-                        else -> Color(0xFF9E9E9E)
+                        JobStatus.SCHEDULED   -> Color(0xFF03A9F4)
+                        JobStatus.PENDING     -> Color(0xFFFF9800)
+                        else                  -> Color(0xFF9E9E9E)
                     }
                 ) { Text(job.status.name, color = Color.White) }
             }

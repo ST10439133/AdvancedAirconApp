@@ -37,8 +37,8 @@ interface ServiceRequestDao {
     suspend fun getRequestById(requestId: Int): ServiceRequest?
 
     // CRITICAL: Get ALL pending requests (Technician sees these - no userId filter)
-    @Query("SELECT * FROM service_requests WHERE status = 'PENDING' ORDER BY createdAt DESC")
-    fun getPendingRequests(): Flow<List<ServiceRequest>>
+    @Query("SELECT * FROM service_requests WHERE status = :status ORDER BY createdAt DESC")
+    fun getPendingRequests(status: RequestStatus = RequestStatus.PENDING): Flow<List<ServiceRequest>>
 
     // Filter by any status
     @Query("SELECT * FROM service_requests WHERE status = :status ORDER BY createdAt DESC")

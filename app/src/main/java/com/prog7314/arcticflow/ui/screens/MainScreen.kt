@@ -36,6 +36,22 @@ fun MainScreen(
 
     val startDestination = BottomNavItem.Dashboard.route
 
+    // ------------------------------------------------------------------
+    // navigateToDashboard — used by every sub-screen's back arrow.
+    // Navigates the INNER bottom-nav controller back to Dashboard without
+    // recreating MainScreen, so tab state is preserved.
+    // ------------------------------------------------------------------
+    val navigateToDashboard: () -> Unit = {
+        bottomNavController.navigate(BottomNavItem.Dashboard.route) {
+            popUpTo(bottomNavController.graph.startDestinationId) {
+                inclusive = false
+                saveState = false
+            }
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -93,7 +109,8 @@ fun MainScreen(
                     BuildingsScreen(
                         viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
                         userId = userId,
-                        navManager = navManager
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
@@ -102,7 +119,8 @@ fun MainScreen(
                         viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
                         userId = userId,
                         isCustomer = true,
-                        navManager = navManager
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
@@ -110,14 +128,16 @@ fun MainScreen(
                     ServicesScreen(
                         navManager = navManager,
                         userId = userId,
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context))
+                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
                 composable(BottomNavItem.Products.route) {
                     ProductListScreen(
                         viewModel = viewModel(),
-                        navManager = navManager
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
@@ -125,26 +145,31 @@ fun MainScreen(
                 composable(BottomNavItem.Tracking.route) {
                     FieldTrackingScreen(
                         navManager = navManager,
-                        managerId = userId
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
                 // ============ TECHNICIAN TABS ============
                 composable(BottomNavItem.Requests.route) {
-                    PendingRequestsScreen(navManager = navManager)
+                    PendingRequestsScreen(
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
+                    )
                 }
 
                 composable(BottomNavItem.Bookings.route) {
                     ServiceBookingsScreen(
                         userId = userId,
-                        navManager = navManager
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
 
                 composable(BottomNavItem.Jobs.route) {
                     JobsScreen(
                         userId = userId,
-                        navManager = navManager
+                        navManager = navManager,
+                        onBackToDashboard = navigateToDashboard
                     )
                 }
             }

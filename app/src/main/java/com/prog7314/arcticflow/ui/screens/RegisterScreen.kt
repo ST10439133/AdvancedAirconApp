@@ -17,6 +17,7 @@ import com.prog7314.arcticflow.data.entities.UserRole
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.navigation.NavManager
+import androidx.compose.ui.text.input.VisualTransformation
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,7 +101,7 @@ fun RegisterScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = if (showPassword) PasswordVisualTransformation() else PasswordVisualTransformation(),
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 TextButton(onClick = { showPassword = !showPassword }) {
                     Text(if (showPassword) "Hide" else "Show")

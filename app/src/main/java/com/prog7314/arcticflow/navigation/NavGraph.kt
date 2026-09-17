@@ -105,7 +105,8 @@ fun NavGraph(
         composable(NavManager.Destination.Products.route) {
             ProductListScreen(
                 viewModel = productViewModel,
-                navManager = navManager
+                navManager = navManager,
+                onBackToDashboard = { navManager.navigateToMain() }
             )
         }
 
@@ -203,7 +204,8 @@ fun NavGraph(
                 viewModel = quoteViewModel,
                 userId = userId,
                 isCustomer = true,
-                navManager = navManager
+                navManager = navManager,
+                onBackToDashboard = { navManager.navigateToMain() }
             )
         }
 
@@ -216,7 +218,8 @@ fun NavGraph(
                 viewModel = quoteViewModel,
                 userId = userId,
                 isCustomer = false,
-                navManager = navManager
+                navManager = navManager,
+                onBackToDashboard = { navManager.navigateToMain() }
             )
         }
 
@@ -227,7 +230,8 @@ fun NavGraph(
             }
             ServiceBookingsScreen(
                 userId = userId,
-                navManager = navManager
+                navManager = navManager,
+                onBackToDashboard = { navManager.navigateToMain() }
             )
         }
 

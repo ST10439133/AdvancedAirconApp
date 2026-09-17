@@ -30,8 +30,6 @@ import com.prog7314.arcticflow.data.network.SupabaseManager
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.openPdfInViewer
 import com.prog7314.arcticflow.viewmodels.ProductViewModel
-import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 // ============================================================
@@ -58,7 +56,8 @@ fun Product.fullBrochureUrl(): String = fullAssetUrl(brochurePath)
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
-    navManager: NavManager
+    navManager: NavManager,
+    onBackToDashboard: () -> Unit
 ) {
     val products by viewModel.products.collectAsStateWithLifecycle(initialValue = emptyList())
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -66,17 +65,16 @@ fun ProductListScreen(
     val sortType by viewModel.sortType.collectAsStateWithLifecycle()
     var expanded by remember { mutableStateOf(false) }
     var selectedBrand by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Products") },
                 navigationIcon = {
-                    IconButton(onClick = { navManager.navigateBack() }) {
+                    IconButton(onClick = onBackToDashboard) {
                         Icon(
-                            androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
                         )
                     }
                 },
@@ -228,7 +226,6 @@ fun ProductCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (imageFailed) {
-                    // Fallback: placeholder icon
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -297,7 +294,6 @@ fun ProductCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Catalogue button
                 if (product.brochurePath.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     TextButton(

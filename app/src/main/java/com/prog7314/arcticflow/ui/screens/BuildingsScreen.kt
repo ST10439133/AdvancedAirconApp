@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,9 +24,11 @@ import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 fun BuildingsScreen(
     viewModel: QuoteViewModel,
     userId: String,
-    navManager: NavManager
+    navManager: NavManager,
+    onBackToDashboard: () -> Unit
 ) {
-    val buildings by viewModel.getBuildingsForUser(userId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val buildings by viewModel.getBuildingsForUser(userId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredBuildings = if (searchQuery.isEmpty()) {
@@ -41,6 +44,14 @@ fun BuildingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Buildings") },
+                navigationIcon = {
+                    IconButton(onClick = onBackToDashboard) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { navManager.navigateToAddBuilding() }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Building")
@@ -55,7 +66,6 @@ fun BuildingsScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -83,7 +93,9 @@ fun BuildingsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (searchQuery.isNotEmpty()) "No buildings match your search" else "No Buildings",
+                            text = if (searchQuery.isNotEmpty())
+                                "No buildings match your search"
+                            else "No Buildings",
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
