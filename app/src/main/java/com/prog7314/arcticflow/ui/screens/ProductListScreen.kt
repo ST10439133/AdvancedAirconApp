@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,6 +81,7 @@ fun ProductListScreen(
                     }
                 },
                 actions = {
+                    // Settings icon stays — BTU action moved below into a tab
                     IconButton(onClick = { navManager.navigateToSettings() }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -93,6 +95,30 @@ fun ProductListScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // ============================================================
+            // BTU CALCULATOR TAB — sits above the filters
+            // ============================================================
+            FilledTonalButton(
+                onClick = { navManager.navigateToBTUCalculator() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Calculate,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "BTU Calculator",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // ===== Search =====
             OutlinedTextField(
                 value = searchQuery,
@@ -149,7 +175,7 @@ fun ProductListScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // ===== Sort chips (horizontally scrollable) =====
+            // ===== Sort chips (scrollable) =====
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,7 +266,7 @@ fun ProductListScreen(
 }
 
 // ============================================================
-// PRODUCT CARD — "View Catalogue" removed
+// PRODUCT CARD
 // ============================================================
 
 @Composable
@@ -337,7 +363,9 @@ fun ProductCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "${product.btu} BTU | ⭐ ${String.format(Locale.US, "%.1f", product.rating)}",
+                    text = "${product.btu} BTU | ⭐ ${
+                        String.format(Locale.US, "%.1f", product.rating)
+                    }",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
