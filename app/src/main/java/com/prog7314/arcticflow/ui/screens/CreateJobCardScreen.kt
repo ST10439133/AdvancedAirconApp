@@ -36,8 +36,9 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
+import com.prog7314.arcticflow.data.CatalogPart
+import com.prog7314.arcticflow.data.PartCatalog
 import com.prog7314.arcticflow.data.entities.Job
-import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.data.entities.PartItem
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.JobCardViewModel
@@ -62,12 +63,17 @@ fun CreateJobCardScreen(
     var currentJob by remember { mutableStateOf<Job?>(null) }
     var workSummary by remember { mutableStateOf("") }
     var additionalNotes by remember { mutableStateOf("") }
-    var parts by remember { mutableStateOf(listOf(PartItem())) }
+    var parts by remember { mutableStateOf(listOf<PartItem>()) }
     var startTime by remember { mutableStateOf<Long?>(null) }
     var endTime by remember { mutableStateOf<Long?>(null) }
     var photoPaths by remember { mutableStateOf(listOf<String>()) }
     var isSubmitting by remember { mutableStateOf(false) }
     var pendingCameraFile by remember { mutableStateOf<File?>(null) }
+
+    // ---- Catalog part picker (mirrors CreateQuoteScreen) ----
+    var selectedCatalogPart by remember { mutableStateOf<CatalogPart?>(null) }
+    var partQtyStr by remember { mutableStateOf("1") }
+    var partDropdownExpanded by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -102,7 +108,7 @@ fun CreateJobCardScreen(
         existing?.let {
             workSummary = it.workSummary
             additionalNotes = it.additionalNotes
-            parts = it.partsUsed.ifEmpty { listOf(PartItem()) }
+            parts = it.partsUsed
             startTime = it.startTime
             endTime = it.endTime
             photoPaths = it.photoPaths
@@ -136,6 +142,7 @@ fun CreateJobCardScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Job summary card
             currentJob?.let { job ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -144,13 +151,18 @@ fun CreateJobCardScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Job #${job.id}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Job #${job.id}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text("Building: ${job.buildingName}", style = MaterialTheme.typography.bodySmall)
                         Text("Issue: ${job.issueType}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
 
+            // Work summary
             OutlinedTextField(
                 value = workSummary,
                 onValueChange = { workSummary = it },
@@ -161,10 +173,14 @@ fun CreateJobCardScreen(
                 enabled = !isSubmitting
             )
 
-            // Job Site Photos
+            // Photos
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Job Site Photos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Job Site Photos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(photoPaths) { path ->
@@ -182,9 +198,17 @@ fun CreateJobCardScreen(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .size(24.dp)
-                                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(50))
+                                        .background(
+                                            Color.Black.copy(alpha = 0.5f),
+                                            RoundedCornerShape(50)
+                                        )
                                 ) {
-                                    Icon(Icons.Default.Close, "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Icon(
+                                        Icons.Default.Close,
+                                        "Remove",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -198,7 +222,11 @@ fun CreateJobCardScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.AddAPhoto, "Add photo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(
+                                        Icons.Default.AddAPhoto,
+                                        "Add photo",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                     Text("Add", style = MaterialTheme.typography.labelSmall)
                                 }
                             }
@@ -207,54 +235,194 @@ fun CreateJobCardScreen(
                 }
             }
 
-            // Parts
+            // ============================================================
+            // PARTS USED — same dropdown pattern as CreateQuoteScreen
+            // ============================================================
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Parts Used", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    parts.forEachIndexed { index, part ->
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Parts Used",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Dropdown
+                    ExposedDropdownMenuBox(
+                        expanded = partDropdownExpanded,
+                        onExpandedChange = {
+                            if (!isSubmitting) {
+                                partDropdownExpanded = !partDropdownExpanded
+                            }
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedCatalogPart?.name ?: "Select a part...",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Select from Catalog") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(
+                                    expanded = partDropdownExpanded
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            enabled = !isSubmitting
+                        )
+                        ExposedDropdownMenu(
+                            expanded = partDropdownExpanded,
+                            onDismissRequest = { partDropdownExpanded = false }
+                        ) {
+                            PartCatalog.availableParts.forEach { p ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(p.name)
+                                            Text(
+                                                "R${String.format(Locale.US, "%.2f", p.price)} · ${p.category}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCatalogPart = p
+                                        partDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Quantity + Add Part (only when a part is selected)
+                    if (selectedCatalogPart != null) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedTextField(
-                                value = part.name,
-                                onValueChange = { new ->
-                                    parts = parts.toMutableList().apply { set(index, part.copy(name = new)) }
-                                },
-                                label = { Text("Part") },
-                                modifier = Modifier.weight(2f),
-                                singleLine = true,
-                                enabled = !isSubmitting
-                            )
-                            OutlinedTextField(
-                                value = part.quantity.toString(),
-                                onValueChange = { new ->
-                                    parts = parts.toMutableList().apply {
-                                        set(index, part.copy(quantity = new.toIntOrNull() ?: 1))
+                                value = partQtyStr,
+                                onValueChange = { input ->
+                                    if (input.isEmpty() || input.all { it.isDigit() }) {
+                                        partQtyStr = input
                                     }
                                 },
-                                label = { Text("Qty") },
+                                label = { Text("Quantity") },
                                 modifier = Modifier.weight(1f),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number
+                                ),
                                 singleLine = true,
                                 enabled = !isSubmitting
                             )
-                            IconButton(
+                            Button(
                                 onClick = {
-                                    if (parts.size > 1) parts = parts.filterIndexed { i, _ -> i != index }
+                                    val q = partQtyStr.toIntOrNull() ?: 1
+                                    if (q > 0) {
+                                        val p = selectedCatalogPart!!
+                                        parts = parts + PartItem(
+                                            name = p.name,
+                                            quantity = q,
+                                            price = p.price
+                                        )
+                                        selectedCatalogPart = null
+                                        partQtyStr = "1"
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "Quantity must be at least 1",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 },
+                                modifier = Modifier.weight(1f),
                                 enabled = !isSubmitting
                             ) {
-                                Icon(Icons.Default.Close, "Remove")
+                                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Add Part")
                             }
                         }
                     }
-                    TextButton(onClick = { parts = parts + PartItem() }, enabled = !isSubmitting) {
-                        Icon(Icons.Default.Add, "Add")
-                        Spacer(Modifier.width(4.dp))
-                        Text("Add Part")
+
+                    // Added parts list
+                    if (parts.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Added Parts (${parts.size})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        parts.forEachIndexed { index, part ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        part.name,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "${part.quantity} × R${
+                                            String.format(Locale.US, "%.2f", part.price)
+                                        } = R${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                part.price * part.quantity
+                                            )
+                                        }",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        parts = parts.filterIndexed { i, _ -> i != index }
+                                    },
+                                    enabled = !isSubmitting
+                                ) {
+                                    Icon(Icons.Default.Close, "Remove")
+                                }
+                            }
+                        }
+
+                        // Subtotal
+                        Spacer(Modifier.height(4.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Parts Subtotal",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "R${
+                                    String.format(
+                                        Locale.US,
+                                        "%.2f",
+                                        parts.sumOf { it.price * it.quantity }
+                                    )
+                                }",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -262,7 +430,11 @@ fun CreateJobCardScreen(
             // Time Logged
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Time Logged", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Time Logged",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -293,7 +465,9 @@ fun CreateJobCardScreen(
                         Spacer(Modifier.height(8.dp))
                         val dur = endTime!! - startTime!!
                         Text(
-                            "Duration: ${dur / (1000 * 60 * 60)}h ${(dur % (1000 * 60 * 60)) / (1000 * 60)}m",
+                            "Duration: ${dur / (1000 * 60 * 60)}h ${
+                                (dur % (1000 * 60 * 60)) / (1000 * 60)
+                            }m",
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -310,14 +484,14 @@ fun CreateJobCardScreen(
                 enabled = !isSubmitting
             )
 
+            // Save / Submit
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
                     onClick = {
-                        val filtered = parts.filter { it.name.isNotBlank() }
-                        if (workSummary.isNotBlank() && filtered.isNotEmpty()) {
+                        if (workSummary.isNotBlank()) {
                             coroutineScope.launch {
                                 isSubmitting = true
                                 viewModel.saveJobCard(
@@ -325,7 +499,7 @@ fun CreateJobCardScreen(
                                     technicianId = currentJob?.technicianId ?: "",
                                     buildingName = currentJob?.buildingName ?: "",
                                     workSummary = workSummary,
-                                    partsUsed = filtered,
+                                    partsUsed = parts,
                                     startTime = startTime,
                                     endTime = endTime,
                                     additionalNotes = additionalNotes,
@@ -335,6 +509,12 @@ fun CreateJobCardScreen(
                                 Toast.makeText(context, "Saved as draft", Toast.LENGTH_SHORT).show()
                                 navManager.navigateBack()
                             }
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "Please fill in the work summary",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -343,8 +523,7 @@ fun CreateJobCardScreen(
 
                 Button(
                     onClick = {
-                        val filtered = parts.filter { it.name.isNotBlank() }
-                        if (workSummary.isNotBlank() && filtered.isNotEmpty()) {
+                        if (workSummary.isNotBlank()) {
                             coroutineScope.launch {
                                 isSubmitting = true
                                 val id = viewModel.saveJobCard(
@@ -352,7 +531,7 @@ fun CreateJobCardScreen(
                                     technicianId = currentJob?.technicianId ?: "",
                                     buildingName = currentJob?.buildingName ?: "",
                                     workSummary = workSummary,
-                                    partsUsed = filtered,
+                                    partsUsed = parts,
                                     startTime = startTime,
                                     endTime = endTime,
                                     additionalNotes = additionalNotes,
@@ -360,9 +539,19 @@ fun CreateJobCardScreen(
                                 )
                                 viewModel.submitJobCard(id)
                                 isSubmitting = false
-                                Toast.makeText(context, "Job card submitted!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                    context,
+                                    "Job card submitted!",
+                                    Toast.LENGTH_LONG
+                                ).show()
                                 navManager.navigateBack()
                             }
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "Please fill in the work summary",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     },
                     modifier = Modifier.weight(1f),

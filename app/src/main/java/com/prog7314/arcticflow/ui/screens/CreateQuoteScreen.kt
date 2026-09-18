@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.prog7314.arcticflow.data.CatalogPart
+import com.prog7314.arcticflow.data.PartCatalog
 import com.prog7314.arcticflow.data.entities.ServiceRequest
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
@@ -53,24 +55,8 @@ fun CreateQuoteScreen(
         ServiceFeeOption("Thermostat Installation", 400.00, "Thermostat install")
     )
 
-    data class CatalogPart(val name: String, val price: Double, val category: String = "General")
-    val availableParts = listOf(
-        CatalogPart("R410A Refrigerant (1kg)", 180.00, "Refrigerants"),
-        CatalogPart("R134A Refrigerant (1kg)", 220.00, "Refrigerants"),
-        CatalogPart("R32 Refrigerant (1kg)", 200.00, "Refrigerants"),
-        CatalogPart("Copper Tubing (15m)", 350.00, "Tubing"),
-        CatalogPart("Copper Tubing (50ft)", 120.00, "Tubing"),
-        CatalogPart("Contactor (30-Amp)", 85.00, "Electrical"),
-        CatalogPart("Run Capacitor (45 uF)", 65.00, "Electrical"),
-        CatalogPart("Thermostat (Digital)", 150.00, "Electrical"),
-        CatalogPart("Condenser Fan Motor", 250.00, "Motors"),
-        CatalogPart("Blower Motor (1/2 HP)", 280.00, "Motors"),
-        CatalogPart("Air Filter (16x25x1)", 30.00, "Filters"),
-        CatalogPart("Compressor (1.5 Ton)", 450.00, "Compressor"),
-        CatalogPart("Compressor (2 Ton)", 520.00, "Compressor"),
-        CatalogPart("AC Maintenance Kit", 340.00, "Maintenance"),
-        CatalogPart("Coil Cleaner (1L)", 35.00, "Maintenance")
-    )
+    // NOTE: The parts catalogue now lives in PartCatalog.kt so both
+    // CreateQuoteScreen and CreateJobCardScreen share the same list.
 
     data class LineItem(
         val name: String = "",
@@ -273,14 +259,15 @@ fun CreateQuoteScreen(
                                 expanded = partDropdownExpanded,
                                 onDismissRequest = { partDropdownExpanded = false }
                             ) {
-                                availableParts.forEach { p ->
+                                PartCatalog.availableParts.forEach { p ->
                                     DropdownMenuItem(
                                         text = {
                                             Column {
                                                 Text(p.name)
                                                 Text(
-                                                    "R${String.format(Locale.US, "%.2f", p.price)}",
-                                                    style = MaterialTheme.typography.bodySmall
+                                                    "R${String.format(Locale.US, "%.2f", p.price)} · ${p.category}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         },
