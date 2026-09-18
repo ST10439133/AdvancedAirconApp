@@ -7,12 +7,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -41,7 +45,6 @@ fun ManagerDashboardScreen(
     val scope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
 
-    // ManagerDashboardViewModel now takes Application + DB + userId
     val viewModel: ManagerDashboardViewModel = viewModel(
         factory = ManagerDashboardViewModel.Factory(
             context.applicationContext as android.app.Application,
@@ -60,8 +63,6 @@ fun ManagerDashboardScreen(
     val pendingQuotes by viewModel.pendingQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val acceptedQuotes by viewModel.acceptedQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // ... rest of the file unchanged
-    // Dialog state for accepting a quote
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
 
     Scaffold(
@@ -127,9 +128,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // =========================================================
             // ===== QUICK ACTIONS =====
-            // =========================================================
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -143,7 +142,7 @@ fun ManagerDashboardScreen(
                         )
                         Spacer(Modifier.height(12.dp))
 
-                        // ===== Row 1 =====
+                        // Row 1
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -170,7 +169,7 @@ fun ManagerDashboardScreen(
 
                         Spacer(Modifier.height(8.dp))
 
-                        // ===== Row 2 =====
+                        // Row 2
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -291,7 +290,6 @@ fun OverviewStatItem(value: String, label: String) {
 
 // ============================================================
 // QUICK ACTION BUTTON
-// — Accepts a modifier, since weight() only works inside Row/Column scope.
 // ============================================================
 @Composable
 fun QuickActionButton(
@@ -374,7 +372,7 @@ fun PendingQuoteCard(
                     )
                 }
                 Text(
-                    "R${String.format("%.2f", quote.grandTotal)}",
+                    "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -431,7 +429,7 @@ fun PendingQuoteCard(
 }
 
 // ============================================================
-// SCHEDULE ACCEPT DIALOG
+// SCHEDULE ACCEPT DIALOG — fixed layout
 // ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -469,16 +467,36 @@ fun ScheduleAcceptDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Accept & Schedule Job") },
+        title = {
+            Text(
+                "Accept & Schedule Job",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Quote #${quote.id} for ${quote.buildingName}")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Quote summary
                 Text(
-                    "Total: R${String.format("%.2f", quote.grandTotal)}",
+                    "Quote #${quote.id} for ${quote.buildingName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
 
+                HorizontalDivider()
+
+                // Date
                 OutlinedTextField(
                     value = selectedDate?.let { dateFmt.format(Date(it)) } ?: "Select date",
                     onValueChange = {},
@@ -486,25 +504,41 @@ fun ScheduleAcceptDialog(
                     label = { Text("Scheduled Date") },
                     trailingIcon = {
                         IconButton(onClick = { picker.show() }) {
-                            Icon(Icons.Default.CalendarMonth, null)
+                            Icon(Icons.Default.CalendarMonth, "Pick date")
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { picker.show() }
                 )
 
-                Text("Select Time Slot:", fontWeight = FontWeight.Bold)
+                // Time slots
+                Text(
+                    "Select Time Slot:",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
                 slots.forEach { slot ->
                     Row(
-                        Modifier
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedSlot = slot },
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedSlot = slot }
+                            .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
                             selected = selectedSlot == slot,
-                            onClick = { selectedSlot = slot }
+                            onClick = { selectedSlot = slot },
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(slot)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = slot,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
