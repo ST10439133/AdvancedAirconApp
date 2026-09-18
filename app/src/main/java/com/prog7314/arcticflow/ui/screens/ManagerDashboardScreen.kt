@@ -3,20 +3,24 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -102,102 +106,131 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // ===== OVERVIEW =====
+            // =========================================================
+            // ===== OVERVIEW (hero tile + 3 supporting tiles) =====
+            // =========================================================
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(Modifier.padding(16.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            "OVERVIEW",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            OverviewStatItem(buildings.size.toString(), "Buildings")
-                            OverviewStatItem(requests.size.toString(), "Requests")
-                            OverviewStatItem(pendingQuotes.size.toString(), "Pending")
-                            OverviewStatItem(acceptedQuotes.size.toString(), "Accepted")
-                        }
-                    }
-                }
-            }
-
-            // ===== QUICK ACTIONS =====
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Quick Actions",
+                            "Overview",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "All time",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                        // Row 1
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Hero tile — Pending quotes
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color(0xFF1B9AAA),
+                                            Color(0xFF147D8A)
+                                        )
+                                    )
+                                )
+                                .padding(18.dp)
                         ) {
-                            QuickActionButton(
-                                icon = Icons.Default.Add,
-                                label = "Request",
-                                onClick = { navManager.navigateToServiceRequest() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.RequestQuote,
-                                label = "Quotes",
-                                onClick = { navManager.navigateToMyQuotes() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Business,
-                                label = "Add Building",
-                                onClick = { navManager.navigateToAddBuilding() },
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.ReceiptLong,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Pending quotes",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                    Text(
+                                        pendingQuotes.size.toString(),
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        if (pendingQuotes.isEmpty()) "You're all caught up"
+                                        else "Awaiting your approval",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
+                                if (pendingQuotes.isNotEmpty()) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
                         }
+                    }
 
-                        Spacer(Modifier.height(8.dp))
-
-                        // Row 2
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            QuickActionButton(
-                                icon = Icons.Default.Calculate,
-                                label = "BTU Calc",
-                                onClick = { navManager.navigateToBTUCalculator() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.Store,
-                                label = "Products",
-                                onClick = { navManager.navigateToProducts() },
-                                modifier = Modifier.weight(1f)
-                            )
-                            QuickActionButton(
-                                icon = Icons.Default.People,
-                                label = "Technicians",
-                                onClick = { /* TODO: navigate to technicians list */ },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                    // Supporting tiles
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OverviewTile(
+                            value = buildings.size.toString(),
+                            label = "Buildings",
+                            icon = Icons.Default.Business,
+                            tint = Color(0xFF2196F3),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OverviewTile(
+                            value = requests.size.toString(),
+                            label = "Requests",
+                            icon = Icons.Default.Assignment,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OverviewTile(
+                            value = acceptedQuotes.size.toString(),
+                            label = "Accepted",
+                            icon = Icons.Default.CheckCircle,
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
 
-            // ===== PENDING QUOTES HEADER =====
+            // =========================================================
+            // ===== QUOTES AWAITING APPROVAL =====
+            // =========================================================
             item {
                 Text(
                     "Quotes Awaiting Your Approval",
@@ -245,6 +278,72 @@ fun ManagerDashboardScreen(
                     )
                 }
             }
+
+            // =========================================================
+            // ===== QUICK ACTIONS =====
+            // =========================================================
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Quick Actions",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        // Row 1
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionButton(
+                                icon = Icons.Default.Add,
+                                label = "Request",
+                                onClick = { navManager.navigateToServiceRequest() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.RequestQuote,
+                                label = "Quotes",
+                                onClick = { navManager.navigateToMyQuotes() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.Business,
+                                label = "Add Building",
+                                onClick = { navManager.navigateToAddBuilding() },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Row 2 (Technicians removed — 2 buttons + spacer)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            QuickActionButton(
+                                icon = Icons.Default.Calculate,
+                                label = "BTU Calc",
+                                onClick = { navManager.navigateToBTUCalculator() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            QuickActionButton(
+                                icon = Icons.Default.Store,
+                                label = "Products",
+                                onClick = { navManager.navigateToProducts() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -269,22 +368,57 @@ fun ManagerDashboardScreen(
 }
 
 // ============================================================
-// OVERVIEW STAT ITEM
+// OVERVIEW TILE — compact stat card with tinted icon
 // ============================================================
 @Composable
-fun OverviewStatItem(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+fun OverviewTile(
+    value: String,
+    label: String,
+    icon: ImageVector,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
         )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = tint.copy(alpha = 0.15f),
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -429,7 +563,7 @@ fun PendingQuoteCard(
 }
 
 // ============================================================
-// SCHEDULE ACCEPT DIALOG — fixed layout
+// SCHEDULE ACCEPT DIALOG
 // ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -482,7 +616,6 @@ fun ScheduleAcceptDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Quote summary
                 Text(
                     "Quote #${quote.id} for ${quote.buildingName}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -496,7 +629,6 @@ fun ScheduleAcceptDialog(
 
                 HorizontalDivider()
 
-                // Date
                 OutlinedTextField(
                     value = selectedDate?.let { dateFmt.format(Date(it)) } ?: "Select date",
                     onValueChange = {},
@@ -512,7 +644,6 @@ fun ScheduleAcceptDialog(
                         .clickable { picker.show() }
                 )
 
-                // Time slots
                 Text(
                     "Select Time Slot:",
                     fontWeight = FontWeight.Bold,
