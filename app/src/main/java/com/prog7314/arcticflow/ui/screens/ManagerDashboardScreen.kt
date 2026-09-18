@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -95,13 +94,11 @@ fun ManagerDashboardScreen(
         ) {
             // ===== WELCOME =====
             item {
-                // Pull the user's name from Room. Falls back through:
-                //   displayName → "Name|ROLE" → first name → "Manager"
                 val firstName = currentUser
                     ?.displayName
-                    ?.substringBefore("|")     // strips "|MANAGER" if it ever leaks
+                    ?.substringBefore("|")
                     ?.trim()
-                    ?.substringBefore(" ")     // first word only
+                    ?.substringBefore(" ")
                     .orEmpty()
                     .ifBlank { "Manager" }
 
@@ -141,7 +138,7 @@ fun ManagerDashboardScreen(
                         )
                     }
 
-                    // Hero tile — Pending quotes
+                    // Hero tile — Pending quotes (arrow removed)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -199,14 +196,7 @@ fun ManagerDashboardScreen(
                                         color = Color.White.copy(alpha = 0.85f)
                                     )
                                 }
-                                if (pendingQuotes.isNotEmpty()) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
+                                // ← Arrow removed here
                             }
                         }
                     }
@@ -381,7 +371,7 @@ fun ManagerDashboardScreen(
 }
 
 // ============================================================
-// OVERVIEW TILE — compact stat card with tinted icon
+// OVERVIEW TILE
 // ============================================================
 @Composable
 fun OverviewTile(
