@@ -36,9 +36,6 @@ fun MainScreen(
 
     val startDestination = BottomNavItem.Dashboard.route
 
-    // ------------------------------------------------------------------
-    // navigateToDashboard — used by every sub-screen's back arrow.
-    // ------------------------------------------------------------------
     val navigateToDashboard: () -> Unit = {
         bottomNavController.navigate(BottomNavItem.Dashboard.route) {
             popUpTo(bottomNavController.graph.startDestinationId) {
@@ -50,11 +47,6 @@ fun MainScreen(
         }
     }
 
-    // ------------------------------------------------------------------
-    // navigateToRequests — used by the technician Dashboard's
-    // "new job requests" card so it selects the Requests tab instead of
-    // pushing a duplicate screen onto the outer graph.
-    // ------------------------------------------------------------------
     val navigateToRequests: () -> Unit = {
         bottomNavController.navigate(BottomNavItem.Requests.route) {
             popUpTo(bottomNavController.graph.startDestinationId) {
@@ -128,11 +120,14 @@ fun MainScreen(
                     )
                 }
 
+                // ============ QUOTES TAB ============
+                // MANAGER   → isCustomer = true  → "My Quotes" (received from technicians)
+                // TECHNICIAN → isCustomer = false → "Sent Quotes" (created by this technician)
                 composable(BottomNavItem.Quotes.route) {
                     QuotesListScreen(
                         viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
                         userId = userId,
-                        isCustomer = true,
+                        isCustomer = (userRole == "MANAGER"),
                         navManager = navManager,
                         onBackToDashboard = navigateToDashboard
                     )
