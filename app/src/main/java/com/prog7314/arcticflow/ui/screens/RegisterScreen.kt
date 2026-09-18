@@ -3,7 +3,9 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,13 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.data.entities.UserRole
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.navigation.NavManager
-import androidx.compose.ui.text.input.VisualTransformation
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +35,6 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf(UserRole.TECHNICIAN) }
     var showPassword by remember { mutableStateOf(false) }
 
     val authState by viewModel.authState.collectAsStateWithLifecycle()
@@ -43,10 +44,14 @@ fun RegisterScreen(
         when (authState) {
             is AuthState.Authenticated -> {
                 Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
-                navManager.navigateToMain()  // Changed from role-specific navigation
+                navManager.navigateToMain()
             }
             is AuthState.Error -> {
-                Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    (authState as AuthState.Error).message,
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             else -> {}
         }
@@ -55,12 +60,13 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Create Account",
+            text = "Create Manager Account",
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.primary
         )
@@ -68,12 +74,12 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Register to get started",
+            text = "Register to manage your buildings and service requests",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
             value = displayName,
@@ -83,7 +89,7 @@ fun RegisterScreen(
             enabled = !isLoading
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = email,
@@ -94,14 +100,18 @@ fun RegisterScreen(
             enabled = !isLoading
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = if (showPassword) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             trailingIcon = {
                 TextButton(onClick = { showPassword = !showPassword }) {
                     Text(if (showPassword) "Hide" else "Show")
@@ -111,7 +121,7 @@ fun RegisterScreen(
             enabled = !isLoading
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = confirmPassword,
@@ -123,49 +133,35 @@ fun RegisterScreen(
             enabled = !isLoading
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Select Your Role",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.align(Alignment.Start)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedRole == UserRole.TECHNICIAN,
-                onClick = { selectedRole = UserRole.TECHNICIAN },
-                label = { Text("Technician") }
-            )
-            FilterChip(
-                selected = selectedRole == UserRole.MANAGER,
-                onClick = { selectedRole = UserRole.MANAGER },
-                label = { Text("Manager") }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
-                if (email.isNotEmpty() && password.isNotEmpty() && displayName.isNotEmpty()) {
-                    if (password == confirmPassword) {
+                when {
+                    email.isBlank() || password.isBlank() || displayName.isBlank() -> {
+                        Toast.makeText(
+                            context,
+                            "Please fill in all fields",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    password != confirmPassword -> {
+                        Toast.makeText(
+                            context,
+                            "Passwords do not match",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    else -> {
                         coroutineScope.launch {
                             viewModel.registerWithEmail(
                                 email = email,
                                 password = password,
                                 displayName = displayName,
-                                role = selectedRole
+                                role = UserRole.MANAGER
                             )
                         }
-                    } else {
-                        Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                     }
-                } else {
-                    Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -185,12 +181,15 @@ fun RegisterScreen(
 
         Row(
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Already have an account? ")
-            TextButton(onClick = { navManager.navigateBack() }) {
+            TextButton(onClick = { navManager.navigateToLogin() }) {
                 Text("Sign In")
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }

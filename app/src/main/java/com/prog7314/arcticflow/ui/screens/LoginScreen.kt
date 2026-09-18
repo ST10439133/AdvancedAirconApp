@@ -1,10 +1,13 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/screens/LoginScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.*
@@ -12,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -46,7 +50,11 @@ fun LoginScreen(
                 navManager.navigateToMain()
             }
             is AuthState.Error -> {
-                Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    (authState as AuthState.Error).message,
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             else -> {}
         }
@@ -62,19 +70,28 @@ fun LoginScreen(
                 coroutineScope.launch {
                     val signInResult = viewModel.signInWithGoogle(idToken)
                     if (!signInResult.success) {
-                        Toast.makeText(context, signInResult.message ?: "Google Sign-In failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            signInResult.message ?: "Google Sign-In failed",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
         } catch (e: ApiException) {
-            Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                "Google Sign-In failed: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -92,35 +109,51 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
+        // ===== EMAIL =====
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // ===== PASSWORD with a TextButton trailing action =====
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            singleLine = true,
+            visualTransformation = if (showPassword) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             trailingIcon = {
-                IconButton(onClick = { showPassword = !showPassword }) {
-                    Text(if (showPassword) "Hide" else "Show")
+                TextButton(
+                    onClick = { showPassword = !showPassword },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = if (showPassword) "Hide" else "Show",
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // ===== FORGOT PASSWORD =====
         TextButton(
@@ -130,8 +163,9 @@ fun LoginScreen(
             Text("Forgot Password?")
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
+        // ===== SIGN IN =====
         Button(
             onClick = {
                 if (email.isNotEmpty() && password.isNotEmpty()) {
@@ -139,7 +173,11 @@ fun LoginScreen(
                         viewModel.loginWithEmail(email, password)
                     }
                 } else {
-                    Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Please fill in all fields",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -157,6 +195,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // ===== OR DIVIDER =====
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -173,7 +212,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ===== GOOGLE & FINGERPRINT BUTTONS =====
+        // ===== GOOGLE & FINGERPRINT =====
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -193,22 +232,41 @@ fun LoginScreen(
                 modifier = Modifier.weight(1f),
                 enabled = !isLoading
             ) {
-                Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint")
+                Icon(
+                    Icons.Default.Fingerprint,
+                    contentDescription = "Fingerprint"
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Fingerprint")
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // ===== DON'T HAVE AN ACCOUNT? + REGISTER =====
         Row(
             horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Don't have an account? ")
-            TextButton(onClick = { navManager.navigateToRegister() }) {
-                Text("Register")
+            Text(
+                text = "Don't have an account?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            TextButton(
+                onClick = { navManager.navigateToRegister() },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    text = "Register",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
