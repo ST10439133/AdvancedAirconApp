@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <files-path name="job_photos" path="job_photos/" />
-    <cache-path name="cache" path="/" />
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Captured job-card photos live in filesDir/job_photos/ -->
+    <files-path
+        name="job_photos"
+        path="job_photos/" />
+
+    <!-- Generic cache path (used by other parts of the app if needed) -->
+    <cache-path
+        name="cache"
+        path="/" />
+
 </paths>

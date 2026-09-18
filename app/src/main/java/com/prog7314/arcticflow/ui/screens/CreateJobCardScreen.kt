@@ -1,7 +1,10 @@
 // app/src/main/java/com/prog7314/arcticflow/ui/screens/CreateJobCardScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
@@ -32,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -42,8 +47,11 @@ import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.PartItem
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.JobCardViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -75,20 +83,31 @@ fun CreateJobCardScreen(
     var partQtyStr by remember { mutableStateOf("1") }
     var partDropdownExpanded by remember { mutableStateOf(false) }
 
+    // ============================================================
+    // Camera launcher — the system camera writes directly into
+    // the FileProvider URI we give it.
+    // ============================================================
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success) {
-            pendingCameraFile?.let { file ->
-                photoPaths = photoPaths + file.absolutePath
-                Toast.makeText(context, "Photo captured!", Toast.LENGTH_SHORT).show()
-            }
-        }
+        val file = pendingCameraFile
         pendingCameraFile = null
+        if (success && file != null) {
+            photoPaths = photoPaths + file.absolutePath
+            Toast.makeText(context, "Photo captured!", Toast.LENGTH_SHORT).show()
+        } else {
+            // User cancelled or capture failed — clean up the empty placeholder
+            file?.delete()
+        }
     }
 
-    fun launchCamera() {
-        try {
+    // ============================================================
+    // Runtime CAMERA permission launcher
+    // ============================================================
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
             val file = createImageFile(context)
             pendingCameraFile = file
             val uri = FileProvider.getUriForFile(
@@ -97,8 +116,51 @@ fun CreateJobCardScreen(
                 file
             )
             cameraLauncher.launch(uri)
-        } catch (e: Exception) {
-            Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(
+                context,
+                "Camera permission denied. Enable it in Settings to take photos.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // ============================================================
+    // Gallery picker — copies the picked image into the app's
+    // private job_photos directory so it stays valid.
+    // ============================================================
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val saved = copyUriToJobPhotos(context, uri)
+            if (saved != null) {
+                photoPaths = photoPaths + saved.absolutePath
+                Toast.makeText(context, "Image added from gallery!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Failed to import image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Combined click handler for the "Camera" tile
+    fun onCameraClick() {
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (granted) {
+            val file = createImageFile(context)
+            pendingCameraFile = file
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            cameraLauncher.launch(uri)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -173,7 +235,9 @@ fun CreateJobCardScreen(
                 enabled = !isSubmitting
             )
 
-            // Photos
+            // ============================================================
+            // Job Site Photos — Camera + Gallery
+            // ============================================================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -212,22 +276,47 @@ fun CreateJobCardScreen(
                                 }
                             }
                         }
+
+                        // ---- Take photo with camera ----
                         item {
                             Box(
                                 modifier = Modifier
                                     .size(100.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable(enabled = !isSubmitting) { launchCamera() },
+                                    .clickable(enabled = !isSubmitting) { onCameraClick() },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
                                         Icons.Default.AddAPhoto,
-                                        "Add photo",
+                                        "Take photo",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Text("Add", style = MaterialTheme.typography.labelSmall)
+                                    Text("Camera", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+
+                        // ---- Pick from gallery ----
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable(enabled = !isSubmitting) {
+                                        galleryLauncher.launch("image/*")
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        Icons.Default.PhotoLibrary,
+                                        "Pick from gallery",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text("Gallery", style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -249,7 +338,6 @@ fun CreateJobCardScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Dropdown
                     ExposedDropdownMenuBox(
                         expanded = partDropdownExpanded,
                         onExpandedChange = {
@@ -298,7 +386,6 @@ fun CreateJobCardScreen(
                         }
                     }
 
-                    // Quantity + Add Part (only when a part is selected)
                     if (selectedCatalogPart != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -350,7 +437,6 @@ fun CreateJobCardScreen(
                         }
                     }
 
-                    // Added parts list
                     if (parts.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))
                         HorizontalDivider()
@@ -397,7 +483,6 @@ fun CreateJobCardScreen(
                             }
                         }
 
-                        // Subtotal
                         Spacer(Modifier.height(4.dp))
                         HorizontalDivider()
                         Spacer(Modifier.height(4.dp))
@@ -568,6 +653,35 @@ fun CreateJobCardScreen(
                 }
             }
         }
+    }
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+/**
+ * Copies a URI returned by the gallery picker into the app's
+ * private job_photos directory and returns the new file.
+ */
+private suspend fun copyUriToJobPhotos(
+    context: Context,
+    uri: Uri
+): File? = withContext(Dispatchers.IO) {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: return@withContext null
+
+        val file = createImageFile(context)
+        inputStream.use { input ->
+            FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
+        file
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
     }
 }
 
