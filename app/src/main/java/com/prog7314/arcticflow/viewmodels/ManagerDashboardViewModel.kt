@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.data.api.ApiRepository
 import com.prog7314.arcticflow.data.api.IdMap
+import com.prog7314.arcticflow.data.entities.BuildingEntity
 import com.prog7314.arcticflow.data.entities.Job
 import com.prog7314.arcticflow.data.entities.JobStatus
 import com.prog7314.arcticflow.data.entities.Notification
@@ -17,6 +18,7 @@ import com.prog7314.arcticflow.data.entities.Quote
 import com.prog7314.arcticflow.data.entities.QuoteStatus
 import com.prog7314.arcticflow.data.entities.RequestStatus
 import com.prog7314.arcticflow.data.entities.ServiceRequest
+import com.prog7314.arcticflow.data.entities.User
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -30,8 +32,12 @@ class ManagerDashboardViewModel(
 
     private val appContext get() = getApplication<Application>()
 
+    // ===== Live user record for the header =====
+    val currentUser: Flow<User?> =
+        database.userDao().observeUserById(userId)
+
     // ===== Buildings owned by this manager =====
-    val buildings: Flow<List<com.prog7314.arcticflow.data.entities.BuildingEntity>> =
+    val buildings: Flow<List<BuildingEntity>> =
         database.buildingDao().getBuildingsByUser(userId)
 
     // ===== Service requests submitted by this manager =====
@@ -59,14 +65,6 @@ class ManagerDashboardViewModel(
     val acceptedQuotes: Flow<List<Quote>> =
         quotes.map { list -> list.filter { it.status == QuoteStatus.ACCEPTED } }
 
-    /**
-     * Accept a quote and schedule the job.
-     *  - Marks the quote ACCEPTED
-     *  - Creates a Job for the technician
-     *  - Marks the service request ACCEPTED
-     *  - Notifies the technician
-     *  - Mirrors quote/job/request to the REST API (using server ids)
-     */
     suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
@@ -74,7 +72,6 @@ class ManagerDashboardViewModel(
         val notificationDao = database.notificationDao()
 
         try {
-            // 1. Update the quote status locally
             quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
             val quote = quoteDao.getQuoteById(quoteId)
             if (quote == null) {
@@ -82,7 +79,6 @@ class ManagerDashboardViewModel(
                 return
             }
 
-            // 2. Fetch the linked service request (for the full address)
             val request = requestDao.getRequestById(quote.requestId)
 
             Log.d(
@@ -93,7 +89,6 @@ class ManagerDashboardViewModel(
 
             val jobAddress = request?.fullAddress ?: ""
 
-            // 3. Create the Job locally
             val newJob = Job(
                 quoteId = quote.id,
                 requestId = quote.requestId,
@@ -115,10 +110,8 @@ class ManagerDashboardViewModel(
                         "cust=${quote.customerId} addr='$jobAddress'"
             )
 
-            // 4. Update request status locally
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
 
-            // 5. Notify the technician
             notificationDao.insertNotification(
                 Notification(
                     title = "Job Scheduled",
@@ -129,14 +122,11 @@ class ManagerDashboardViewModel(
             )
 
             // ============================ API SYNC ============================
-            // Translate local Room ids → server Postgres ids for the foreign keys
             val serverQuoteId   = IdMap.getQuote(appContext, quote.id)
             val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
 
-            // Push quote status change (server id translation happens inside)
             ApiRepository.updateQuoteStatus(appContext, quote.id, QuoteStatus.ACCEPTED.name)
 
-            // Push the newly-created job with the correct server-side foreign keys
             val dto = ApiRepository.pushJob(
                 context = appContext,
                 job = newJob.copy(id = newJobId.toInt()),
@@ -147,7 +137,6 @@ class ManagerDashboardViewModel(
                 IdMap.putJob(appContext, newJobId.toInt(), dto.id)
             }
 
-            // Push request status change
             ApiRepository.updateRequestStatus(
                 appContext,
                 quote.requestId,
@@ -159,13 +148,6 @@ class ManagerDashboardViewModel(
         }
     }
 
-    /**
-     * Decline a quote.
-     *  - Marks the quote DECLINED
-     *  - Resets the service request to PENDING so the technician can re-quote
-     *  - Notifies the technician
-     *  - Mirrors quote/request to the REST API
-     */
     suspend fun declineQuote(quoteId: Int) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
@@ -179,7 +161,6 @@ class ManagerDashboardViewModel(
                 return
             }
 
-            // Reset the request so the technician can re-quote
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
 
             notificationDao.insertNotification(
@@ -191,14 +172,12 @@ class ManagerDashboardViewModel(
                 )
             )
 
-            // ============================ API SYNC ============================
             ApiRepository.updateQuoteStatus(appContext, quote.id, QuoteStatus.DECLINED.name)
             ApiRepository.updateRequestStatus(
                 appContext,
                 quote.requestId,
                 RequestStatus.PENDING.name
             )
-            // =================================================================
         } catch (e: Exception) {
             Log.e(TAG, "declineQuote failed for quote=$quoteId", e)
         }

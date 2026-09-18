@@ -3,14 +3,15 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,7 +30,6 @@ import com.prog7314.arcticflow.data.entities.Product
 import com.prog7314.arcticflow.data.entities.SortType
 import com.prog7314.arcticflow.data.network.SupabaseManager
 import com.prog7314.arcticflow.navigation.NavManager
-import com.prog7314.arcticflow.ui.components.openPdfInViewer
 import com.prog7314.arcticflow.viewmodels.ProductViewModel
 import java.util.Locale
 
@@ -92,7 +93,7 @@ fun ProductListScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Search Bar
+            // ===== Search =====
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.searchProducts(it) },
@@ -101,9 +102,9 @@ fun ProductListScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Brand Filter
+            // ===== Brand filter =====
             if (brands.isNotEmpty()) {
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -145,50 +146,93 @@ fun ProductListScreen(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Sort Chips
+            // ===== Sort chips (horizontally scrollable) =====
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 FilterChip(
                     selected = sortType == SortType.NAME_ASC,
                     onClick = { viewModel.sortProducts(SortType.NAME_ASC) },
-                    label = { Text("A-Z") }
+                    label = { Text("A-Z", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
                     selected = sortType == SortType.PRICE_LOW_TO_HIGH,
                     onClick = { viewModel.sortProducts(SortType.PRICE_LOW_TO_HIGH) },
-                    label = { Text("Price: Low") }
+                    label = { Text("Price ↑", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
                     selected = sortType == SortType.PRICE_HIGH_TO_LOW,
                     onClick = { viewModel.sortProducts(SortType.PRICE_HIGH_TO_LOW) },
-                    label = { Text("Price: High") }
+                    label = { Text("Price ↓", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
                     selected = sortType == SortType.RATING_HIGH_TO_LOW,
                     onClick = { viewModel.sortProducts(SortType.RATING_HIGH_TO_LOW) },
-                    label = { Text("Rating") }
+                    label = { Text("Rating", maxLines = 1, softWrap = false) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ===== Results count =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Products",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "${products.size} result${if (products.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Products List
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(products, key = { it.id }) { product ->
-                    ProductCard(
-                        product = product,
-                        onFavoriteClick = {
-                            viewModel.toggleFavorite(product.id, !product.isFavorite)
-                        }
-                    )
+            // ===== Products List =====
+            if (products.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.AcUnit,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "No products match your filters",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(products, key = { it.id }) { product ->
+                        ProductCard(
+                            product = product,
+                            onFavoriteClick = {
+                                viewModel.toggleFavorite(product.id, !product.isFavorite)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -196,7 +240,7 @@ fun ProductListScreen(
 }
 
 // ============================================================
-// PRODUCT CARD
+// PRODUCT CARD — "View Catalogue" removed
 // ============================================================
 
 @Composable
@@ -276,12 +320,16 @@ fun ProductCard(
             ) {
                 Text(
                     text = product.name,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${product.brand} - ${product.model}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "R${String.format(Locale.US, "%.2f", product.price)}",
@@ -292,38 +340,6 @@ fun ProductCard(
                     text = "${product.btu} BTU | ⭐ ${String.format(Locale.US, "%.1f", product.rating)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                if (product.brochurePath.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(
-                        onClick = {
-                            openPdfInViewer(context, product.fullBrochureUrl())
-                        },
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.PictureAsPdf,
-                            contentDescription = "View Catalogue",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            "View Catalogue",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
-
-            // Favorite button
-            TextButton(
-                onClick = onFavoriteClick,
-                modifier = Modifier.width(52.dp)
-            ) {
-                Text(
-                    text = if (product.isFavorite) "❤️" else "🤍",
-                    fontSize = 22.sp
                 )
             }
         }

@@ -1,3 +1,4 @@
+// app/src/main/java/com/prog7314/arcticflow/data/dao/UserDao.kt
 package com.prog7314.arcticflow.data.dao
 
 import androidx.room.*
@@ -18,6 +19,10 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE uid = :uid")
     suspend fun getUserById(uid: String): User?
+
+    /** Reactive single-user stream — emits on every change to this row. */
+    @Query("SELECT * FROM users WHERE uid = :uid")
+    fun observeUserById(uid: String): Flow<User?>
 
     @Query("SELECT * FROM users WHERE email = :email")
     suspend fun getUserByEmail(email: String): User?

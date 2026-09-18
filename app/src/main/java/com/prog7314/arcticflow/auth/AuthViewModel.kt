@@ -2,6 +2,7 @@
 package com.prog7314.arcticflow.auth
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -25,6 +26,8 @@ import com.prog7314.arcticflow.data.api.UserSyncRequest
 import com.prog7314.arcticflow.data.api.safeApiCall
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val TAG = "AuthViewModel"
 
     private val auth = Firebase.auth
     private val database = ArcticFlowDatabase.getDatabase(application)
@@ -64,52 +67,82 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Resolve the user & role.
-     * Order of priority:
-     * 1. Local DB by UID (source of truth)
-     * 2. Firebase Auth displayName ("Name|ROLE")
-     * 3. Fallback: TECHNICIAN
+     * Parse "Name|ROLE" from a Firebase display name.
+     * - Falls back to the email prefix if the name is blank.
+     * - Falls back to TECHNICIAN if the role is missing/invalid.
+     */
+    private fun parseFirebaseNameAndRole(
+        rawName: String?,
+        fallbackEmail: String?
+    ): Pair<String, UserRole> {
+        val raw = rawName ?: ""
+        return if (raw.contains("|")) {
+            val parts = raw.split("|", limit = 2)
+            val name = parts[0].trim().ifBlank {
+                fallbackEmail?.substringBefore("@") ?: "User"
+            }
+            val role = try {
+                UserRole.valueOf(parts[1].trim())
+            } catch (_: Exception) {
+                UserRole.TECHNICIAN
+            }
+            name to role
+        } else {
+            val name = raw.trim().ifBlank {
+                fallbackEmail?.substringBefore("@") ?: "User"
+            }
+            name to UserRole.TECHNICIAN
+        }
+    }
+
+    /**
+     * Resolve the user & role and write them into Room.
+     *
+     * NOTE: This runs on EVERY login / app start. It always upserts the
+     * Room row from Firebase, so any change to the Firebase display name
+     * (e.g. an Edit Profile screen) will propagate to the local DB and
+     * to any UI observing `currentUser`.
      */
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
-                val existingUser = database.userDao().getUserById(firebaseUser.uid)
-                if (existingUser != null) {
-                    _authState.value = AuthState.Authenticated(existingUser)
-                    syncUserToApi(existingUser)
-                    return@launch
-                }
+                Log.d(
+                    TAG,
+                    "handleFirebaseUser: uid=${firebaseUser.uid}, " +
+                            "displayName='${firebaseUser.displayName}', " +
+                            "email='${firebaseUser.email}'"
+                )
 
-                // 2. Parse role from Firebase displayName
-                val rawName = firebaseUser.displayName ?: ""
-                val displayName: String
-                val role: UserRole
-                if (rawName.contains("|")) {
-                    val parts = rawName.split("|", limit = 2)
-                    displayName = parts[0].trim()
-                    role = try {
-                        UserRole.valueOf(parts[1].trim())
-                    } catch (e: Exception) {
-                        UserRole.TECHNICIAN
-                    }
-                } else {
-                    displayName = rawName.ifBlank { firebaseUser.email ?: "User" }
-                    role = UserRole.TECHNICIAN
-                }
+                // Parse the Firebase display name (with graceful fallbacks)
+                val (displayName, role) = parseFirebaseNameAndRole(
+                    rawName = firebaseUser.displayName,
+                    fallbackEmail = firebaseUser.email
+                )
 
-                // 3. Create a User record using resolved role
-                val newUser = User(
+                // Preserve the original createdAt if the row already exists,
+                // otherwise stamp the current time. Also preserve phoneNumber
+                // and photoUrl if the app ever stores them locally.
+                val existing = database.userDao().getUserById(firebaseUser.uid)
+
+                val user = User(
                     uid = firebaseUser.uid,
-                    email = firebaseUser.email ?: "",
+                    email = firebaseUser.email ?: existing?.email ?: "",
                     displayName = displayName,
                     role = role,
+                    phoneNumber = existing?.phoneNumber,
+                    photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                     isEmailVerified = firebaseUser.isEmailVerified,
-                    createdAt = System.currentTimeMillis()
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis()
                 )
-                database.userDao().insertUser(newUser)
-                _authState.value = AuthState.Authenticated(newUser)
-                syncUserToApi(newUser)
+
+                // Upsert — @Insert(onConflict = REPLACE) overwrites the row
+                database.userDao().insertUser(user)
+                Log.d(TAG, "Upserted Room user: $user")
+
+                _authState.value = AuthState.Authenticated(user)
+                syncUserToApi(user)
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to handle Firebase user", e)
                 _authState.value = AuthState.Error("Failed to load user data: ${e.message}")
             }
         }
@@ -126,7 +159,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // ⚠️ Store role with displayName so we can rebuild on next login
+                // Store "Name|ROLE" in Firebase so we can rebuild on next login
                 val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                     .setDisplayName("$displayName|${role.name}")
                     .build()
@@ -135,7 +168,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val user = User(
                     uid = firebaseUser.uid,
                     email = email,
-                    displayName = displayName,
+                    displayName = displayName.ifBlank {
+                        email.substringBefore("@")
+                    },
                     role = role,
                     isEmailVerified = firebaseUser.isEmailVerified,
                     createdAt = System.currentTimeMillis()
@@ -163,34 +198,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Look up local DB first
-                var user = database.userDao().getUserById(firebaseUser.uid)
+                // Always rebuild the Room row from Firebase so name changes propagate
+                val (displayName, role) = parseFirebaseNameAndRole(
+                    rawName = firebaseUser.displayName,
+                    fallbackEmail = firebaseUser.email
+                )
 
-                if (user == null) {
-                    // Try to rebuild from Firebase displayName format ("Name|ROLE")
-                    val rawName = firebaseUser.displayName ?: ""
-                    val displayName: String
-                    val role: UserRole
-                    if (rawName.contains("|")) {
-                        val parts = rawName.split("|", limit = 2)
-                        displayName = parts[0].trim()
-                        role = try { UserRole.valueOf(parts[1].trim()) }
-                        catch (e: Exception) { UserRole.TECHNICIAN }
-                    } else {
-                        displayName = rawName.ifBlank { firebaseUser.email ?: "User" }
-                        role = UserRole.TECHNICIAN
-                    }
+                val existing = database.userDao().getUserById(firebaseUser.uid)
 
-                    user = User(
-                        uid = firebaseUser.uid,
-                        email = firebaseUser.email ?: "",
-                        displayName = displayName,
-                        role = role,
-                        isEmailVerified = firebaseUser.isEmailVerified,
-                        createdAt = System.currentTimeMillis()
-                    )
-                    database.userDao().insertUser(user)
-                }
+                val user = User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: email,
+                    displayName = displayName,
+                    role = role,
+                    phoneNumber = existing?.phoneNumber,
+                    photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
+                    isEmailVerified = firebaseUser.isEmailVerified,
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis()
+                )
+                database.userDao().insertUser(user)
 
                 _isLoading.value = false
                 _authState.value = AuthState.Authenticated(user)
@@ -201,13 +227,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 SignInResult(success = false, message = "Login failed")
             }
         } catch (e: Exception) {
-            // ❌ REMOVED the 3 bogus lines that referenced `user` here:
-            //    _isLoading.value = false
-            //    _authState.value = AuthState.Authenticated(user)   <-- error
-            //    syncUserToApi(user)                                 <-- error
-            //    SignInResult(success = true, user = user)           <-- error
-            //
-            // ✅ Correct catch behaviour: report the failure.
             _isLoading.value = false
             _authState.value = AuthState.Error(e.message ?: "Login failed")
             SignInResult(success = false, message = e.message)
@@ -221,18 +240,27 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithCredential(credential).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                var user = database.userDao().getUserById(firebaseUser.uid)
-                if (user == null) {
-                    user = User(
-                        uid = firebaseUser.uid,
-                        email = firebaseUser.email ?: "",
-                        displayName = firebaseUser.displayName,
-                        role = UserRole.TECHNICIAN,  // Google sign-in defaults to tech unless pre-registered
-                        isEmailVerified = firebaseUser.isEmailVerified,
-                        createdAt = System.currentTimeMillis()
-                    )
-                    database.userDao().insertUser(user)
-                }
+                // Google display names are plain names (no "|ROLE" suffix) —
+                // so default to TECHNICIAN unless a Room row already sets a role.
+                val existing = database.userDao().getUserById(firebaseUser.uid)
+                val (displayName, parsedRole) = parseFirebaseNameAndRole(
+                    rawName = firebaseUser.displayName,
+                    fallbackEmail = firebaseUser.email
+                )
+
+                val user = User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: existing?.email ?: "",
+                    displayName = displayName,
+                    // Preserve an existing role if the user was already registered
+                    role = existing?.role ?: parsedRole,
+                    phoneNumber = existing?.phoneNumber,
+                    photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
+                    isEmailVerified = firebaseUser.isEmailVerified,
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis()
+                )
+                database.userDao().insertUser(user)
+
                 _isLoading.value = false
                 _authState.value = AuthState.Authenticated(user)
                 syncUserToApi(user)
@@ -271,9 +299,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Mirrors the local User into the REST API and stores the JWT
-     * returned by POST /api/users/sync. Fails silently if the API
-     * is unreachable — the app keeps working offline.
+     * Mirrors the local User into the REST API and stores the JWT.
+     * Fails silently if the API is unreachable.
      */
     private suspend fun syncUserToApi(user: User) {
         val ctx = getApplication<Application>()

@@ -13,7 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -66,6 +68,7 @@ fun ManagerDashboardScreen(
     val requests by viewModel.requests.collectAsStateWithLifecycle(initialValue = emptyList())
     val pendingQuotes by viewModel.pendingQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val acceptedQuotes by viewModel.acceptedQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle(initialValue = null)
 
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
 
@@ -92,6 +95,16 @@ fun ManagerDashboardScreen(
         ) {
             // ===== WELCOME =====
             item {
+                // Pull the user's name from Room. Falls back through:
+                //   displayName → "Name|ROLE" → first name → "Manager"
+                val firstName = currentUser
+                    ?.displayName
+                    ?.substringBefore("|")     // strips "|MANAGER" if it ever leaks
+                    ?.trim()
+                    ?.substringBefore(" ")     // first word only
+                    .orEmpty()
+                    .ifBlank { "Manager" }
+
                 Column {
                     Text(
                         "Welcome back,",
@@ -99,7 +112,7 @@ fun ManagerDashboardScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Manager",
+                        firstName,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -159,7 +172,7 @@ fun ManagerDashboardScreen(
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
-                                            Icons.Default.ReceiptLong,
+                                            Icons.AutoMirrored.Filled.ReceiptLong,
                                             contentDescription = null,
                                             tint = Color.White,
                                             modifier = Modifier.size(24.dp)
@@ -213,7 +226,7 @@ fun ManagerDashboardScreen(
                         OverviewTile(
                             value = requests.size.toString(),
                             label = "Requests",
-                            icon = Icons.Default.Assignment,
+                            icon = Icons.AutoMirrored.Filled.Assignment,
                             tint = Color(0xFFFF9800),
                             modifier = Modifier.weight(1f)
                         )
@@ -247,7 +260,7 @@ fun ManagerDashboardScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                Icons.Default.ReceiptLong,
+                                Icons.AutoMirrored.Filled.ReceiptLong,
                                 null,
                                 Modifier.size(48.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -322,7 +335,7 @@ fun ManagerDashboardScreen(
 
                         Spacer(Modifier.height(8.dp))
 
-                        // Row 2 (Technicians removed — 2 buttons + spacer)
+                        // Row 2 — 2 buttons + spacer (Technicians removed)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
