@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +25,14 @@ import androidx.fragment.app.FragmentActivity
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
 
 @Composable
 fun FingerprintScreen(
@@ -43,7 +52,6 @@ fun FingerprintScreen(
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
                     isAuthenticating = false
-                    // Sign in the user
                     coroutineScope.launch {
                         viewModel.signInWithBiometric()
                         navManager.navigateToMain()
@@ -72,7 +80,6 @@ fun FingerprintScreen(
         biometricPrompt.authenticate(promptInfo)
     }
 
-    // Auto-trigger on launch
     LaunchedEffect(Unit) {
         val biometricManager = BiometricManager.from(context)
         val canAuth = biometricManager.canAuthenticate(
@@ -91,105 +98,106 @@ fun FingerprintScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0D1B2A))
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxHeight(),
+            verticalArrangement = Arrangement.Center
         ) {
-            // Logo / Icon
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1B9AAA)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "SP",
-                    color = Color.White,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // ---- Brand wordmark ----
             Text(
-                text = "ServicePro",
+                text = "ArcticFlow",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = BabyBlueDeep
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Quick Sign In",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Access ServicePro via secure biometrics",
+                text = "HVAC service management",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Fingerprint Icon with pulsing rings
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
-                // Outer rings
+            // ---- Fingerprint pulsing rings ----
+            Box(contentAlignment = Alignment.Center) {
+                // Outer ring
                 Box(
                     modifier = Modifier
                         .size(200.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1B9AAA).copy(alpha = 0.1f))
+                        .background(BabyBlueSoft.copy(alpha = 0.4f))
                 )
+                // Middle ring
                 Box(
                     modifier = Modifier
                         .size(150.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1B9AAA).copy(alpha = 0.2f))
+                        .background(BabyBlueSoft.copy(alpha = 0.7f))
                 )
-                Box(
+                // Inner circle with gradient + icon
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Transparent,
                     modifier = Modifier
                         .size(100.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1B9AAA).copy(alpha = 0.3f))
-                )
-                Icon(
-                    Icons.Default.Fingerprint,
-                    contentDescription = "Fingerprint",
-                    modifier = Modifier.size(64.dp),
-                    tint = Color(0xFF1B9AAA)
-                )
+                        .background(
+                            Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep)),
+                            shape = CircleShape
+                        )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Fingerprint,
+                            contentDescription = "Fingerprint",
+                            modifier = Modifier.size(52.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             Text(
-                text = "Touch the fingerprint sensor",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-                fontWeight = FontWeight.Medium
+                text = "Quick Sign In",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Touch the fingerprint sensor to continue",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            TextButton(
+            OutlinedButton(
                 onClick = { navManager.navigateToLogin() },
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = BabyBlueDeep
+                )
             ) {
-                Text("Use password instead")
+                Text(
+                    "Use password instead",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

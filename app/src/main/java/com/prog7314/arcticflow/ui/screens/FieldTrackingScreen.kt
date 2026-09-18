@@ -3,6 +3,7 @@ package com.prog7314.arcticflow.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -28,6 +31,15 @@ import com.prog7314.arcticflow.viewmodels.ManagerTrackingViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+private val SuccessGreen = Color(0xFF2E7D32)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FieldTrackingScreen(
@@ -36,21 +48,18 @@ fun FieldTrackingScreen(
 ) {
     val context = LocalContext.current
 
-    // API SYNC — polling ViewModel (no Room, no Firestore)
     val viewModel: ManagerTrackingViewModel = viewModel()
 
     val technicians by viewModel.technicians.collectAsStateWithLifecycle()
     val isLoading by viewModel.isPolling.collectAsStateWithLifecycle()
 
-    // Start/stop polling tied to this screen's lifecycle
     LaunchedEffect(Unit) {
-        viewModel.startPolling(customerId = null)   // manager sees ALL technicians
+        viewModel.startPolling(customerId = null)
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.stopPolling() }
     }
 
-    // Default camera position (Johannesburg as fallback)
     val defaultPosition = LatLng(-26.2041, 28.0473)
 
     val initialPosition = remember(technicians) {
@@ -63,7 +72,6 @@ fun FieldTrackingScreen(
         position = CameraPosition.fromLatLngZoom(initialPosition, 12f)
     }
 
-    // Recenter when first tech appears
     LaunchedEffect(technicians.size) {
         if (technicians.isNotEmpty()) {
             cameraPositionState.position = CameraPosition.fromLatLngZoom(
@@ -143,10 +151,29 @@ fun FieldTrackingScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
+                        .background(Color.Black.copy(alpha = 0.35f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color.White)
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = BabyBlueDeep)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Locating technicians…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -156,22 +183,31 @@ fun FieldTrackingScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(24.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(6.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = BabyBlueSoft,
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(34.dp),
+                                    tint = BabyBlueDeep
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
                         Text(
                             "No Active Technicians",
                             style = MaterialTheme.typography.titleMedium,
@@ -182,7 +218,7 @@ fun FieldTrackingScreen(
                             "Technicians will appear here when they tap\n\"On My Way\" on a booking.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -190,59 +226,91 @@ fun FieldTrackingScreen(
 
             // ============ TECH COUNT BADGE (top-right) ============
             if (technicians.isNotEmpty()) {
-                Card(
+                Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF4CAF50)
-                    ),
-                    shape = RoundedCornerShape(24.dp)
+                    shape = RoundedCornerShape(50),
+                    color = SuccessGreen,
+                    shadowElevation = 4.dp
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.DirectionsCar, null,
-                            tint = Color.White, modifier = Modifier.size(18.dp)
+                            Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "${technicians.size} active",
                             color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyMedium
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }
             }
 
-            // ============ BOTTOM SHEET WITH TECH LIST ============
+            // ============ BOTTOM CARD WITH TECH LIST ============
             if (technicians.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .padding(16.dp),
-                    elevation = CardDefaults.cardElevation(8.dp),
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        Text(
-                            "On-Duty Technicians",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = BabyBlueSoft,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.DirectionsCar,
+                                        contentDescription = null,
+                                        tint = BabyBlueDeep,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "On-Duty Technicians",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "${technicians.size} tracked",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(6.dp))
 
                         technicians.take(3).forEach { tech ->
                             TechRow(tech)
-                            Spacer(Modifier.height(4.dp))
                         }
                     }
                 }
@@ -252,46 +320,87 @@ fun FieldTrackingScreen(
 }
 
 // ============================================================
-// Row item — takes TechLocationDto (API) instead of TechLocation (Firestore)
+// Tech row
 // ============================================================
 @Composable
 private fun TechRow(tech: TechLocationDto) {
     val df = SimpleDateFormat("h:mm a", Locale.getDefault())
+
+    val statusColor = when (tech.status) {
+        "on_the_way", "ON_MY_WAY" -> Color(0xFF03A9F4)
+        "on_site"                 -> SuccessGreen
+        "completed"               -> Color(0xFF9C27B0)
+        else                      -> OrangeAccent
+    }
+
+    val statusLabel = when (tech.status) {
+        "on_the_way", "ON_MY_WAY" -> "On the way"
+        "on_site"                 -> "On site"
+        "completed"               -> "Completed"
+        else                      -> "Idle"
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(
-                    when (tech.status) {
-                        "on_the_way", "ON_MY_WAY" -> Color(0xFF03A9F4)
-                        "on_site"                 -> Color(0xFF4CAF50)
-                        "completed"               -> Color(0xFF9C27B0)
-                        else                      -> Color(0xFFFF9800)
-                    },
-                    shape = RoundedCornerShape(50)
-                )
-        )
+        Surface(
+            shape = CircleShape,
+            color = statusColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(34.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Surface(
+                    shape = CircleShape,
+                    color = statusColor,
+                    modifier = Modifier.size(10.dp)
+                ) {}
+            }
+        }
+
         Spacer(Modifier.width(12.dp))
+
         Column(Modifier.weight(1f)) {
             Text(
                 tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Text(
-                tech.buildingName?.takeIf { it.isNotBlank() } ?: "Idle",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    tech.buildingName?.takeIf { it.isNotBlank() } ?: "Idle",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Spacer(Modifier.width(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = statusColor.copy(alpha = 0.14f)
+                ) {
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
         }
+
+        Spacer(Modifier.width(10.dp))
+
         Text(
             df.format(Date(tech.lastUpdated)),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

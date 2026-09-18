@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Inbox
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
@@ -26,6 +29,15 @@ import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+private val OrangeSoft   = Color(0xFFFFEBD2)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,24 +79,38 @@ fun PendingRequestsScreen(
     ) { padding ->
         if (requests.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Inbox, null, Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = BabyBlueSoft,
+                        modifier = Modifier.size(88.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Inbox,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = BabyBlueDeep
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
                     Text(
                         "No pending requests",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontWeight = FontWeight.Bold
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         "New manager requests will appear here.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -92,8 +118,8 @@ fun PendingRequestsScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(requests, key = { it.id }) { request ->
@@ -109,15 +135,22 @@ fun PendingRequestsScreen(
 @Composable
 fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onCreateQuote() },
-        elevation = CardDefaults.cardElevation(2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCreateQuote() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -125,11 +158,14 @@ fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         request.issueType,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = BabyBlueDeep,
+                        fontWeight = FontWeight.Medium
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         request.description,
                         style = MaterialTheme.typography.bodySmall,
@@ -137,30 +173,64 @@ fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
                         maxLines = 2
                     )
                     request.preferredDate?.let {
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "Preferred: ${dateFormat.format(Date(it))}",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Badge(
-                    containerColor = when (request.priority) {
-                        RequestPriority.URGENT -> Color.Red
-                        RequestPriority.HIGH   -> Color(0xFFFF9800)
-                        RequestPriority.MEDIUM -> Color(0xFF2196F3)
-                        RequestPriority.LOW    -> Color(0xFF4CAF50)
-                    }
-                ) { Text(request.priority.name, color = Color.White) }
+                Spacer(Modifier.width(10.dp))
+                PriorityPill(request.priority)
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            Button(onClick = onCreateQuote, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onCreateQuote,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                )
+            ) {
                 Icon(Icons.Default.RequestQuote, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Create Quote")
+                Text(
+                    "Create Quote",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
+    }
+}
+
+// ============================================================
+// PRIORITY PILL
+// ============================================================
+@Composable
+private fun PriorityPill(priority: RequestPriority) {
+    val (bg, fg) = when (priority) {
+        RequestPriority.URGENT -> Color(0xFFFFDAD6) to Color(0xFFBA1A1A)
+        RequestPriority.HIGH   -> OrangeSoft       to OrangeAccent
+        RequestPriority.MEDIUM -> BabyBlueSoft     to BabyBlueDeep
+        RequestPriority.LOW    -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+    }
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = bg
+    ) {
+        Text(
+            priority.name.lowercase().replaceFirstChar { it.titlecase() },
+            style = MaterialTheme.typography.labelSmall,
+            color = fg,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
     }
 }

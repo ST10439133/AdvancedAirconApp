@@ -40,6 +40,16 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+private val OrangeSoft   = Color(0xFFFFEBD2)
+private val SuccessGreen = Color(0xFF2E7D32)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManagerDashboardScreen(
@@ -74,7 +84,7 @@ fun ManagerDashboardScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Manager Dashboard",
+                title = "Dashboard",
                 navManager = navManager,
                 notificationViewModel = notificationViewModel,
                 actions = {
@@ -89,7 +99,7 @@ fun ManagerDashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ===== WELCOME =====
@@ -111,13 +121,14 @@ fun ManagerDashboardScreen(
                     Text(
                         firstName,
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
 
             // =========================================================
-            // ===== OVERVIEW (hero tile + 3 supporting tiles) =====
+            // ===== OVERVIEW =====
             // =========================================================
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -138,25 +149,18 @@ fun ManagerDashboardScreen(
                         )
                     }
 
-                    // Hero tile — Pending quotes (arrow removed)
+                    // Hero tile — Pending quotes (baby blue gradient)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(
-                                            Color(0xFF1B9AAA),
-                                            Color(0xFF147D8A)
-                                        )
-                                    )
-                                )
-                                .padding(18.dp)
+                                .background(Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep)))
+                                .padding(20.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -164,28 +168,28 @@ fun ManagerDashboardScreen(
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(48.dp)
+                                    color = Color.White.copy(alpha = 0.22f),
+                                    modifier = Modifier.size(52.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             Icons.AutoMirrored.Filled.ReceiptLong,
                                             contentDescription = null,
                                             tint = Color.White,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(26.dp)
                                         )
                                     }
                                 }
-                                Spacer(Modifier.width(14.dp))
+                                Spacer(Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         "Pending quotes",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = Color.White.copy(alpha = 0.85f)
+                                        color = Color.White.copy(alpha = 0.9f)
                                     )
                                     Text(
                                         pendingQuotes.size.toString(),
-                                        style = MaterialTheme.typography.headlineLarge,
+                                        style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
                                     )
@@ -196,7 +200,6 @@ fun ManagerDashboardScreen(
                                         color = Color.White.copy(alpha = 0.85f)
                                     )
                                 }
-                                // ← Arrow removed here
                             }
                         }
                     }
@@ -210,21 +213,21 @@ fun ManagerDashboardScreen(
                             value = buildings.size.toString(),
                             label = "Buildings",
                             icon = Icons.Default.Business,
-                            tint = Color(0xFF2196F3),
+                            tint = BabyBlueDeep,
                             modifier = Modifier.weight(1f)
                         )
                         OverviewTile(
                             value = requests.size.toString(),
                             label = "Requests",
                             icon = Icons.AutoMirrored.Filled.Assignment,
-                            tint = Color(0xFFFF9800),
+                            tint = OrangeAccent,
                             modifier = Modifier.weight(1f)
                         )
                         OverviewTile(
                             value = acceptedQuotes.size.toString(),
                             label = "Accepted",
                             icon = Icons.Default.CheckCircle,
-                            tint = Color(0xFF4CAF50),
+                            tint = SuccessGreen,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -244,21 +247,43 @@ fun ManagerDashboardScreen(
 
             if (pendingQuotes.isEmpty()) {
                 item {
-                    Card(Modifier.fillMaxWidth()) {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
                         Column(
-                            Modifier.fillMaxWidth().padding(24.dp),
+                            Modifier.fillMaxWidth().padding(28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ReceiptLong,
-                                null,
-                                Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color = BabyBlueSoft,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ReceiptLong,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(30.dp),
+                                        tint = BabyBlueDeep
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
                             Text(
                                 "No pending quotes",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "New quotes will appear here for approval.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -288,7 +313,8 @@ fun ManagerDashboardScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
@@ -296,9 +322,8 @@ fun ManagerDashboardScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(14.dp))
 
-                        // Row 1
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -325,7 +350,6 @@ fun ManagerDashboardScreen(
 
                         Spacer(Modifier.height(8.dp))
 
-                        // Row 2 — 2 buttons + spacer (Technicians removed)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -383,7 +407,7 @@ fun OverviewTile(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -392,13 +416,13 @@ fun OverviewTile(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
                 shape = CircleShape,
-                color = tint.copy(alpha = 0.15f),
-                modifier = Modifier.size(32.dp)
+                color = tint.copy(alpha = 0.14f),
+                modifier = Modifier.size(34.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -437,30 +461,32 @@ fun QuickActionButton(
 ) {
     Column(
         modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(48.dp)
+            shape = RoundedCornerShape(14.dp),
+            color = BabyBlueSoft,
+            modifier = Modifier.size(50.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     icon,
                     contentDescription = label,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = BabyBlueDeep,
                     modifier = Modifier.size(24.dp)
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center,
-            maxLines = 2
+            maxLines = 2,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -477,6 +503,7 @@ fun PendingQuoteCard(
     val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
     Card(
         Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -488,13 +515,13 @@ fun PendingQuoteCard(
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Quote #${quote.id}",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = BabyBlueDeep
                     )
                     Text(
                         quote.buildingName,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -502,8 +529,9 @@ fun PendingQuoteCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        "Submitted: ${dateFmt.format(Date(quote.createdAt))}",
+                        "Submitted ${dateFmt.format(Date(quote.createdAt))}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -512,18 +540,19 @@ fun PendingQuoteCard(
                     "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = BabyBlueDeep
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(10.dp))
 
             Text(
-                "Scope of Work:",
+                "Scope of Work",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 quote.scopeOfWork,
@@ -532,7 +561,7 @@ fun PendingQuoteCard(
                 maxLines = 4
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             Row(
                 Modifier.fillMaxWidth(),
@@ -541,6 +570,7 @@ fun PendingQuoteCard(
                 OutlinedButton(
                     onClick = onDecline,
                     modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
@@ -552,8 +582,10 @@ fun PendingQuoteCard(
                 Button(
                     onClick = onAccept,
                     modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = OrangeAccent,
+                        contentColor = Color.White
                     )
                 ) {
                     Icon(Icons.Default.Check, null, Modifier.size(16.dp))
@@ -604,6 +636,7 @@ fun ScheduleAcceptDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
         title = {
             Text(
                 "Accept & Schedule Job",
@@ -627,7 +660,7 @@ fun ScheduleAcceptDialog(
                 Text(
                     "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = BabyBlueDeep
                 )
 
                 HorizontalDivider()
@@ -644,7 +677,8 @@ fun ScheduleAcceptDialog(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { picker.show() }
+                        .clickable { picker.show() },
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 Text(
@@ -665,7 +699,8 @@ fun ScheduleAcceptDialog(
                         RadioButton(
                             selected = selectedSlot == slot,
                             onClick = { selectedSlot = slot },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
+                            colors = RadioButtonDefaults.colors(selectedColor = BabyBlueDeep)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
@@ -684,7 +719,9 @@ fun ScheduleAcceptDialog(
                         onConfirm(selectedDate!!, selectedSlot)
                     }
                 },
-                enabled = selectedDate != null && selectedSlot.isNotBlank()
+                enabled = selectedDate != null && selectedSlot.isNotBlank(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
             ) { Text("Confirm") }
         },
         dismissButton = {

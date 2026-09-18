@@ -3,11 +3,13 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.prog7314.arcticflow.data.entities.Quote
 import com.prog7314.arcticflow.data.entities.QuoteStatus
@@ -31,6 +36,18 @@ import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+private val OrangeSoft   = Color(0xFFFFEBD2)
+private val SuccessGreen = Color(0xFF2E7D32)
+private val SuccessSoft  = Color(0xFFE6F4EA)
+private val ErrorRed     = Color(0xFFBA1A1A)
+private val ErrorSoft    = Color(0xFFFFDAD6)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +65,6 @@ fun QuotesListScreen(
     else viewModel.getQuotesForTechnician(userId))
         .collectAsState(initial = emptyList())
 
-    // Which quote is currently being scheduled (opens the Accept dialog)
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
 
     Scaffold(
@@ -72,18 +88,34 @@ fun QuotesListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        shape = CircleShape,
+                        color = BabyBlueSoft,
+                        modifier = Modifier.size(88.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.ReceiptLong,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = BabyBlueDeep
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
                     Text(
                         if (isCustomer) "No quotes yet"
                         else "You haven't sent any quotes yet",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         if (isCustomer) "Quotes sent by technicians will appear here."
                         else "Quotes you create will appear here.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -91,9 +123,9 @@ fun QuotesListScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(quotes, key = { it.id }) { quote ->
                     QuoteRow(
@@ -146,7 +178,7 @@ fun QuotesListScreen(
 }
 
 // ============================================================
-// QUOTE ROW — optionally shows Accept / Decline
+// QUOTE ROW
 // ============================================================
 @Composable
 fun QuoteRow(
@@ -158,11 +190,22 @@ fun QuoteRow(
 ) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
+    val (statusBg, statusFg, statusIcon) = when (quote.status) {
+        QuoteStatus.PENDING  -> Triple(OrangeSoft,   OrangeAccent, Icons.Default.Schedule)
+        QuoteStatus.ACCEPTED -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
+        QuoteStatus.DECLINED -> Triple(ErrorSoft,    ErrorRed,     Icons.Default.Close)
+        QuoteStatus.EXPIRED  -> Triple(BabyBlueSoft, BabyBlueDeep, Icons.Default.Schedule)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -173,50 +216,68 @@ fun QuoteRow(
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Quote #${quote.id}",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = BabyBlueDeep
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         quote.buildingName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         quote.issueType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        "Created: ${dateFormat.format(Date(quote.createdAt))}",
-                        style = MaterialTheme.typography.bodySmall,
+                        dateFormat.format(Date(quote.createdAt)),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                Badge(
-                    containerColor = when (quote.status) {
-                        QuoteStatus.PENDING  -> Color(0xFFFF9800)
-                        QuoteStatus.ACCEPTED -> Color(0xFF4CAF50)
-                        QuoteStatus.DECLINED -> Color(0xFFF44336)
-                        QuoteStatus.EXPIRED  -> Color.Gray
-                    }
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = statusBg
                 ) {
-                    Text(quote.status.name, color = Color.White)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            statusIcon,
+                            contentDescription = null,
+                            tint = statusFg,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            quote.status.name.lowercase().replaceFirstChar { it.titlecase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusFg,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(10.dp))
 
             Text(
-                "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
+                "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = BabyBlueDeep
             )
 
-            // ===== ACCEPT / DECLINE (manager only, pending only) =====
             if (showActions) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.fillMaxWidth(),
@@ -224,7 +285,10 @@ fun QuoteRow(
                 ) {
                     OutlinedButton(
                         onClick = onDecline,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
                         )
@@ -235,9 +299,13 @@ fun QuoteRow(
                     }
                     Button(
                         onClick = onAccept,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
+                            containerColor = OrangeAccent,
+                            contentColor = Color.White
                         )
                     ) {
                         Icon(Icons.Default.Check, null, Modifier.size(16.dp))
@@ -289,6 +357,7 @@ fun ScheduleQuoteDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
         title = {
             Text(
                 "Accept & Schedule Job",
@@ -312,7 +381,7 @@ fun ScheduleQuoteDialog(
                 Text(
                     "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = BabyBlueDeep
                 )
 
                 HorizontalDivider()
@@ -329,7 +398,8 @@ fun ScheduleQuoteDialog(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { picker.show() }
+                        .clickable { picker.show() },
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 Text(
@@ -350,7 +420,8 @@ fun ScheduleQuoteDialog(
                         RadioButton(
                             selected = selectedSlot == slot,
                             onClick = { selectedSlot = slot },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
+                            colors = RadioButtonDefaults.colors(selectedColor = BabyBlueDeep)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
@@ -369,7 +440,12 @@ fun ScheduleQuoteDialog(
                         onConfirm(selectedDate!!, selectedSlot)
                     }
                 },
-                enabled = selectedDate != null && selectedSlot.isNotBlank()
+                enabled = selectedDate != null && selectedSlot.isNotBlank(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                )
             ) { Text("Confirm") }
         },
         dismissButton = {

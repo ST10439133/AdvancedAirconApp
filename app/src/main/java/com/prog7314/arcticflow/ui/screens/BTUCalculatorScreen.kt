@@ -3,19 +3,29 @@ package com.prog7314.arcticflow.ui.screens
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Window
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -30,17 +40,24 @@ import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.ProductViewModel
 import java.util.Locale
 
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue        = Color(0xFF4FA8D8)
+private val BabyBlueDeep    = Color(0xFF2E7BA6)
+private val BabyBlueSoft    = Color(0xFFE1F1FB)
+private val OrangeAccent    = Color(0xFFF7941D)
+private val OrangeSoft      = Color(0xFFFFEBD2)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BTUCalculatorScreen(
     navManager: NavManager
 ) {
-    // Product data (read-only, side-effect-free)
     val productViewModel: ProductViewModel = viewModel()
     val allProducts by productViewModel.products
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // Inputs (metric system)
     var lengthM by remember { mutableStateOf("6.0") }
     var widthM by remember { mutableStateOf("4.5") }
     var heightM by remember { mutableStateOf("2.7") }
@@ -50,7 +67,6 @@ fun BTUCalculatorScreen(
     var insulation by remember { mutableStateOf("Good") }
     var roomType by remember { mutableStateOf("Bedroom") }
 
-    // Results
     var calculatedBTU by remember { mutableStateOf<Double?>(null) }
     var calculatedKW by remember { mutableStateOf<Double?>(null) }
     var calculatedTons by remember { mutableStateOf<Double?>(null) }
@@ -79,165 +95,241 @@ fun BTUCalculatorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Estimate cooling load using South African metric units",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // ============ ROOM DIMENSIONS (metres) ============
-            Row(
+            // ============================================================
+            // HERO HEADER
+            // ============================================================
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                OutlinedTextField(
-                    value = lengthM,
-                    onValueChange = { lengthM = it },
-                    label = { Text("Length (m)") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = widthM,
-                    onValueChange = { widthM = it },
-                    label = { Text("Width (m)") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = heightM,
-                    onValueChange = { heightM = it },
-                    label = { Text("Height (m)") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep))
+                        )
+                        .padding(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.22f),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Calculate,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                "Cooling Load Estimator",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                "South African metric units",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                }
             }
 
-            // ============ WINDOWS & OCCUPANTS ============
-            Row(
+            // ============================================================
+            // SECTION 1 — Room Dimensions
+            // ============================================================
+            SectionHeader(icon = Icons.Default.CropSquare, title = "Room Dimensions (metres)")
+
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                OutlinedTextField(
-                    value = windows,
-                    onValueChange = { windows = it },
-                    label = { Text("Windows") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = occupants,
-                    onValueChange = { occupants = it },
-                    label = { Text("Occupants") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = lengthM,
+                            onValueChange = { lengthM = it },
+                            label = { Text("Length") },
+                            suffix = { Text("m") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = widthM,
+                            onValueChange = { widthM = it },
+                            label = { Text("Width") },
+                            suffix = { Text("m") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = heightM,
+                            onValueChange = { heightM = it },
+                            label = { Text("Height") },
+                            suffix = { Text("m") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = windows,
+                            onValueChange = { windows = it },
+                            label = { Text("Windows") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Window,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = occupants,
+                            onValueChange = { occupants = it },
+                            label = { Text("Occupants") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.People,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                    }
+                }
             }
 
-            // ============ ROOM TYPE ============
-            Column {
-                Text(
-                    text = "Room Type",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+            // ============================================================
+            // SECTION 2 — Environment
+            // ============================================================
+            SectionHeader(icon = Icons.Default.WbSunny, title = "Environment")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    roomTypeOptions.take(3).forEach { opt ->
-                        FilterChip(
-                            selected = roomType == opt,
-                            onClick = { roomType = opt },
-                            label = {
-                                Text(
-                                    opt,
-                                    style = MaterialTheme.typography.labelSmall
+                    // Room type
+                    Column {
+                        Text(
+                            "Room Type",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            roomTypeOptions.forEach { opt ->
+                                FilterChip(
+                                    selected = roomType == opt,
+                                    onClick = { roomType = opt },
+                                    label = { Text(opt, maxLines = 1, softWrap = false) }
                                 )
                             }
-                        )
+                        }
                     }
-                }
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    roomTypeOptions.drop(3).forEach { opt ->
-                        FilterChip(
-                            selected = roomType == opt,
-                            onClick = { roomType = opt },
-                            label = {
-                                Text(
-                                    opt,
-                                    style = MaterialTheme.typography.labelSmall
+
+                    // Sun exposure
+                    Column {
+                        Text(
+                            "Sun Exposure",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            sunOptions.forEach { opt ->
+                                FilterChip(
+                                    selected = sunExposure == opt,
+                                    onClick = { sunExposure = opt },
+                                    label = { Text(opt) }
                                 )
                             }
-                        )
+                        }
                     }
-                }
-            }
 
-            // ============ SUN EXPOSURE ============
-            Column {
-                Text(
-                    text = "Sun Exposure",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    sunOptions.forEach { opt ->
-                        FilterChip(
-                            selected = sunExposure == opt,
-                            onClick = { sunExposure = opt },
-                            label = { Text(opt) }
+                    // Insulation
+                    Column {
+                        Text(
+                            "Insulation Quality",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                }
-            }
-
-            // ============ INSULATION ============
-            Column {
-                Text(
-                    text = "Insulation Quality",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    insulationOptions.forEach { opt ->
-                        FilterChip(
-                            selected = insulation == opt,
-                            onClick = { insulation = opt },
-                            label = {
-                                Text(
-                                    opt,
-                                    style = MaterialTheme.typography.labelSmall
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            insulationOptions.forEach { opt ->
+                                FilterChip(
+                                    selected = insulation == opt,
+                                    onClick = { insulation = opt },
+                                    label = { Text(opt, maxLines = 1, softWrap = false) }
                                 )
                             }
-                        )
+                        }
                     }
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
-
-            // ============ CALCULATE BUTTON ============
+            // ============================================================
+            // CTA
+            // ============================================================
             Button(
                 onClick = {
                     val l = lengthM.toDoubleOrNull() ?: 0.0
@@ -286,118 +378,198 @@ fun BTUCalculatorScreen(
                         .sortedBy { it.price }
                         .take(3)
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Calculate Load")
+                Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Calculate Load",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
-            // ============ RESULT ============
+            // ============================================================
+            // RESULT
+            // ============================================================
             if (calculatedBTU != null) {
+                SectionHeader(icon = Icons.Default.LocalFireDepartment, title = "Result")
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "CALCULATED REQUIREMENT",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = String.format(
-                                Locale.US,
-                                "%.0f BTU/hr",
-                                calculatedBTU
-                            ),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = String.format(
-                                Locale.US,
-                                "%.2f kW",
-                                calculatedKW ?: 0.0
-                            ),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = String.format(
-                                Locale.US,
-                                "%.2f Tons",
-                                calculatedTons ?: 0.0
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep))
+                            )
+                            .padding(20.dp)
+                    ) {
+                        Column {
+                            Text(
+                                "Calculated Requirement",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                String.format(Locale.US, "%.0f", calculatedBTU) + " BTU/hr",
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ResultPill(
+                                    label = "kW",
+                                    value = String.format(Locale.US, "%.2f", calculatedKW ?: 0.0)
+                                )
+                                ResultPill(
+                                    label = "Tons",
+                                    value = String.format(Locale.US, "%.2f", calculatedTons ?: 0.0)
+                                )
+                            }
+                        }
                     }
                 }
 
                 // ============ SUGGESTED PRODUCTS ============
                 if (suggestedProducts.isNotEmpty()) {
-                    Text(
-                        text = "SUGGESTED PRODUCTS (${suggestedProducts.size})",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
+                    SectionHeader(
+                        icon = Icons.Default.AcUnit,
+                        title = "Suggested Units (${suggestedProducts.size})"
                     )
 
                     suggestedProducts.forEach { product ->
                         SuggestedProductCard(product = product)
                     }
 
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "ℹ️ Suggestions are for reference only and do not affect your projects or quotes.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "ℹ️ Suggestions are for reference only and do not affect your projects or quotes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
                 } else {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = OrangeSoft
                         )
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 "No matching units in stock",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = OrangeAccent
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 "No products in your catalogue fall within ±20% of ${
                                     "%.0f".format(calculatedBTU)
                                 } BTU. Try adjusting inputs or check the Products list.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
 // ============================================================
-// SUGGESTED PRODUCT CARD — now uses the Supabase image URL
+// SECTION HEADER
+// ============================================================
+@Composable
+private fun SectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 4.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = BabyBlueDeep,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = BabyBlueDeep
+        )
+    }
+}
+
+@Composable
+private fun ResultPill(label: String, value: String) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = Color.White.copy(alpha = 0.2f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.85f)
+            )
+        }
+    }
+}
+
+// ============================================================
+// SUGGESTED PRODUCT CARD
 // ============================================================
 @Composable
 fun SuggestedProductCard(product: Product) {
     val context = LocalContext.current
-    val imageUrl = product.fullImageUrl()   // Supabase URL helper from ProductListScreen
+    val imageUrl = product.fullImageUrl()
     var imageFailed by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
@@ -405,25 +577,25 @@ fun SuggestedProductCard(product: Product) {
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ===== IMAGE with fallback =====
+            // Image
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (imageFailed) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                            .background(BabyBlueSoft),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.AcUnit,
                             contentDescription = product.name,
-                            modifier = Modifier.size(36.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(32.dp),
+                            tint = BabyBlueDeep
                         )
                     }
                 } else {
@@ -455,9 +627,8 @@ fun SuggestedProductCard(product: Product) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-            // ===== DETAILS =====
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = product.name,
@@ -465,6 +636,7 @@ fun SuggestedProductCard(product: Product) {
                     fontWeight = FontWeight.Bold,
                     maxLines = 2
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${product.brand} · ${product.model}",
                     style = MaterialTheme.typography.bodySmall,
@@ -474,12 +646,14 @@ fun SuggestedProductCard(product: Product) {
                     text = "${product.btu} BTU · ${
                         String.format(Locale.US, "%.1f", product.btu / 3412.0)
                     } kW",
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "R${String.format(Locale.US, "%.2f", product.price)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = BabyBlueDeep,
                     fontWeight = FontWeight.Bold
                 )
             }

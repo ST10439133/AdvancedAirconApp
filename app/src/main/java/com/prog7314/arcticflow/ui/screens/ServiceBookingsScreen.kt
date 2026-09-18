@@ -7,23 +7,34 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
@@ -39,6 +50,19 @@ import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+private val OrangeSoft   = Color(0xFFFFEBD2)
+private val SuccessGreen = Color(0xFF2E7D32)
+private val SuccessSoft  = Color(0xFFE6F4EA)
+private val ErrorRed     = Color(0xFFBA1A1A)
+private val ErrorSoft    = Color(0xFFFFDAD6)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,12 +81,10 @@ fun ServiceBookingsScreen(
     val allJobs by viewModel.getJobsForTechnician(userId)
         .collectAsState(initial = emptyList())
 
-    // Active tracking job (the one with technicianOnWay = true)
     val activeTrackingJob = remember(allJobs) {
         allJobs.firstOrNull { it.technicianOnWay }
     }
 
-    // Push technician GPS to the REST API while any job is being tracked
     if (activeTrackingJob != null) {
         LocationPusher(
             enabled = true,
@@ -75,17 +97,9 @@ fun ServiceBookingsScreen(
         )
     }
 
-    // ---------- Time filter ----------
     var selectedFilter by remember { mutableStateOf("Today") }
     val filters = listOf("Today", "This Week", "This Month", "All")
 
-    // ------------------------------------------------------------------
-    // Pre-computed ranges. All four are anchored to midnight today so a
-    // job scheduled at 23:59 tonight still falls into "Today".
-    // "This Week" respects the locale's firstDayOfWeek (Sunday or Monday).
-    // "This Week" and "This Month" are BOUNDED at the end, so jobs in the
-    // distant future don't accidentally match.
-    // ------------------------------------------------------------------
     val ranges = remember {
         val now = Calendar.getInstance()
 
@@ -119,7 +133,6 @@ fun ServiceBookingsScreen(
         )
     }
 
-    // ---------- Per-chip counts ----------
     val counts = remember(allJobs, ranges) {
         mapOf(
             "Today"      to allJobs.count { it.scheduledDate?.let { d -> d in ranges.getValue("Today") } == true },
@@ -129,7 +142,6 @@ fun ServiceBookingsScreen(
         )
     }
 
-    // ---------- Filtered + sorted list ----------
     val filteredJobs = remember(allJobs, selectedFilter, ranges) {
         allJobs
             .filter { job ->
@@ -145,7 +157,6 @@ fun ServiceBookingsScreen(
             .sortedBy { it.scheduledDate ?: Long.MAX_VALUE }
     }
 
-    // ---------- Address resolution ----------
     var addressMap by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
     LaunchedEffect(allJobs) {
@@ -162,7 +173,6 @@ fun ServiceBookingsScreen(
         Log.d("ServiceBookings", "Resolved addresses: $resolved")
     }
 
-    // ---------- Tracking permission ----------
     var pendingTrackingJob by remember { mutableStateOf<Job?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -216,14 +226,15 @@ fun ServiceBookingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Filter chips — horizontally scrollable so 4 fit on small screens
+            // ---- Filter chips ----
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 filters.forEach { f ->
                     val n = counts[f] ?: 0
@@ -231,13 +242,17 @@ fun ServiceBookingsScreen(
                         selected = selectedFilter == f,
                         onClick = { selectedFilter = f },
                         label = {
-                            Text(if (n > 0) "$f ($n)" else f)
+                            Text(
+                                if (n > 0) "$f ($n)" else f,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
             if (filteredJobs.isEmpty()) {
                 Box(
@@ -245,25 +260,40 @@ fun ServiceBookingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.EventBusy, null, Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = BabyBlueSoft,
+                            modifier = Modifier.size(88.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.EventBusy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                    tint = BabyBlueDeep
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
                         Text(
                             "No bookings",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Bold
                         )
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "No jobs match the \"$selectedFilter\" filter",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
                     items(filteredJobs, key = { it.id }) { job ->
                         val resolvedAddress = addressMap[job.id].orEmpty()
                         BookingCard(
@@ -311,7 +341,7 @@ fun ServiceBookingsScreen(
 }
 
 // ============================================================
-// Helper: start tracking for a job
+// Helpers — unchanged
 // ============================================================
 private suspend fun startTrackingForJob(
     context: android.content.Context,
@@ -332,10 +362,8 @@ private suspend fun startTrackingForJob(
         return
     }
 
-    // Persist the "on my way" flag in Room — this also mirrors to the API
     viewModel.setTechnicianOnWay(job.id, true)
 
-    // Existing Firestore-based tracking
     val techLocation = TechLocation(
         technicianId = technicianId,
         technicianName = "Technician",
@@ -351,7 +379,6 @@ private suspend fun startTrackingForJob(
 
     val ok = LocationTrackingManager.updateLocation(techLocation)
 
-    // Push the initial GPS fix to the REST API immediately
     ApiRepository.pushLocation(
         context = context,
         technicianId = technicianId,
@@ -376,9 +403,6 @@ private suspend fun startTrackingForJob(
     onDone(ok)
 }
 
-// ============================================================
-// Helper: open Google Maps with the SERVICE ADDRESS.
-// ============================================================
 private suspend fun openMapForJob(
     context: android.content.Context,
     job: Job,
@@ -438,7 +462,7 @@ private suspend fun openMapForJob(
 }
 
 // ============================================================
-// Booking Card UI — Call button removed
+// BOOKING CARD — restyled
 // ============================================================
 @Composable
 fun BookingCard(
@@ -458,79 +482,139 @@ fun BookingCard(
         isProcessing = false
     }
 
-    Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+    val (statusBg, statusFg) = when (job.status) {
+        JobStatus.COMPLETED   -> SuccessSoft  to SuccessGreen
+        JobStatus.IN_PROGRESS -> BabyBlueSoft to BabyBlueDeep
+        JobStatus.SCHEDULED   -> BabyBlueSoft to BabyBlueDeep
+        JobStatus.PENDING     -> OrangeSoft   to OrangeAccent
+        else                  -> Color(0xFFEEEEEE) to Color(0xFF616161)
+    }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
         Column(Modifier.padding(16.dp)) {
+            // ---- Header ----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         job.buildingName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         job.issueType,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BabyBlueDeep,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    if (resolvedAddress.isNotBlank()) {
-                        Text(
-                            resolvedAddress,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    job.scheduledDate?.let {
-                        Text(
-                            dateFormat.format(Date(it)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
-                Badge(
-                    containerColor = when (job.status) {
-                        JobStatus.COMPLETED   -> Color(0xFF4CAF50)
-                        JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
-                        JobStatus.SCHEDULED   -> Color(0xFF03A9F4)
-                        JobStatus.PENDING     -> Color(0xFFFF9800)
-                        else                  -> Color(0xFF9E9E9E)
-                    }
-                ) { Text(job.status.name, color = Color.White) }
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = statusBg
+                ) {
+                    Text(
+                        job.status.name.lowercase().replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusFg,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isLocalToggleOn)
-                        Color(0xFF4CAF50).copy(alpha = 0.15f)
-                    else MaterialTheme.colorScheme.surfaceVariant
-                ),
+            // ---- Meta ----
+            if (resolvedAddress.isNotBlank()) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        Icons.Default.Place,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        resolvedAddress,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            job.scheduledDate?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        dateFormat.format(Date(it)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ---- Tracking toggle panel ----
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isLocalToggleOn) SuccessSoft else BabyBlueSoft,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.DirectionsCar, null,
-                        tint = if (isLocalToggleOn) Color(0xFF4CAF50)
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isLocalToggleOn) SuccessGreen.copy(alpha = 0.15f)
+                        else Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = if (isLocalToggleOn) SuccessGreen else BabyBlueDeep,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
-                            if (isLocalToggleOn) "Customer can track you" else "Not tracking yet",
+                            if (isLocalToggleOn) "Customer can track you"
+                            else "Not tracking yet",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            if (isLocalToggleOn) "Tap to stop tracking" else "Tap when you depart",
-                            style = MaterialTheme.typography.bodySmall,
+                            if (isLocalToggleOn) "Tap to stop tracking"
+                            else "Tap when you depart",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -548,20 +632,40 @@ fun BookingCard(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Call button removed — Map + Job Card only
+            // ---- Action row ----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = onMap, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = onMap,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
                     Icon(Icons.Default.Navigation, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Map", style = MaterialTheme.typography.labelSmall)
+                    Text("Map", style = MaterialTheme.typography.labelLarge)
                 }
-                Button(onClick = onOpenJobCard, modifier = Modifier.weight(1f)) {
-                    Text("Job Card", style = MaterialTheme.typography.labelSmall)
+                Button(
+                    onClick = onOpenJobCard,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeAccent,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        "Job Card",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }

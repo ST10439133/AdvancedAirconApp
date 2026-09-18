@@ -36,7 +36,15 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // ============================================================
-// Filter options for the jobs list
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
+
+// ============================================================
+// Filter options
 // ============================================================
 private enum class JobFilter(val label: String) {
     ALL("All"),
@@ -59,7 +67,6 @@ fun JobsScreen(
 
     val jobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())
 
-    // ---- Time anchors ----
     val todayStart = remember {
         Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
@@ -68,7 +75,6 @@ fun JobsScreen(
     }
     val todayEnd = todayStart + 24L * 60 * 60 * 1000
 
-    // ---- Stats ----
     val jobsToday = jobs.count { (it.scheduledDate ?: 0L) in todayStart until todayEnd }
     val pendingJobs = jobs.count {
         it.status == JobStatus.SCHEDULED ||
@@ -78,7 +84,6 @@ fun JobsScreen(
     }
     val completedJobs = jobs.count { it.status == JobStatus.COMPLETED }
 
-    // ---- Filter ----
     var filter by remember { mutableStateOf(JobFilter.ALL) }
 
     val filteredJobs = remember(jobs, filter) {
@@ -125,21 +130,14 @@ fun JobsScreen(
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ---- Hero summary card ----
+            // ---- Hero summary ----
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF1B9AAA),
-                                    Color(0xFF147D8A)
-                                )
-                            )
-                        )
+                        .background(Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep)))
                         .padding(20.dp)
                 ) {
                     Column {
@@ -169,7 +167,7 @@ fun JobsScreen(
                 }
             }
 
-            // ---- Filter chips (horizontally scrollable) ----
+            // ---- Filter chips ----
             item {
                 Row(
                     modifier = Modifier
@@ -184,21 +182,9 @@ fun JobsScreen(
                         FilterChip(
                             selected = selected,
                             onClick = { filter = f },
-                            label = {
-                                Text(
-                                    f.label,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            },
+                            label = { Text(f.label, maxLines = 1, softWrap = false) },
                             leadingIcon = if (selected) {
-                                {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        Modifier.size(16.dp)
-                                    )
-                                }
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                             } else null
                         )
                     }
@@ -227,7 +213,7 @@ fun JobsScreen(
                 }
             }
 
-            // ---- List or empty state ----
+            // ---- List / empty ----
             if (filteredJobs.isEmpty()) {
                 item {
                     Box(
@@ -239,7 +225,7 @@ fun JobsScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Surface(
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                color = BabyBlueSoft,
                                 modifier = Modifier.size(80.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -247,7 +233,7 @@ fun JobsScreen(
                                         Icons.Default.WorkOff,
                                         contentDescription = null,
                                         modifier = Modifier.size(36.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = BabyBlueDeep
                                     )
                                 }
                             }
@@ -291,14 +277,14 @@ fun JobsScreen(
 }
 
 // ============================================================
-// Hero stat cell inside the summary card
+// Hero stat cell
 // ============================================================
 @Composable
 private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.15f))
+            .background(Color.White.copy(alpha = 0.18f))
             .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -317,7 +303,7 @@ private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier
 }
 
 // ============================================================
-// Job card with status stripe + details
+// Job card
 // ============================================================
 @Composable
 fun JobCard(
@@ -333,7 +319,7 @@ fun JobCard(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -343,7 +329,7 @@ fun JobCard(
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
         ) {
-            // Left status stripe
+            // Status stripe
             Box(
                 modifier = Modifier
                     .width(6.dp)
@@ -356,7 +342,6 @@ fun JobCard(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                // Title + badge
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -373,19 +358,17 @@ fun JobCard(
                     StatusBadge(job.status)
                 }
 
-                // Issue type
                 if (job.issueType.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         job.issueType,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = BabyBlueDeep,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Address
                 if (job.fullAddress.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.Top) {
@@ -406,7 +389,6 @@ fun JobCard(
                     }
                 }
 
-                // Scheduled date (relative)
                 job.scheduledDate?.let { ts ->
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -427,7 +409,6 @@ fun JobCard(
 
                 Spacer(Modifier.height(12.dp))
 
-                // CTA
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -437,14 +418,14 @@ fun JobCard(
                         if (job.status == JobStatus.COMPLETED) "View job card"
                         else "Open job card",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = BabyBlueDeep,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.width(4.dp))
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = BabyBlueDeep,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -454,7 +435,7 @@ fun JobCard(
 }
 
 // ============================================================
-// Status badge with soft-colored background
+// Status badge
 // ============================================================
 @Composable
 private fun StatusBadge(status: JobStatus) {
@@ -489,10 +470,10 @@ private fun StatusBadge(status: JobStatus) {
 // ============================================================
 
 private fun JobStatus.color(): Color = when (this) {
-    JobStatus.COMPLETED   -> Color(0xFF4CAF50)
+    JobStatus.COMPLETED   -> Color(0xFF2E7D32)
     JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
     JobStatus.SCHEDULED   -> Color(0xFF03A9F4)
-    JobStatus.PENDING     -> Color(0xFFFF9800)
+    JobStatus.PENDING     -> Color(0xFFF7941D)
     JobStatus.ASSIGNED    -> Color(0xFF9C27B0)
     JobStatus.CANCELLED   -> Color(0xFF9E9E9E)
 }
@@ -506,10 +487,6 @@ private fun JobStatus.displayName(): String = when (this) {
     JobStatus.CANCELLED   -> "Cancelled"
 }
 
-/**
- * Renders "Today at 3:00 PM", "Tomorrow at 9:00 AM", "Yesterday at …",
- * or falls back to the absolute date for anything further away.
- */
 private fun relativeDateLabel(ts: Long, fallbackFormat: SimpleDateFormat): String {
     val now = Calendar.getInstance()
     val target = Calendar.getInstance().apply { timeInMillis = ts }

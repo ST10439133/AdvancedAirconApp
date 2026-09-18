@@ -2,17 +2,29 @@
 package com.prog7314.arcticflow.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.RequestQuote
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,6 +36,15 @@ import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue        = Color(0xFF4FA8D8)
+private val BabyBlueDeep    = Color(0xFF2E7BA6)
+private val BabyBlueSoft    = Color(0xFFE1F1FB)
+private val OrangeAccent    = Color(0xFFF7941D)
+private val OrangeSoft      = Color(0xFFFFEBD2)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,9 +75,6 @@ fun CreateQuoteScreen(
         ServiceFeeOption("Duct Cleaning", 500.00, "Air duct cleaning"),
         ServiceFeeOption("Thermostat Installation", 400.00, "Thermostat install")
     )
-
-    // NOTE: The parts catalogue now lives in PartCatalog.kt so both
-    // CreateQuoteScreen and CreateJobCardScreen share the same list.
 
     data class LineItem(
         val name: String = "",
@@ -100,75 +118,157 @@ fun CreateQuoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (currentRequest != null) {
+            // ============================================================
+            // HERO — Request summary
+            // ============================================================
+            currentRequest?.let { req ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Request #${currentRequest!!.id}", style = MaterialTheme.typography.titleSmall)
-                        Text("Building: ${currentRequest!!.buildingName}")
-                        Text("Issue: ${currentRequest!!.issueType}")
-                        Text("Priority: ${currentRequest!!.priority.name}")
-                    }
-                }
-            }
-
-            Text("Service Type & Fee", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-            ExposedDropdownMenuBox(
-                expanded = serviceFeeExpanded,
-                onExpandedChange = { serviceFeeExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = selectedServiceFee?.name ?: "Select Service Type",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Service Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceFeeExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    enabled = !isCreating
-                )
-                ExposedDropdownMenu(
-                    expanded = serviceFeeExpanded,
-                    onDismissRequest = { serviceFeeExpanded = false }
-                ) {
-                    serviceFeeOptions.forEach { opt ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(opt.name)
-                                    Text(
-                                        "R${String.format(Locale.US, "%.2f", opt.fee)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep))
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.22f),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.RequestQuote,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
-                            },
-                            onClick = {
-                                selectedServiceFee = opt
-                                serviceFeeExpanded = false
                             }
-                        )
+                            Spacer(Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Request #${req.id}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    req.buildingName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                                Text(
+                                    req.issueType,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.85f)
+                                )
+                            }
+                            PriorityPill(req.priority.name)
+                        }
                     }
                 }
             }
 
-            if (selectedServiceFee != null) {
-                Text(
-                    "Service Fee: R${String.format(Locale.US, "%.2f", selectedServiceFee!!.fee)}",
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+            // ============================================================
+            // SECTION 1 — Service Type & Fee
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Work, title = "Service Type & Fee")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ExposedDropdownMenuBox(
+                        expanded = serviceFeeExpanded,
+                        onExpandedChange = { serviceFeeExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedServiceFee?.name ?: "Select Service Type",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Service Type") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceFeeExpanded)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isCreating
+                        )
+                        ExposedDropdownMenu(
+                            expanded = serviceFeeExpanded,
+                            onDismissRequest = { serviceFeeExpanded = false }
+                        ) {
+                            serviceFeeOptions.forEach { opt ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(opt.name)
+                                            Text(
+                                                "R${String.format(Locale.US, "%.2f", opt.fee)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedServiceFee = opt
+                                        serviceFeeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (selectedServiceFee != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BabyBlueSoft,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Service Fee",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BabyBlueDeep
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "R${String.format(Locale.US, "%.2f", selectedServiceFee!!.fee)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BabyBlueDeep
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            Text("Parts & Materials", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // ============================================================
+            // SECTION 2 — Parts & Materials
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Inventory2, title = "Parts & Materials")
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -186,17 +286,23 @@ fun CreateQuoteScreen(
                 )
             }
 
-            if (showCustomPartInput) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (showCustomPartInput) {
                         OutlinedTextField(
                             value = customPartName,
                             onValueChange = { customPartName = it },
                             label = { Text("Part Name") },
                             modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
                             enabled = !isCreating
                         )
                         Row(
@@ -208,6 +314,8 @@ fun CreateQuoteScreen(
                                 onValueChange = { customPartPrice = it },
                                 label = { Text("Price (R)") },
                                 modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 enabled = !isCreating
                             )
@@ -216,6 +324,8 @@ fun CreateQuoteScreen(
                                 onValueChange = { customPartQuantity = it },
                                 label = { Text("Qty") },
                                 modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 enabled = !isCreating
                             )
@@ -231,17 +341,13 @@ fun CreateQuoteScreen(
                                     customPartQuantity = "1"
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
                             enabled = !isCreating && customPartName.isNotBlank() && customPartPrice.isNotBlank()
                         ) { Text("Add Custom Part") }
-                    }
-                }
-            } else {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    } else {
                         ExposedDropdownMenuBox(
                             expanded = partDropdownExpanded,
                             onExpandedChange = { partDropdownExpanded = it }
@@ -250,9 +356,14 @@ fun CreateQuoteScreen(
                                 value = selectedPart?.name ?: "Select a part...",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Select from Catalog") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = partDropdownExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                label = { Text("From Catalog") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = partDropdownExpanded)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                shape = RoundedCornerShape(12.dp),
                                 enabled = !isCreating
                             )
                             ExposedDropdownMenu(
@@ -283,13 +394,16 @@ fun CreateQuoteScreen(
                         if (selectedPart != null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedTextField(
                                     value = qtyStr,
                                     onValueChange = { qtyStr = it },
                                     label = { Text("Quantity") },
                                     modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     enabled = !isCreating
                                 )
@@ -302,97 +416,160 @@ fun CreateQuoteScreen(
                                             qtyStr = "1"
                                         }
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     enabled = !isCreating
-                                ) { Text("Add Part") }
+                                ) { Text("Add") }
                             }
                         }
                     }
                 }
             }
 
+            // ============================================================
+            // SECTION 3 — Line Items
+            // ============================================================
             if (lineItems.isNotEmpty()) {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                SectionHeader(
+                    icon = Icons.AutoMirrored.Filled.List,
+                    title = "Line Items (${lineItems.size})"
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Line Items", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
                         lineItems.forEachIndexed { index, item ->
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    if (item.isCustom) "${item.name}*" else item.name,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Text("${item.quantity}x", style = MaterialTheme.typography.bodySmall)
-                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        if (item.isCustom) "${item.name}*" else item.name,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "${item.quantity} × R${
+                                            String.format(Locale.US, "%.2f", item.price)
+                                        }",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Text(
                                     "R${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
                                 IconButton(
                                     onClick = { lineItems = lineItems.filterIndexed { i, _ -> i != index } },
                                     enabled = !isCreating
                                 ) {
-                                    Icon(Icons.Default.Close, "Remove", Modifier.size(16.dp))
+                                    Icon(
+                                        Icons.Default.Close,
+                                        "Remove",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
+                            }
+                            if (index < lineItems.lastIndex) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                     }
                 }
             }
 
+            // ============================================================
+            // SECTION 4 — Summary
+            // ============================================================
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Quote Summary", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Service Fee:")
-                        Text("R${String.format(Locale.US, "%.2f", serviceFee)}")
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Parts:")
-                        Text("R${String.format(Locale.US, "%.2f", partsSubtotal)}")
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("TOTAL:", fontWeight = FontWeight.Bold)
-                        Text(
-                            "R${String.format(Locale.US, "%.2f", total)}",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep))
                         )
+                        .padding(18.dp)
+                ) {
+                    Column {
+                        Text(
+                            "Quote Summary",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(Modifier.height(10.dp))
+
+                        SummaryRow("Service Fee", "R${String.format(Locale.US, "%.2f", serviceFee)}")
+                        SummaryRow("Parts", "R${String.format(Locale.US, "%.2f", partsSubtotal)}")
+
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "TOTAL",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                "R${String.format(Locale.US, "%.2f", total)}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = additionalNotes,
-                onValueChange = { additionalNotes = it },
-                label = { Text("Additional Notes") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4,
-                enabled = !isCreating
-            )
+            // ============================================================
+            // SECTION 5 — Notes
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                OutlinedTextField(
+                    value = additionalNotes,
+                    onValueChange = { additionalNotes = it },
+                    label = { Text("Additional notes") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    minLines = 2,
+                    maxLines = 4,
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isCreating
+                )
+            }
+
+            // ============================================================
+            // SEND
+            // ============================================================
             Button(
                 onClick = {
                     if (selectedServiceFee == null) {
@@ -426,18 +603,116 @@ fun CreateQuoteScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                ),
                 enabled = !isCreating && selectedServiceFee != null && lineItems.isNotEmpty()
             ) {
                 if (isCreating) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = Color.White
                     )
                 } else {
-                    Text("Send Quote")
+                    Icon(Icons.Default.Send, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Send Quote",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+@Composable
+private fun SectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 4.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = BabyBlueDeep,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = BabyBlueDeep
+        )
+    }
+}
+
+@Composable
+private fun PriorityPill(priority: String) {
+    val (bg, fg) = when (priority.uppercase()) {
+        "URGENT" -> Color(0xFFFFDAD6) to Color(0xFFBA1A1A)
+        "HIGH"   -> OrangeSoft to OrangeAccent
+        "MEDIUM" -> BabyBlueSoft to BabyBlueDeep
+        else     -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+    }
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = bg
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.PriorityHigh,
+                contentDescription = null,
+                tint = fg,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                priority.lowercase().replaceFirstChar { it.titlecase() },
+                style = MaterialTheme.typography.labelSmall,
+                color = fg,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.9f)
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
     }
 }

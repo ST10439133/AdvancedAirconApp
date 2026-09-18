@@ -1,22 +1,40 @@
+// app/src/main/java/com/prog7314/arcticflow/ui/screens/EditProfileScreen.kt
 package com.prog7314.arcticflow.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.prog7314.arcticflow.auth.AuthState
 import com.prog7314.arcticflow.auth.AuthViewModel
-import com.prog7314.arcticflow.data.entities.UserRole
 import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val OrangeAccent = Color(0xFFF7941D)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +52,6 @@ fun EditProfileScreen(
     }
 
     var displayName by remember { mutableStateOf(user?.displayName ?: "") }
-    var selectedRole by remember { mutableStateOf(user?.role ?: UserRole.TECHNICIAN) }
     var isSaving by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -43,27 +60,10 @@ fun EditProfileScreen(
                 title = { Text("Edit Profile") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            if (displayName.isNotBlank()) {
-                                coroutineScope.launch {
-                                    isSaving = true
-                                    // TODO: Update user in Firebase and local DB
-                                    Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
-                                    isSaving = false
-                                    navManager.navigateBack()
-                                }
-                            } else {
-                                Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        enabled = !isSaving
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = "Save")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -73,42 +73,78 @@ fun EditProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(100.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.primaryContainer
+            // ============================================================
+            // AVATAR
+            // ============================================================
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(112.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(listOf(BabyBlue, BabyBlueDeep)),
+                            shape = CircleShape
+                        )
                 ) {
-                    Text(
-                        text = displayName.take(1).uppercase(),
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = displayName.take(1).uppercase().ifBlank { "?" },
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = displayName.ifBlank { "Unnamed User" },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+
+            // ============================================================
+            // SECTION — Account Info
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Person, title = "Account Info")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     OutlinedTextField(
                         value = user?.email ?: "",
                         onValueChange = {},
                         label = { Text("Email") },
                         readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     )
 
                     OutlinedTextField(
@@ -116,41 +152,97 @@ fun EditProfileScreen(
                         onValueChange = { displayName = it },
                         label = { Text("Display Name") },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
                         enabled = !isSaving
                     )
-
-                    Column {
-                        Text(
-                            text = "Role",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = selectedRole == UserRole.TECHNICIAN,
-                                onClick = { selectedRole = UserRole.TECHNICIAN },
-                                label = { Text("Technician") },
-                                enabled = !isSaving
-                            )
-                            FilterChip(
-                                selected = selectedRole == UserRole.MANAGER,
-                                onClick = { selectedRole = UserRole.MANAGER },
-                                label = { Text("Manager") },
-                                enabled = !isSaving
-                            )
-                        }
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
-            if (isSaving) {
-                CircularProgressIndicator()
+            // ============================================================
+            // SAVE
+            // ============================================================
+            Button(
+                onClick = {
+                    if (displayName.isNotBlank()) {
+                        coroutineScope.launch {
+                            isSaving = true
+                            // TODO: Update user in Firebase and local DB
+                            Toast.makeText(context, "Profile updated!", Toast.LENGTH_SHORT).show()
+                            isSaving = false
+                            navManager.navigateBack()
+                        }
+                    } else {
+                        Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                ),
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White
+                    )
+                } else {
+                    Icon(Icons.Default.Save, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Save Changes",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
+
+            Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+// ============================================================
+// SECTION HEADER
+// ============================================================
+@Composable
+private fun SectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = BabyBlueDeep,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = BabyBlueDeep
+        )
     }
 }

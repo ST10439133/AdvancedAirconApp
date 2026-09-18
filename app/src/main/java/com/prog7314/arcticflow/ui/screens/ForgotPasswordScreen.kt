@@ -4,7 +4,10 @@ package com.prog7314.arcticflow.ui.screens
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
@@ -12,16 +15,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.prog7314.arcticflow.auth.AuthViewModel
 import com.prog7314.arcticflow.navigation.NavManager
 import kotlinx.coroutines.launch
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlue     = Color(0xFF4FA8D8)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val OrangeAccent = Color(0xFFF7941D)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +49,10 @@ fun ForgotPasswordScreen(
                 title = { Text("Reset Password") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -50,57 +62,60 @@ fun ForgotPasswordScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Shield Icon
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Lock,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Reset Password",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Icon
+            Surface(
+                shape = CircleShape,
+                color = BabyBlueSoft,
+                modifier = Modifier.size(96.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp),
+                        tint = BabyBlueDeep
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Enter your work email address below. We'll send you secure instructions to configure a new password.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "Forgot your password?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = "Enter your work email and we'll send you secure instructions to reset your password.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Work Email") },
-                placeholder = { Text("e.g. engineer@servicepro.com") },
+                placeholder = { Text("name@company.com") },
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
                 enabled = !isLoading,
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
@@ -110,34 +125,64 @@ fun ForgotPasswordScreen(
                             val result = viewModel.resetPassword(email)
                             isLoading = false
                             if (result) {
-                                Toast.makeText(context, "Reset link sent to your email!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                    context,
+                                    "Reset link sent to your email!",
+                                    Toast.LENGTH_LONG
+                                ).show()
                                 navManager.navigateBack()
                             } else {
-                                Toast.makeText(context, "Failed to send reset link. Check your email.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                    context,
+                                    "Failed to send reset link. Check your email.",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                         }
                     } else {
-                        Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Please enter your email",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                ),
                 enabled = !isLoading
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = Color.White
                     )
                 } else {
-                    Text("Send Reset Link")
+                    Text(
+                        "Send Reset Link",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
             TextButton(onClick = { navManager.navigateToLogin() }) {
-                Text("Back to Sign In")
+                Text(
+                    "Back to Sign In",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BabyBlueDeep,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

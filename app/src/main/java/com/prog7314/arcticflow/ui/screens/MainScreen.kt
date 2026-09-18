@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -16,6 +17,12 @@ import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
+
+// ============================================================
+// BRAND TOKENS
+// ============================================================
+private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val BabyBlueDeep = Color(0xFF2E7BA6)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,13 +67,20 @@ fun MainScreen(
     Scaffold(
         bottomBar = {
             NavigationBar(
-                modifier = Modifier.height(72.dp),
+                modifier = Modifier.height(76.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+                tonalElevation = 6.dp
             ) {
                 navItems.forEach { item ->
+                    val selected = currentRoute == item.route
                     NavigationBarItem(
-                        icon = { Icon(item.icon, item.label, Modifier.size(22.dp)) },
+                        icon = {
+                            Icon(
+                                item.icon,
+                                item.label,
+                                Modifier.size(22.dp)
+                            )
+                        },
                         label = {
                             Text(
                                 item.label,
@@ -74,7 +88,14 @@ fun MainScreen(
                                 maxLines = 1
                             )
                         },
-                        selected = currentRoute == item.route,
+                        selected = selected,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = BabyBlueDeep,
+                            selectedTextColor = BabyBlueDeep,
+                            indicatorColor = BabyBlueSoft,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
                         onClick = {
                             bottomNavController.navigate(item.route) {
                                 popUpTo(bottomNavController.graph.startDestinationId) {
@@ -121,8 +142,8 @@ fun MainScreen(
                 }
 
                 // ============ QUOTES TAB ============
-                // MANAGER   → isCustomer = true  → "My Quotes" (received from technicians)
-                // TECHNICIAN → isCustomer = false → "Sent Quotes" (created by this technician)
+                // MANAGER   → isCustomer = true  → "My Quotes"
+                // TECHNICIAN → isCustomer = false → "Sent Quotes"
                 composable(BottomNavItem.Quotes.route) {
                     QuotesListScreen(
                         viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
