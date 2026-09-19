@@ -13,7 +13,7 @@ data class Notification(
     val type: NotificationType = NotificationType.SYSTEM,
     val timestamp: Long = System.currentTimeMillis(),
     val isRead: Boolean = false,
-    val relatedId: String? = null, // Job ID, Quote ID, etc.
+    val relatedId: String? = null,
     val userId: String
 )
 
