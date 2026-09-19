@@ -17,7 +17,7 @@ interface QuoteDao {
     @Delete
     suspend fun deleteQuote(quote: Quote)
 
-    // ---------- Reactive queries ----------
+    // Reactive queries
 
     @Query("SELECT * FROM quotes WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun getQuotesByCustomer(customerId: String): Flow<List<Quote>>
@@ -37,7 +37,7 @@ interface QuoteDao {
     @Query("SELECT * FROM quotes WHERE requestId = :requestId")
     fun observeQuotesByRequest(requestId: Int): Flow<List<Quote>>
 
-    // ---------- One-shot queries ----------
+    // One-shot queries
 
     @Query("SELECT * FROM quotes WHERE id = :quoteId")
     suspend fun getQuoteById(quoteId: Int): Quote?

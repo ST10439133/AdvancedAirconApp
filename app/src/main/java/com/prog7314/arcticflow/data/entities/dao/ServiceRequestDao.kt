@@ -9,21 +9,21 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ServiceRequestDao {
 
-    // ===== INSERT =====
+    // INSERT
     @Insert
     suspend fun insertRequest(request: ServiceRequest): Long
 
-    // ===== UPDATE =====
+    // UPDATE
     // Full update used by Manager's Edit dialog
     @Update
     suspend fun updateRequestFull(request: ServiceRequest)
 
-    // ===== DELETE =====
+    // DELETE
     // Used by Manager to delete a request
     @Delete
     suspend fun deleteRequest(request: ServiceRequest)
 
-    // ===== QUERIES =====
+    //  QUERIES
     // Manager's own requests (only theirs)
     @Query("SELECT * FROM service_requests WHERE userId = :userId ORDER BY createdAt DESC")
     fun getRequestsByUser(userId: String): Flow<List<ServiceRequest>>
@@ -36,7 +36,7 @@ interface ServiceRequestDao {
     @Query("SELECT * FROM service_requests WHERE id = :requestId")
     suspend fun getRequestById(requestId: Int): ServiceRequest?
 
-    // CRITICAL: Get ALL pending requests (Technician sees these - no userId filter)
+    // Get ALL pending requests
     @Query("SELECT * FROM service_requests WHERE status = :status ORDER BY createdAt DESC")
     fun getPendingRequests(status: RequestStatus = RequestStatus.PENDING): Flow<List<ServiceRequest>>
 
@@ -44,7 +44,7 @@ interface ServiceRequestDao {
     @Query("SELECT * FROM service_requests WHERE status = :status ORDER BY createdAt DESC")
     fun getRequestsByStatus(status: RequestStatus): Flow<List<ServiceRequest>>
 
-    // Quick status update (e.g. mark as QUOTED after technician creates a quote)
+    // Quick status update
     @Query("UPDATE service_requests SET status = :status WHERE id = :requestId")
     suspend fun updateRequestStatus(requestId: Int, status: RequestStatus)
 }

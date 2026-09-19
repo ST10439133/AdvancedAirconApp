@@ -28,7 +28,7 @@ class DashboardRepository {
     private val _technicians = MutableStateFlow<List<Technician>>(getSampleTechnicians())
     val technicians: StateFlow<List<Technician>> = _technicians.asStateFlow()
 
-    // Use DashboardBuilding instead of Building
+
     private val _buildings = MutableStateFlow<List<DashboardBuilding>>(getSampleBuildings())
     val buildings: StateFlow<List<DashboardBuilding>> = _buildings.asStateFlow()
 
@@ -88,7 +88,6 @@ class DashboardRepository {
         )
     }
 
-    // Sample data generators - using DashboardBuilding instead of Building
     private fun getSampleAlerts(): List<Alert> = listOf(
         Alert(
             id = "A001",
