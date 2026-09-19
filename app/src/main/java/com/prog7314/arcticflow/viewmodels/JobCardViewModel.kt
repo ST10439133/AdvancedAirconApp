@@ -80,7 +80,9 @@ class JobCardViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                database.jobCardDao().updateJobCardStatus(jobCardId.toInt(), JobCardStatus.SUBMITTED)
+                database.jobCardDao().updateJobCardStatus(
+                    jobCardId.toInt(), JobCardStatus.SUBMITTED
+                )
                 val jc = database.jobCardDao().getJobCardById(jobCardId.toInt())
                 jc?.let {
                     database.jobDao().updateJobStatus(it.jobId, JobStatus.COMPLETED)

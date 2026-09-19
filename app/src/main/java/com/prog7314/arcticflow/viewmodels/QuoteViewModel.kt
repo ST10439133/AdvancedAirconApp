@@ -8,6 +8,8 @@ import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.data.api.ApiRepository
 import com.prog7314.arcticflow.data.api.IdMap
 import com.prog7314.arcticflow.data.entities.*
+import com.prog7314.arcticflow.data.network.NetworkMonitor
+import com.prog7314.arcticflow.data.sync.SyncManager
 import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,10 +33,13 @@ class QuoteViewModel(
         try {
             val localId = buildingDao.insertBuilding(building)
 
-            // Push to API and remember the server id
-            val dto = ApiRepository.pushBuilding(appContext, building.copy(id = localId.toInt()))
-            if (dto != null) {
-                IdMap.putBuilding(appContext, localId.toInt(), dto.id)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val dto = ApiRepository.pushBuilding(
+                    appContext, building.copy(id = localId.toInt())
+                )
+                if (dto != null) {
+                    IdMap.putBuilding(appContext, localId.toInt(), dto.id)
+                }
             }
 
             localId
@@ -54,21 +59,30 @@ class QuoteViewModel(
     suspend fun createServiceRequest(request: ServiceRequest): Long =
         try {
             val localId = requestDao.insertRequest(request)
-
             val building = try { buildingDao.getBuildingById(request.buildingId) } catch (_: Exception) { null }
-
-            // Look up the SERVER id for the referenced building
             val serverBuildingId = IdMap.getBuilding(appContext, request.buildingId)
 
-            val dto = ApiRepository.pushServiceRequest(
-                context = appContext,
-                request = request.copy(id = localId.toInt()),
-                buildingName = building?.name,
-                fullAddress = building?.fullAddress,
-                serverBuildingId = serverBuildingId
-            )
-            if (dto != null) {
-                IdMap.putRequest(appContext, localId.toInt(), dto.id)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val dto = ApiRepository.pushServiceRequest(
+                    context = appContext,
+                    request = request.copy(id = localId.toInt()),
+                    buildingName = building?.name,
+                    fullAddress = building?.fullAddress,
+                    serverBuildingId = serverBuildingId
+                )
+                if (dto != null) {
+                    IdMap.putRequest(appContext, localId.toInt(), dto.id)
+                } else {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_REQUEST_CREATE, localId.toInt(),
+                        mapOf("buildingId" to request.buildingId)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_REQUEST_CREATE, localId.toInt(),
+                    mapOf("buildingId" to request.buildingId)
+                )
             }
 
             localId
@@ -96,8 +110,20 @@ class QuoteViewModel(
         try {
             requestDao.updateRequestStatus(requestId, status)
 
-            // Mirror status change to the REST API (local → server id translation inside)
-            ApiRepository.updateRequestStatus(appContext, requestId, status.name)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.updateRequestStatus(appContext, requestId, status.name)
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_REQUEST_STATUS, requestId,
+                        mapOf("status" to status.name)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_REQUEST_STATUS, requestId,
+                    mapOf("status" to status.name)
+                )
+            }
         } catch (e: Exception) {
             Log.e(tag, "updateRequestStatus failed", e)
         }
@@ -115,17 +141,25 @@ class QuoteViewModel(
     suspend fun createQuote(quote: Quote): Long =
         try {
             val localId = quoteDao.insertQuote(quote)
-
-            // Look up the SERVER id for the referenced request
             val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
 
-            val dto = ApiRepository.pushQuote(
-                context = appContext,
-                quote = quote.copy(id = localId.toInt()),
-                serverRequestId = serverRequestId
-            )
-            if (dto != null) {
-                IdMap.putQuote(appContext, localId.toInt(), dto.id)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val dto = ApiRepository.pushQuote(
+                    context = appContext,
+                    quote = quote.copy(id = localId.toInt()),
+                    serverRequestId = serverRequestId
+                )
+                if (dto != null) {
+                    IdMap.putQuote(appContext, localId.toInt(), dto.id)
+                } else {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_QUOTE_CREATE, localId.toInt(), emptyMap()
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_QUOTE_CREATE, localId.toInt(), emptyMap()
+                )
             }
 
             localId
@@ -166,11 +200,26 @@ class QuoteViewModel(
             grandTotal = total,
             notes = notes
         )
-        val quoteId = createQuote(quote)
-        requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
 
-        // Reflect QUOTED status on the API too
-        ApiRepository.updateRequestStatus(appContext, requestId, RequestStatus.QUOTED.name)
+        val quoteId = createQuote(quote)
+
+        requestDao.updateRequestStatus(requestId, RequestStatus.QUOTED)
+        if (NetworkMonitor.isOnline(appContext)) {
+            val ok = ApiRepository.updateRequestStatus(
+                appContext, requestId, RequestStatus.QUOTED.name
+            )
+            if (!ok) {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_REQUEST_STATUS, requestId,
+                    mapOf("status" to RequestStatus.QUOTED.name)
+                )
+            }
+        } else {
+            SyncManager.enqueue(
+                appContext, SyncManager.TYPE_REQUEST_STATUS, requestId,
+                mapOf("status" to RequestStatus.QUOTED.name)
+            )
+        }
 
         createNotification(
             userId = quote.customerId,
@@ -197,7 +246,20 @@ class QuoteViewModel(
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
 
-            ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                        mapOf("status" to status.name)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                    mapOf("status" to status.name)
+                )
+            }
 
             if (status == QuoteStatus.ACCEPTED) {
                 val quote = quoteDao.getQuoteById(quoteId)
@@ -217,7 +279,20 @@ class QuoteViewModel(
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
 
-            ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.updateQuoteStatus(appContext, quoteId, status.name)
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                        mapOf("status" to status.name)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                    mapOf("status" to status.name)
+                )
+            }
 
             val quote = quoteDao.getQuoteById(quoteId) ?: return
 
@@ -234,7 +309,22 @@ class QuoteViewModel(
                     )
                     requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
 
-                    ApiRepository.updateRequestStatus(appContext, quote.requestId, RequestStatus.PENDING.name)
+                    if (NetworkMonitor.isOnline(appContext)) {
+                        val ok = ApiRepository.updateRequestStatus(
+                            appContext, quote.requestId, RequestStatus.PENDING.name
+                        )
+                        if (!ok) {
+                            SyncManager.enqueue(
+                                appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
+                                mapOf("status" to RequestStatus.PENDING.name)
+                            )
+                        }
+                    } else {
+                        SyncManager.enqueue(
+                            appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
+                            mapOf("status" to RequestStatus.PENDING.name)
+                        )
+                    }
                 }
                 else -> { }
             }
@@ -275,23 +365,48 @@ class QuoteViewModel(
 
             val localJobId = jobDao.insertJob(job)
 
-            val serverQuoteId   = IdMap.getQuote(appContext, quote.id)
-            val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val serverQuoteId   = IdMap.getQuote(appContext, quote.id)
+                val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
 
-            val dto = ApiRepository.pushJob(
-                context = appContext,
-                job = job.copy(id = localJobId.toInt()),
-                serverQuoteId = serverQuoteId,
-                serverRequestId = serverRequestId
-            )
-            if (dto != null) {
-                IdMap.putJob(appContext, localJobId.toInt(), dto.id)
+                val dto = ApiRepository.pushJob(
+                    context = appContext,
+                    job = job.copy(id = localJobId.toInt()),
+                    serverQuoteId = serverQuoteId,
+                    serverRequestId = serverRequestId
+                )
+                if (dto != null) {
+                    IdMap.putJob(appContext, localJobId.toInt(), dto.id)
+                } else {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_JOB_CREATE, localJobId.toInt(), emptyMap()
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_JOB_CREATE, localJobId.toInt(), emptyMap()
+                )
             }
 
-            Log.d(tag, "Job created: roomId=$localJobId serverId=${dto?.id}")
+            Log.d(tag, "Job created: roomId=$localJobId")
 
             requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
-            ApiRepository.updateRequestStatus(appContext, quote.requestId, RequestStatus.ACCEPTED.name)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.updateRequestStatus(
+                    appContext, quote.requestId, RequestStatus.ACCEPTED.name
+                )
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
+                        mapOf("status" to RequestStatus.ACCEPTED.name)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
+                    mapOf("status" to RequestStatus.ACCEPTED.name)
+                )
+            }
 
             val dateStr = scheduledDate?.let { formatDate(it) } ?: "TBD"
             createNotification(
@@ -322,7 +437,21 @@ class QuoteViewModel(
     suspend fun updateJobStatus(jobId: Int, status: JobStatus) {
         try {
             jobDao.updateJobStatus(jobId, status)
-            ApiRepository.updateJobStatus(appContext, jobId, status.name)
+
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.updateJobStatus(appContext, jobId, status.name)
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_JOB_STATUS, jobId,
+                        mapOf("status" to status.name)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_JOB_STATUS, jobId,
+                    mapOf("status" to status.name)
+                )
+            }
         } catch (e: Exception) {
             Log.e(tag, "updateJobStatus failed", e)
         }
@@ -334,45 +463,22 @@ class QuoteViewModel(
     suspend fun resolveJobAddress(job: Job): String {
         if (job.fullAddress.isNotBlank()) return job.fullAddress.trim()
 
-        val request = try {
-            requestDao.getRequestById(job.requestId)
-        } catch (e: Exception) {
-            Log.w(tag, "resolveJobAddress: request lookup failed", e)
-            null
-        }
+        val request = try { requestDao.getRequestById(job.requestId) } catch (e: Exception) { null }
 
         if (request != null) {
             if (request.fullAddress.isNotBlank()) return request.fullAddress.trim()
 
-            val building = try {
-                buildingDao.getBuildingById(request.buildingId)
-            } catch (e: Exception) {
-                Log.w(tag, "resolveJobAddress: building lookup failed", e)
-                null
-            }
+            val building = try { buildingDao.getBuildingById(request.buildingId) } catch (e: Exception) { null }
 
             if (building != null) {
                 if (building.fullAddress.isNotBlank()) return building.fullAddress.trim()
 
                 val composed = listOf(
-                    building.address,
-                    building.suburb,
-                    building.city,
-                    building.province,
-                    building.postalCode
-                )
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .joinToString(", ")
+                    building.address, building.suburb, building.city,
+                    building.province, building.postalCode
+                ).map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
 
                 if (composed.isNotBlank()) return composed
-
-                val legacy = listOf(building.address, building.city, building.postalCode)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .joinToString(", ")
-
-                if (legacy.isNotBlank()) return legacy
             }
         }
 
@@ -383,7 +489,20 @@ class QuoteViewModel(
         try {
             jobDao.updateTechnicianOnWay(jobId, onWay)
 
-            ApiRepository.setJobOnWay(appContext, jobId, onWay)
+            if (NetworkMonitor.isOnline(appContext)) {
+                val ok = ApiRepository.setJobOnWay(appContext, jobId, onWay)
+                if (!ok) {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_JOB_ON_WAY, jobId,
+                        mapOf("onWay" to onWay)
+                    )
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_JOB_ON_WAY, jobId,
+                    mapOf("onWay" to onWay)
+                )
+            }
 
             val job = jobDao.getJobById(jobId) ?: return
             if (onWay) {

@@ -25,6 +25,9 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE status = :status ORDER BY scheduledDate ASC")
     fun getJobsByStatus(status: JobStatus): Flow<List<Job>>
 
+    @Query("SELECT * FROM jobs ORDER BY scheduledDate ASC")
+    fun getAllJobsFlow(): Flow<List<Job>>
+
     @Query("SELECT * FROM jobs WHERE id = :jobId")
     suspend fun getJobById(jobId: Int): Job?
 

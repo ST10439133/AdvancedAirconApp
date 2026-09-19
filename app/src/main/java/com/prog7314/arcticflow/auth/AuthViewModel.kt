@@ -24,6 +24,7 @@ import kotlinx.coroutines.tasks.await
 import com.prog7314.arcticflow.data.api.ApiClient
 import com.prog7314.arcticflow.data.api.UserSyncRequest
 import com.prog7314.arcticflow.data.api.safeApiCall
+import com.prog7314.arcticflow.data.network.NetworkMonitor
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -304,6 +305,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      */
     private suspend fun syncUserToApi(user: User) {
         val ctx = getApplication<Application>()
+
+        if (!NetworkMonitor.isOnline(ctx)) {
+            Log.d(TAG, "Offline — skipping user sync")
+            return
+        }
+
         val api = ApiClient.get(ctx)
         val response = safeApiCall("AuthViewModel") {
             api.syncUser(

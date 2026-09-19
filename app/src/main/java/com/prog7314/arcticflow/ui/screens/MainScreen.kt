@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.ui.components.BottomNavItem
+import com.prog7314.arcticflow.ui.components.OfflineBanner
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 
 // ============================================================
@@ -110,97 +111,119 @@ fun MainScreen(
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            NavHost(
-                navController = bottomNavController,
-                startDestination = startDestination
-            ) {
-                // ============ DASHBOARD ============
-                composable(BottomNavItem.Dashboard.route) {
-                    if (userRole == "MANAGER") {
-                        ManagerDashboardScreen(
-                            navManager = navManager,
-                            userId = userId
-                        )
-                    } else {
-                        TechnicianDashboardScreen(
-                            navManager = navManager,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            OfflineBanner()
+            Box(Modifier.fillMaxSize()) {
+                NavHost(
+                    navController = bottomNavController,
+                    startDestination = startDestination
+                ) {
+                    // ============ DASHBOARD ============
+                    composable(BottomNavItem.Dashboard.route) {
+                        if (userRole == "MANAGER") {
+                            ManagerDashboardScreen(
+                                navManager = navManager,
+                                userId = userId
+                            )
+                        } else {
+                            TechnicianDashboardScreen(
+                                navManager = navManager,
+                                userId = userId,
+                                onViewRequests = navigateToRequests
+                            )
+                        }
+                    }
+
+                    // ============ MANAGER TABS ============
+                    composable(BottomNavItem.Buildings.route) {
+                        BuildingsScreen(
+                            viewModel = viewModel(
+                                factory = QuoteViewModel.Factory(
+                                    database,
+                                    context
+                                )
+                            ),
                             userId = userId,
-                            onViewRequests = navigateToRequests
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
                         )
                     }
-                }
 
-                // ============ MANAGER TABS ============
-                composable(BottomNavItem.Buildings.route) {
-                    BuildingsScreen(
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
-                        userId = userId,
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    // ============ QUOTES TAB ============
+                    // MANAGER   → isCustomer = true  → "My Quotes"
+                    // TECHNICIAN → isCustomer = false → "Sent Quotes"
+                    composable(BottomNavItem.Quotes.route) {
+                        QuotesListScreen(
+                            viewModel = viewModel(
+                                factory = QuoteViewModel.Factory(
+                                    database,
+                                    context
+                                )
+                            ),
+                            userId = userId,
+                            isCustomer = (userRole == "MANAGER"),
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                // ============ QUOTES TAB ============
-                // MANAGER   → isCustomer = true  → "My Quotes"
-                // TECHNICIAN → isCustomer = false → "Sent Quotes"
-                composable(BottomNavItem.Quotes.route) {
-                    QuotesListScreen(
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
-                        userId = userId,
-                        isCustomer = (userRole == "MANAGER"),
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    composable(BottomNavItem.Services.route) {
+                        ServicesScreen(
+                            navManager = navManager,
+                            userId = userId,
+                            viewModel = viewModel(
+                                factory = QuoteViewModel.Factory(
+                                    database,
+                                    context
+                                )
+                            ),
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                composable(BottomNavItem.Services.route) {
-                    ServicesScreen(
-                        navManager = navManager,
-                        userId = userId,
-                        viewModel = viewModel(factory = QuoteViewModel.Factory(database, context)),
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    composable(BottomNavItem.Products.route) {
+                        ProductListScreen(
+                            viewModel = viewModel(),
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                composable(BottomNavItem.Products.route) {
-                    ProductListScreen(
-                        viewModel = viewModel(),
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    // ============ TRACKING TAB ============
+                    composable(BottomNavItem.Tracking.route) {
+                        FieldTrackingScreen(
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                // ============ TRACKING TAB ============
-                composable(BottomNavItem.Tracking.route) {
-                    FieldTrackingScreen(
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    // ============ TECHNICIAN TABS ============
+                    composable(BottomNavItem.Requests.route) {
+                        PendingRequestsScreen(
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                // ============ TECHNICIAN TABS ============
-                composable(BottomNavItem.Requests.route) {
-                    PendingRequestsScreen(
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
+                    composable(BottomNavItem.Bookings.route) {
+                        ServiceBookingsScreen(
+                            userId = userId,
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
 
-                composable(BottomNavItem.Bookings.route) {
-                    ServiceBookingsScreen(
-                        userId = userId,
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
-                }
-
-                composable(BottomNavItem.Jobs.route) {
-                    JobsScreen(
-                        userId = userId,
-                        navManager = navManager,
-                        onBackToDashboard = navigateToDashboard
-                    )
+                    composable(BottomNavItem.Jobs.route) {
+                        JobsScreen(
+                            userId = userId,
+                            navManager = navManager,
+                            onBackToDashboard = navigateToDashboard
+                        )
+                    }
                 }
             }
         }

@@ -22,6 +22,7 @@ import com.prog7314.arcticflow.utils.LocaleManager
 import com.google.firebase.FirebaseApp
 import com.prog7314.arcticflow.data.ArcticFlowDatabase
 import com.prog7314.arcticflow.data.SampleData
+import com.prog7314.arcticflow.data.sync.SyncWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,12 +50,11 @@ class MainActivity : ComponentActivity() {
             Log.e("MainActivity", "Firebase initialization failed", e)
         }
 
-        // Sync sample data (inserts new + updates changed fields)
+        SyncWorker.schedule(applicationContext)
         syncSampleData()
 
         setContent {
             val themeState = remember { mutableStateOf(themeManager.getThemeState()) }
-
             val navController = rememberNavController()
             val navManager = rememberNavManager(navController)
 
@@ -80,16 +80,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Ensures the `products` table always mirrors [SampleData.getSampleProducts()]:
-     *
-     *  - Inserts products that don't exist in the DB yet (matched by name).
-     *  - Updates existing rows when their fields have changed (imagePath,
-     *    price, btu, rating, etc.).
-     *  - Leaves the user's `isFavorite` flag untouched.
-     *
-     * Runs on a background dispatcher, so it never blocks the UI.
-     */
     private fun syncSampleData() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -98,7 +88,6 @@ class MainActivity : ComponentActivity() {
 
                 val existingProducts = productDao.getAllProductsOnce()
                 val existingByName = existingProducts.associateBy { it.name }
-
                 val sampleProducts = SampleData.getSampleProducts()
 
                 var insertedCount = 0
@@ -106,27 +95,19 @@ class MainActivity : ComponentActivity() {
 
                 sampleProducts.forEach { sample ->
                     val existing = existingByName[sample.name]
-
                     if (existing == null) {
-                        // Insert brand new product (keep sample's isFavorite)
                         productDao.insertProduct(sample)
                         insertedCount++
                     } else {
-                        // Update fields that may have changed, but preserve the
-                        // user's favourite choice and the DB-assigned id.
                         val merged = existing.copy(
-                            brand = sample.brand,
-                            model = sample.model,
-                            btu = sample.btu,
-                            price = sample.price,
+                            brand = sample.brand, model = sample.model,
+                            btu = sample.btu, price = sample.price,
                             description = sample.description,
                             imagePath = sample.imagePath,
                             brochurePath = sample.brochurePath,
                             warrantyPath = sample.warrantyPath,
                             rating = sample.rating
-                            // NOTE: isFavorite intentionally NOT copied — user choice wins
                         )
-
                         if (merged != existing) {
                             productDao.updateProduct(merged)
                             updatedCount++
@@ -134,11 +115,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Log.d(
-                    "MainActivity",
-                    "Sample data sync complete: $insertedCount inserted, $updatedCount updated, " +
-                            "${sampleProducts.size} total in SampleData"
-                )
+                Log.d("MainActivity",
+                    "Sample data sync: $insertedCount inserted, $updatedCount updated")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error syncing sample data", e)
             }

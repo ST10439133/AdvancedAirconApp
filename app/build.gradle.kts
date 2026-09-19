@@ -128,6 +128,8 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
+    // WorkManager — required for offline sync
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.04.01"))
