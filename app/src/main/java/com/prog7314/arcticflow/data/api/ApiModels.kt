@@ -2,11 +2,10 @@ package com.prog7314.arcticflow.data.api
 
 import com.google.gson.annotations.SerializedName
 
-// ============================================================
 // Data classes mirroring the JSON shapes returned by the
 // ArcticFlow REST API. Gson maps snake_case JSON keys to
 // camelCase Kotlin properties via @SerializedName.
-// ============================================================
+
 
 data class UserSyncRequest(
     val uid: String,
@@ -99,6 +98,6 @@ data class TechLocationDto(
     val status: String
 )
 
-// Small helper DTOs for PATCH requests
+
 data class StatusUpdate(val status: String)
 data class OnWayUpdate(val onWay: Boolean)

@@ -10,23 +10,23 @@ import com.prog7314.arcticflow.data.entities.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// ============================================================
+
 // Centralised wrapper around ArcticFlowApi.
-// Requests use camelCase keys — that's what the server reads
+// Requests use camelCase keys - that's what the server reads
 // (req.body.buildingId, req.body.issueType, etc.).
-// Responses use @SerializedName snake_case — handled in ApiModels.
+// Responses use @SerializedName snake_case - handled in ApiModels.
 //
 // Foreign-key strategy: Room ids and Postgres ids are different
 // (auto-increment is per-database). Every push saves the server's
 // id into IdMap so subsequent child rows can reference the right
 // foreign key. Status-update methods translate local → server id
 // before calling the PATCH endpoint.
-// ============================================================
+
 object ApiRepository {
 
     private const val TAG = "ApiRepository"
 
-    // ---------- Users ----------
+    // User
     suspend fun syncUser(context: Context, user: User): String? = withContext(Dispatchers.IO) {
         val api = ApiClient.get(context)
         val response = safeApiCall(TAG) {
@@ -43,7 +43,7 @@ object ApiRepository {
         response?.token?.also { ApiClient.saveToken(context, it) }
     }
 
-    // ---------- Buildings ----------
+    // Buildings
     suspend fun pushBuilding(context: Context, building: BuildingEntity): BuildingDto? =
         withContext(Dispatchers.IO) {
             val api = ApiClient.get(context)
@@ -71,13 +71,13 @@ object ApiRepository {
             ok == true
         }
 
-    // ---------- Service Requests ----------
+    // Service Requests
     suspend fun pushServiceRequest(
         context: Context,
         request: ServiceRequest,
         buildingName: String?,
         fullAddress: String?,
-        serverBuildingId: Int?      // ⬅ the Postgres id of the referenced building
+        serverBuildingId: Int?
     ): ServiceRequestDto? = withContext(Dispatchers.IO) {
         val api = ApiClient.get(context)
         val body: Map<String, Any?> = mapOf(
@@ -93,7 +93,7 @@ object ApiRepository {
         safeApiCall(TAG) { api.createRequest(body) }
     }
 
-    // ---------- Quotes ----------
+    // Quotes
     suspend fun pushQuote(
         context: Context,
         quote: Quote,
@@ -122,7 +122,7 @@ object ApiRepository {
         safeApiCall(TAG) { api.createQuote(body) }
     }
 
-    // ---------- Jobs ----------
+    // Jobs
     suspend fun pushJob(
         context: Context,
         job: Job,
@@ -146,7 +146,7 @@ object ApiRepository {
         safeApiCall(TAG) { api.createJob(body) }
     }
 
-    // ---------- Status updates (translate local → server id) ----------
+    // Status updates
     suspend fun updateRequestStatus(context: Context, localRequestId: Int, status: String): Boolean =
         withContext(Dispatchers.IO) {
             val serverId = IdMap.getRequest(context, localRequestId)
@@ -191,8 +191,8 @@ object ApiRepository {
             safeApiCall(TAG) { api.setOnWay(serverId, OnWayUpdate(onWay)); true } == true
         }
 
-    // ---------- Live Locations ----------
-    // NOTE: the server reads isOnMyWay (camelCase) not is_on_my_way
+    //  Live Locations
+
     suspend fun pushLocation(context: Context, technicianId: String, dto: TechLocationDto): Boolean =
         withContext(Dispatchers.IO) {
             val api = ApiClient.get(context)

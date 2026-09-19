@@ -9,17 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-// ============================================================
-// Singleton manager for Retrofit + the JWT token.
-//
-// - get(context) returns a cached ArcticFlowApi instance pointed
-//   at BuildConfig.API_BASE_URL.
-// - saveToken / clearToken persist the JWT issued by the API
-//   after POST /api/users/sync so every subsequent call is
-//   automatically authenticated.
-// - The OkHttp interceptor injects "Authorization: Bearer X"
-//   into every outgoing request if a token exists.
-// ============================================================
+
 object ApiClient {
 
     private const val TAG = "ApiClient"

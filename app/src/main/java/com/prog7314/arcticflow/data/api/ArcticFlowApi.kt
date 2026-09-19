@@ -2,12 +2,10 @@ package com.prog7314.arcticflow.data.api
 
 import retrofit2.http.*
 
-// ============================================================
 // Retrofit interface describing every REST endpoint exposed by
 // the ArcticFlow Node.js API. The Authorization header is
 // injected globally by ApiClient's OkHttp interceptor, so no
 // @Header("Authorization") parameters are needed here.
-// ============================================================
 interface ArcticFlowApi {
 
     // ---- Users ----
@@ -17,7 +15,7 @@ interface ArcticFlowApi {
     @GET("api/users/me")
     suspend fun getMe(): UserDto
 
-    // ---- Buildings ----
+    // Buildings
     @GET("api/buildings")
     suspend fun getBuildings(): List<BuildingDto>
 
@@ -29,7 +27,7 @@ interface ArcticFlowApi {
     @DELETE("api/buildings/{id}")
     suspend fun deleteBuilding(@Path("id") id: Int)
 
-    // ---- Service Requests ----
+    // Service Requests
     @GET("api/requests")
     suspend fun getMyRequests(): List<ServiceRequestDto>
 
@@ -50,7 +48,7 @@ interface ArcticFlowApi {
         @Body body: StatusUpdate
     )
 
-    // ---- Quotes ----
+    // Quotes
     @GET("api/quotes/customer")
     suspend fun getCustomerQuotes(): List<QuoteDto>
 
@@ -68,7 +66,7 @@ interface ArcticFlowApi {
         @Body body: StatusUpdate
     )
 
-    // ---- Jobs ----
+    // Jobs
     @GET("api/jobs/customer")
     suspend fun getCustomerJobs(): List<JobDto>
 
@@ -92,7 +90,7 @@ interface ArcticFlowApi {
         @Body body: OnWayUpdate
     )
 
-    // ---- Live Locations ----
+    // Live Locations
     @GET("api/locations")
     suspend fun getActiveLocations(
         @Query("customerId") customerId: String? = null
