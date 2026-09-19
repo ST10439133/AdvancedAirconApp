@@ -39,7 +39,7 @@ class NavManager(
         }
         object BTUCalculator : Destination("btu_calculator")
         object FieldTracking : Destination("field_tracking")
-        object Products : Destination("products")                   // ← NEW
+        object Products : Destination("products")
         object ProductsList : Destination("products_list")
         object QuoteHistory : Destination("quote_history")
         object ServiceBookings : Destination("service_bookings")
@@ -123,7 +123,7 @@ class NavManager(
     }
 
     fun navigateToProducts() {
-        navController.navigate(Destination.Products.route)   // ← we'll add this composable
+        navController.navigate(Destination.Products.route)
     }
 
     fun navigateToProductsList() {

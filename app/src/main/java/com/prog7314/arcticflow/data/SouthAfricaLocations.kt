@@ -23,7 +23,7 @@ object SouthAfricaLocations {
         "Western Cape"
     )
 
-    /** province → cities in that province */
+    /** province to cities in that province */
     private val citiesByProvince: Map<String, List<String>> = mapOf(
         "Eastern Cape" to listOf(
             "Port Elizabeth (Gqeberha)", "East London", "Mthatha",
@@ -62,7 +62,7 @@ object SouthAfricaLocations {
         )
     )
 
-    /** "province|city" → suburbs in that city */
+    /** "province|city" to suburbs in that city */
     private val suburbsByCity: Map<String, List<String>> = mapOf(
         // ============ GAUTENG ============
         "Gauteng|Johannesburg" to listOf(
@@ -128,7 +128,7 @@ object SouthAfricaLocations {
             "Alberton CBD", "Brackenhurst", "New Redruth", "Verwoerdpark"
         ),
 
-        // ============ WESTERN CAPE ============
+        //  WESTERN CAPE
         "Western Cape|Cape Town" to listOf(
             "Sea Point", "Green Point", "Camps Bay", "Claremont",
             "Rondebosch", "Observatory", "Woodstock", "Salt River",
