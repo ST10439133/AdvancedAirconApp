@@ -96,14 +96,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Resolve the user & role and write them into Room.
-     *
-     * NOTE: This runs on EVERY login / app start. It always upserts the
-     * Room row from Firebase, so any change to the Firebase display name
-     * (e.g. an Edit Profile screen) will propagate to the local DB and
-     * to any UI observing `currentUser`.
-     */
+
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
@@ -114,7 +107,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             "email='${firebaseUser.email}'"
                 )
 
-                // Parse the Firebase display name (with graceful fallbacks)
+                // Parse the Firebase display name
                 val (displayName, role) = parseFirebaseNameAndRole(
                     rawName = firebaseUser.displayName,
                     fallbackEmail = firebaseUser.email
@@ -299,10 +292,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Mirrors the local User into the REST API and stores the JWT.
-     * Fails silently if the API is unreachable.
-     */
+
     private suspend fun syncUserToApi(user: User) {
         val ctx = getApplication<Application>()
 
