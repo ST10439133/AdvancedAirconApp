@@ -16,9 +16,9 @@ object LocationTrackingManager {
 
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
-    // ============================================================
-    // WRITE — Technician side
-    // ============================================================
+
+    // Technician side
+
 
     suspend fun updateLocation(location: TechLocation): Boolean {
         if (location.technicianId.isBlank()) {
@@ -48,7 +48,7 @@ object LocationTrackingManager {
                 .document(technicianId)
                 .set(
                     mapOf(
-                        "isOnMyWay" to false,          // raw field name in Firestore
+                        "isOnMyWay" to false,
                         "status" to "idle",
                         "lastUpdated" to System.currentTimeMillis()
                     ),
@@ -77,9 +77,9 @@ object LocationTrackingManager {
         }
     }
 
-    // ============================================================
+
     // READ — Customer side
-    // ============================================================
+
 
     /**
      * Streams live locations of technicians currently "on the way".
