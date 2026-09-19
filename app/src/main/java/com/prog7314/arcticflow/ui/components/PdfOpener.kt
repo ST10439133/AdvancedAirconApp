@@ -21,7 +21,7 @@ fun openPdfInViewer(context: Context, pdfUrl: String) {
         }
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
-        // No PDF app installed — fall back to opening in a browser
+
         try {
             val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(pdfUrl))
             browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

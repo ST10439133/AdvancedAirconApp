@@ -25,7 +25,7 @@ fun AppTopBar(
     showBackButton: Boolean = false,
     actions: @Composable () -> Unit = {}
 ) {
-    // Only collect when a VM is present — avoids fabricating a fake state
+
     val unreadCount: Int = if (notificationViewModel != null) {
         notificationViewModel.unreadCount.collectAsStateWithLifecycle().value
     } else {

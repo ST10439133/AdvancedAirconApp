@@ -23,7 +23,7 @@ sealed class BottomNavItem(
 
     companion object {
         fun getManagerItems(): List<BottomNavItem> =
-            listOf(Dashboard, Buildings, Quotes, Services, Products, Tracking)   // ← Added Tracking
+            listOf(Dashboard, Buildings, Quotes, Services, Products, Tracking)
 
         fun getTechnicianItems(): List<BottomNavItem> =
             listOf(Dashboard, Requests, Quotes, Bookings, Jobs)
