@@ -128,7 +128,7 @@ fun ManagerDashboardScreen(
             }
 
             // =========================================================
-            // ===== OVERVIEW =====
+            // OVERVIEW
             // =========================================================
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -149,7 +149,6 @@ fun ManagerDashboardScreen(
                         )
                     }
 
-                    // Hero tile — Pending quotes (baby blue gradient)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
@@ -235,7 +234,7 @@ fun ManagerDashboardScreen(
             }
 
             // =========================================================
-            // ===== QUOTES AWAITING APPROVAL =====
+            // QUOTES AWAITING APPROVAL
             // =========================================================
             item {
                 Text(
@@ -308,7 +307,7 @@ fun ManagerDashboardScreen(
             }
 
             // =========================================================
-            // ===== QUICK ACTIONS =====
+            //  QUICK ACTIONS
             // =========================================================
             item {
                 Card(

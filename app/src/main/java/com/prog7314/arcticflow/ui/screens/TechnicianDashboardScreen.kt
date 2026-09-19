@@ -120,9 +120,7 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // =========================================================
-            // ===== OVERVIEW — hero + 3 supporting tiles
-            // =========================================================
+
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
@@ -228,7 +226,7 @@ fun TechnicianDashboardScreen(
             }
 
             // =========================================================
-            // ===== NEW REQUESTS BANNER
+            // NEW REQUESTS BANNER
             // =========================================================
             if (pendingRequests.isNotEmpty()) {
                 item {
@@ -291,7 +289,7 @@ fun TechnicianDashboardScreen(
             }
 
             // =========================================================
-            // ===== TODAY'S SCHEDULE
+            // TODAY'S SCHEDULE
             // =========================================================
             item {
                 Text(

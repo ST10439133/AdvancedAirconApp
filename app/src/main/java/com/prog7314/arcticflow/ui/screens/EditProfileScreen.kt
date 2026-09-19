@@ -116,7 +116,7 @@ fun EditProfileScreen(
             )
 
             // ============================================================
-            // SECTION — Account Info
+            // SECTION - Account Info
             // ============================================================
             SectionHeader(icon = Icons.Default.Person, title = "Account Info")
 

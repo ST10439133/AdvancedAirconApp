@@ -605,15 +605,15 @@ fun SuggestedProductCard(product: Product) {
                             .crossfade(true)
                             .listener(
                                 onStart = { _ ->
-                                    Log.d("ImgDebug", "BTU ⏳ Start: $imageUrl")
+                                    Log.d("ImgDebug", "BTU  Start: $imageUrl")
                                 },
                                 onSuccess = { _, _ ->
-                                    Log.d("ImgDebug", "BTU ✅ Loaded: $imageUrl")
+                                    Log.d("ImgDebug", "BTU  Loaded: $imageUrl")
                                 },
                                 onError = { _, result ->
                                     Log.e(
                                         "ImgDebug",
-                                        "BTU ❌ Failed: $imageUrl | ${result.throwable.message}",
+                                        "BTU  Failed: $imageUrl | ${result.throwable.message}",
                                         result.throwable
                                     )
                                     imageFailed = true

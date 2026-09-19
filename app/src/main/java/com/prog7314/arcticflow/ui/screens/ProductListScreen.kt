@@ -459,7 +459,7 @@ fun ProductCard(
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "⭐ ${String.format(Locale.US, "%.1f", product.rating)}",
+                    text = " ${String.format(Locale.US, "%.1f", product.rating)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

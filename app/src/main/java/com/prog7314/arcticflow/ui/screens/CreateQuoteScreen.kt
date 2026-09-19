@@ -37,9 +37,9 @@ import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-// ============================================================
+
 // BRAND TOKENS
-// ============================================================
+
 private val BabyBlue        = Color(0xFF4FA8D8)
 private val BabyBlueDeep    = Color(0xFF2E7BA6)
 private val BabyBlueSoft    = Color(0xFFE1F1FB)
@@ -123,7 +123,7 @@ fun CreateQuoteScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ============================================================
-            // HERO — Request summary
+            // HERO - Request summary
             // ============================================================
             currentRequest?.let { req ->
                 Card(
@@ -181,7 +181,7 @@ fun CreateQuoteScreen(
             }
 
             // ============================================================
-            // SECTION 1 — Service Type & Fee
+            // SECTION 1 - Service Type & Fee
             // ============================================================
             SectionHeader(icon = Icons.Default.Work, title = "Service Type & Fee")
 
@@ -266,7 +266,7 @@ fun CreateQuoteScreen(
             }
 
             // ============================================================
-            // SECTION 2 — Parts & Materials
+            // SECTION 2 - Parts & Materials
             // ============================================================
             SectionHeader(icon = Icons.Default.Inventory2, title = "Parts & Materials")
 
@@ -429,7 +429,7 @@ fun CreateQuoteScreen(
             }
 
             // ============================================================
-            // SECTION 3 — Line Items
+            // SECTION 3 - Line Items
             // ============================================================
             if (lineItems.isNotEmpty()) {
                 SectionHeader(
@@ -489,7 +489,7 @@ fun CreateQuoteScreen(
             }
 
             // ============================================================
-            // SECTION 4 — Summary
+            // SECTION 4 - Summary
             // ============================================================
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -544,7 +544,7 @@ fun CreateQuoteScreen(
             }
 
             // ============================================================
-            // SECTION 5 — Notes
+            // SECTION 5 -Notes
             // ============================================================
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 

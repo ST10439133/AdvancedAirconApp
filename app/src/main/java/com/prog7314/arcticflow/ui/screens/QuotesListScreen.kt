@@ -152,7 +152,6 @@ fun QuotesListScreen(
         }
     }
 
-    // ===== Accept & Schedule dialog (manager only) =====
     quoteToSchedule?.let { quote ->
         ScheduleQuoteDialog(
             quote = quote,

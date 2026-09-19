@@ -154,8 +154,7 @@ fun MainScreen(
                     }
 
                     // ============ QUOTES TAB ============
-                    // MANAGER   → isCustomer = true  → "My Quotes"
-                    // TECHNICIAN → isCustomer = false → "Sent Quotes"
+
                     composable(BottomNavItem.Quotes.route) {
                         QuotesListScreen(
                             viewModel = viewModel(

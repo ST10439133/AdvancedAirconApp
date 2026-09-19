@@ -29,9 +29,9 @@ import com.prog7314.arcticflow.navigation.NavManager
 import com.prog7314.arcticflow.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 
-// ============================================================
+
 // BRAND TOKENS
-// ============================================================
+
 private val BabyBlueDeep = Color(0xFF2E7BA6)
 private val BabyBlueSoft = Color(0xFFE1F1FB)
 private val OrangeAccent = Color(0xFFF7941D)
@@ -98,9 +98,9 @@ fun AddBuildingScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ============================================================
-            // SECTION 1 — Building Details
-            // ============================================================
+
+            // SECTION 1 - Building Details
+
             SectionHeader(
                 icon = Icons.Default.Business,
                 title = "Building Details"
@@ -202,9 +202,9 @@ fun AddBuildingScreen(
                 }
             }
 
-            // ============================================================
-            // SECTION 2 — Location
-            // ============================================================
+
+            // SECTION 2 - Location
+
             SectionHeader(
                 icon = Icons.Default.LocationOn,
                 title = "Location"
@@ -350,9 +350,8 @@ fun AddBuildingScreen(
                 }
             }
 
-            // ============================================================
-            // SECTION 3 — Address
-            // ============================================================
+
+            // SECTION 3 - Address
             SectionHeader(
                 icon = Icons.Default.Place,
                 title = "Address"
@@ -394,7 +393,7 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
-                    // ---- Address preview (only when composed) ----
+                    // ---- Address preview ----
                     if (previewAddress.isNotBlank()) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -432,9 +431,9 @@ fun AddBuildingScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // ============================================================
+
             // SUBMIT
-            // ============================================================
+
             Button(
                 onClick = {
                     if (name.isBlank() || street.isBlank() ||
@@ -522,9 +521,9 @@ fun AddBuildingScreen(
     }
 }
 
-// ============================================================
+
 // SECTION HEADER
-// ============================================================
+
 @Composable
 private fun SectionHeader(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

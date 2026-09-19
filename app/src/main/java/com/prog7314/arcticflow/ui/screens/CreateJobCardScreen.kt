@@ -211,7 +211,7 @@ fun CreateJobCardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ============================================================
-            // HERO — job summary
+            // HERO - job summary
             // ============================================================
             currentJob?.let { job ->
                 Card(
@@ -272,7 +272,7 @@ fun CreateJobCardScreen(
             }
 
             // ============================================================
-            // SECTION 1 — Work Summary
+            // SECTION 1 - Work Summary
             // ============================================================
             SectionHeader(icon = Icons.Default.Description, title = "Work Performed")
 
@@ -297,7 +297,7 @@ fun CreateJobCardScreen(
             }
 
             // ============================================================
-            // SECTION 2 — Job Site Photos
+            // SECTION 2 - Job Site Photos
             // ============================================================
             SectionHeader(icon = Icons.Default.AddAPhoto, title = "Job Site Photos")
 
@@ -362,7 +362,7 @@ fun CreateJobCardScreen(
             }
 
             // ============================================================
-            // SECTION 3 — Parts Used
+            // SECTION 3 - Parts Used
             // ============================================================
             SectionHeader(icon = Icons.Default.Build, title = "Parts Used")
 
@@ -559,7 +559,7 @@ fun CreateJobCardScreen(
             }
 
             // ============================================================
-            // SECTION 4 — Time Logged
+            // SECTION 4 - Time Logged
             // ============================================================
             SectionHeader(icon = Icons.Default.Timer, title = "Time Logged")
 
@@ -636,7 +636,7 @@ fun CreateJobCardScreen(
             }
 
             // ============================================================
-            // SECTION 5 — Additional Notes
+            // SECTION 5 - Additional Notes
             // ============================================================
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
