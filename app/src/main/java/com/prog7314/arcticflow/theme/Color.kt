@@ -3,15 +3,15 @@ package com.prog7314.arcticflow.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ============================================================
-// ARCTICFLOW PALETTE — Baby Blue · Orange · White
-// ============================================================
+
+// ARCTICFLOW PALETTE - Baby Blue, Orange, White
+
 
 // ---------- Primary: Baby Blue -----------------------------
 val BabyBlue10  = Color(0xFF001E2B)
 val BabyBlue20  = Color(0xFF00344B)
 val BabyBlue30  = Color(0xFF004C6B)
-val BabyBlue40  = Color(0xFF00658C)   // main light-mode primary
+val BabyBlue40  = Color(0xFF00658C)
 val BabyBlue80  = Color(0xFF7BD0FF)
 val BabyBlue90  = Color(0xFFC8E6FF)
 val BabyBlue95  = Color(0xFFE6F4FF)
@@ -21,7 +21,7 @@ val BabyBlue100 = Color(0xFFFFFFFF)
 val Orange10  = Color(0xFF331C00)
 val Orange20  = Color(0xFF553100)
 val Orange30  = Color(0xFF7A4700)
-val Orange40  = Color(0xFF9E5E00)     // main light-mode secondary
+val Orange40  = Color(0xFF9E5E00)
 val Orange80  = Color(0xFFFFB960)
 val Orange90  = Color(0xFFFFDCBE)
 val Orange95  = Color(0xFFFFEEE0)
