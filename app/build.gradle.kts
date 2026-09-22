@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.prog7314.arcticflow"
+    namespace = "com.insy7315.advancedaircornapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.prog7314.arcticflow"
+        applicationId = "com.insy7315.advancedaircornapp"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

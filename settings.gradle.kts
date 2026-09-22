@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ArcticFlow"
+rootProject.name = "AdvancedAircornApp"
 include(":app")
