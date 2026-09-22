@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/utils/LocationHelper.kt
+// app/src/main/java/com/insy7315/advancedairconapp/utils/LocationHelper.kt
 package com.insy7315.advancedairconapp.utils
 
 import android.Manifest

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/EditProfileScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/EditProfileScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast

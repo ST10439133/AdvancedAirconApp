@@ -1,10 +1,10 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/theme/Color.kt
+// app/src/main/java/com/insy7315/advancedairconapp/theme/Color.kt
 package com.insy7315.advancedairconapp.theme
 
 import androidx.compose.ui.graphics.Color
 
 
-// advancedaircornapp PALETTE - Baby Blue, Orange, White
+// advancedairconapp PALETTE - Baby Blue, Orange, White
 
 
 // ---------- Primary: Baby Blue -----------------------------

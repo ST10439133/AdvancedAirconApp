@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/PartCatalog.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/PartCatalog.kt
 package com.insy7315.advancedairconapp.data
 data class CatalogPart(
     val name: String,

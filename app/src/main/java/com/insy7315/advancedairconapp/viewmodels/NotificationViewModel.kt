@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/viewmodels/NotificationViewModel.kt
+// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/NotificationViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.content.Context

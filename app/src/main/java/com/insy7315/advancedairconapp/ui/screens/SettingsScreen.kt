@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/SettingsScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/SettingsScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.os.Build

@@ -1,4 +1,4 @@
-// app/src/main/java/com/prog7314/arcticflow/ui/screens/QuotesListScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/QuotesListScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.app.DatePickerDialog

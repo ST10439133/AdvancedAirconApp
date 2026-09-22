@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/dao/NotificationDao.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/dao/NotificationDao.kt
 package com.insy7315.advancedairconapp.data.dao
 
 import androidx.room.*

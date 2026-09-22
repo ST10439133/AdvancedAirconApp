@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/BTUCalculatorScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/BTUCalculatorScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.util.Log

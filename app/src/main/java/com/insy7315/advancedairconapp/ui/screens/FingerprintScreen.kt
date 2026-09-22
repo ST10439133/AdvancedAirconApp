@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/FingerprintScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/FingerprintScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast

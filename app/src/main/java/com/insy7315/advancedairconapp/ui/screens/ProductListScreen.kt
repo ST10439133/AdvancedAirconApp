@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/ProductListScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/ProductListScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.util.Log

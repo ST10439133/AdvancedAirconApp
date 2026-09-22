@@ -1,6 +1,5 @@
-// app/src/main/java/com/prog7314/arcticflow/ui/screens/ManagerDashboardScreen.kt
-//References (Material Design)
-//Google (2024) Material Design 3. Available at: https://m3.material.io/ (Accessed: 22 September 2026).
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/ManagerDashboardScreen.kt
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.app.DatePickerDialog

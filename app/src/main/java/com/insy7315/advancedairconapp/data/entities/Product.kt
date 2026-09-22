@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/entities/Product.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/entities/Product.kt
 package com.insy7315.advancedairconapp.data.entities
 
 import androidx.room.Entity

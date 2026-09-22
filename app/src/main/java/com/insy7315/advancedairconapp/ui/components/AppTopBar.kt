@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/components/AppTopBar.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/components/AppTopBar.kt
 package com.insy7315.advancedairconapp.ui.components
 
 import androidx.compose.foundation.layout.size

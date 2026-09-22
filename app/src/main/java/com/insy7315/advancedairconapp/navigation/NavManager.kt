@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/navigation/NavManager.kt
+// app/src/main/java/com/insy7315/advancedairconapp/navigation/NavManager.kt
 package com.insy7315.advancedairconapp.navigation
 
 import androidx.compose.runtime.Composable

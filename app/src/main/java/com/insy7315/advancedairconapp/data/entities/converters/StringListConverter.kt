@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/converters/StringListConverter.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/converters/StringListConverter.kt
 package com.insy7315.advancedairconapp.data.converters
 
 import androidx.room.TypeConverter

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/viewmodels/ProductViewModel.kt
+// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ProductViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/JobSchedulingDialog.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/JobSchedulingDialog.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.clickable

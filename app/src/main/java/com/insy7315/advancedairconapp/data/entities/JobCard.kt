@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/entities/JobCard.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/entities/JobCard.kt
 package com.insy7315.advancedairconapp.data.entities
 
 import androidx.room.Entity

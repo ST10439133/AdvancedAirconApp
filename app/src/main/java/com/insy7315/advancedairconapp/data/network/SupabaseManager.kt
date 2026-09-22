@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/network/SupabaseManager.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/network/SupabaseManager.kt
 package com.insy7315.advancedairconapp.data.network
 
 import com.insy7315.advancedairconapp.BuildConfig

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/QuoteHistoryScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/QuoteHistoryScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.clickable

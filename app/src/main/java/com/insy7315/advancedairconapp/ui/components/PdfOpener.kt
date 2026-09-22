@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/components/PdfOpener.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/components/PdfOpener.kt
 package com.insy7315.advancedairconapp.ui.components
 
 import android.content.ActivityNotFoundException

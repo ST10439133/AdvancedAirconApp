@@ -35,17 +35,13 @@ import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ============================================================
 // BRAND TOKENS
-// ============================================================
 private val BabyBlue     = Color(0xFF4FA8D8)
 private val BabyBlueDeep = Color(0xFF2E7BA6)
 private val BabyBlueSoft = Color(0xFFE1F1FB)
 private val OrangeAccent = Color(0xFFF7941D)
 
-// ============================================================
 // Filter options
-// ============================================================
 private enum class JobFilter(val label: String) {
     ALL("All"),
     TODAY("Today"),
@@ -174,7 +170,7 @@ fun JobsScreen(
                 }
             }
 
-            // ---- Filter chips ----
+            // Filter chips
             item {
                 Row(
                     modifier = Modifier
@@ -283,9 +279,7 @@ fun JobsScreen(
     }
 }
 
-// ============================================================
 // Hero stat cell
-// ============================================================
 @Composable
 private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
@@ -309,9 +303,7 @@ private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier
     }
 }
 
-// ============================================================
 // Job card
-// ============================================================
 @Composable
 fun JobCard(
     job: Job,
@@ -441,9 +433,7 @@ fun JobCard(
     }
 }
 
-// ============================================================
 // Status badge
-// ============================================================
 @Composable
 private fun StatusBadge(status: JobStatus) {
     val c = status.color()
@@ -472,9 +462,7 @@ private fun StatusBadge(status: JobStatus) {
     }
 }
 
-// ============================================================
 // Helpers
-// ============================================================
 
 private fun JobStatus.color(): Color = when (this) {
     JobStatus.COMPLETED   -> Color(0xFF2E7D32)

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/entities/Notification.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/entities/Notification.kt
 package com.insy7315.advancedairconapp.data.entities
 
 import androidx.room.Entity

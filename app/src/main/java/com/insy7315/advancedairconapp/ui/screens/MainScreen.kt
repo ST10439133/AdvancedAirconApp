@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/MainScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/MainScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.layout.*

@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/auth/AuthViewModel.kt
+// app/src/main/java/com/insy7315/advancedairconapp/auth/AuthViewModel.kt
 package com.insy7315.advancedairconapp.auth
 
 import android.app.Application

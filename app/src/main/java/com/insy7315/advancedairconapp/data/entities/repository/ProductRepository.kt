@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/data/repository/ProductRepository.kt
+// app/src/main/java/com/insy7315/advancedairconapp/data/repository/ProductRepository.kt
 package com.insy7315.advancedairconapp.data.repository
 
 import com.insy7315.advancedairconapp.data.dao.BrochureDao

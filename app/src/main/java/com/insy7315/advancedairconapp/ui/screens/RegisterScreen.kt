@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/ui/screens/RegisterScreen.kt
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/RegisterScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast
@@ -112,7 +112,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "AdvancedAircornApp",
+            text = "AdvancedAirconApp",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = BabyBlueDeep

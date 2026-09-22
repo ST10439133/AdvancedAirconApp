@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AdvancedAircornApp"
+rootProject.name = "AdvancedAirconApp"
 include(":app")

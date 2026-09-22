@@ -1,4 +1,4 @@
-// app/src/main/java/com/insy7315/advancedaircornapp/auth/AuthState.kt
+// app/src/main/java/com/insy7315/advancedairconapp/auth/AuthState.kt
 package com.insy7315.advancedairconapp.auth
 
 import com.insy7315.advancedairconapp.data.entities.User
