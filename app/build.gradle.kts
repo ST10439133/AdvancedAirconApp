@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.insy7315.advancedaircornapp"
+    namespace = "com.insy7315.advancedairconapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.insy7315.advancedaircornapp"
+        applicationId = "com.insy7315.advancedairconapp"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
