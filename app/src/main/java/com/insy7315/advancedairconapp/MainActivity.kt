@@ -25,6 +25,7 @@ import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.SampleData
 import com.insy7315.advancedairconapp.data.sync.SyncWorker
 import com.insy7315.advancedairconapp.services.LocationTrackingCoordinator
+import com.insy7315.advancedairconapp.services.TechLocationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -85,19 +86,31 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * On cold start, if we're a technician whose jobs are all idle, wipe any
-     * lingering location row on the server for our uid. This kills the
-     * phantom pin that appears when the app was killed without tapping
-     * "stop tracking".
+     * On cold start:
+     *   - If nobody is signed in, make sure the tracking service isn't
+     *     running from a previous session.
+     *   - If a technician is signed in but has no job marked "on my way",
+     *     stop the service and clear their stale server-side location row.
      */
     private fun cleanUpStaleTracking() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return@launch
+                val firebaseUser = FirebaseAuth.getInstance().currentUser
+
+                if (firebaseUser == null) {
+                    Log.d("MainActivity", "No signed-in user — stopping any tracking service")
+                    TechLocationService.stop(applicationContext)
+                    return@launch
+                }
+
                 val db = ArcticFlowDatabase.getDatabase(applicationContext)
                 val localUser = db.userDao().getUserById(firebaseUser.uid) ?: return@launch
 
-                if (localUser.role.name != "TECHNICIAN") return@launch
+                if (localUser.role.name != "TECHNICIAN") {
+                    // Managers never track. Stop anything left over.
+                    TechLocationService.stop(applicationContext)
+                    return@launch
+                }
 
                 // Room returns a Flow<List<Job>>. Take the first emission.
                 val jobs = db.jobDao()
@@ -106,11 +119,14 @@ class MainActivity : ComponentActivity() {
 
                 val onMyWay = jobs.any { it.technicianOnWay }
                 if (!onMyWay) {
-                    Log.d("MainActivity", "No active tracking — clearing stale location")
+                    Log.d("MainActivity", "No active tracking — stopping service + clearing")
+                    TechLocationService.stop(applicationContext)
                     LocationTrackingCoordinator.stopForTechnician(
                         context = applicationContext,
                         technicianId = localUser.uid
                     )
+                } else {
+                    Log.d("MainActivity", "Active tracking in progress — leaving service alone")
                 }
             } catch (e: Exception) {
                 Log.w("MainActivity", "cleanUpStaleTracking failed", e)

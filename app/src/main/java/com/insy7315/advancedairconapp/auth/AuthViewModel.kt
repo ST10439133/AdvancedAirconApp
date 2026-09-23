@@ -14,17 +14,19 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.insy7315.advancedairconapp.BuildConfig
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
+import com.insy7315.advancedairconapp.data.api.ApiClient
+import com.insy7315.advancedairconapp.data.api.ApiRepository
+import com.insy7315.advancedairconapp.data.api.UserSyncRequest
+import com.insy7315.advancedairconapp.data.api.safeApiCall
 import com.insy7315.advancedairconapp.data.entities.User
 import com.insy7315.advancedairconapp.data.entities.UserRole
+import com.insy7315.advancedairconapp.data.network.NetworkMonitor
+import com.insy7315.advancedairconapp.services.TechLocationService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import com.insy7315.advancedairconapp.data.api.ApiClient
-import com.insy7315.advancedairconapp.data.api.UserSyncRequest
-import com.insy7315.advancedairconapp.data.api.safeApiCall
-import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -43,7 +45,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(application.getString(com.insy7315.advancedairconapp.R.string.default_web_client_id))
+            .requestIdToken(
+                application.getString(
+                    com.insy7315.advancedairconapp.R.string.default_web_client_id
+                )
+            )
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(application, gso)
@@ -90,12 +96,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Fired automatically when Firebase reports a signed-in user on app start
-     * or after any auth event. The role is finalized via /sync + /me before
-     * AuthState.Authenticated is emitted, so navigation always sees the
-     * correct role.
-     */
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
@@ -107,9 +107,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     fallbackRole = null
                 )
 
-                // Placeholder role used until /me gives us the truth.
-                // If we have nothing at all, TECHNICIAN is the safe placeholder
-                // (it will be corrected before navigation completes).
                 val placeholderRole = existing?.role ?: parsedRole ?: UserRole.TECHNICIAN
 
                 val placeholder = User(
@@ -149,8 +146,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return SignInResult(success = false, message = "Registration failed")
             }
 
-            // Tag displayName with "Name|ROLE" so every device can resolve
-            // the role without a network round-trip on future logins.
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .setDisplayName("$displayName|${role.name}")
                 .build()
@@ -221,17 +216,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Google sign-in.
-     *
-     * Rules:
-     *   - Brand-new Google user → MANAGER (client default for Google sign-ups).
-     *   - Returning user (seeded technician, or previously-registered manager)
-     *     → whatever the server already has. `/me` corrects us if needed.
-     *
-     * Authenticated is emitted only after /sync and /me complete, so
-     * navigation always resolves against the final role.
-     */
     suspend fun signInWithGoogle(idToken: String): SignInResult {
         _isLoading.value = true
         return try {
@@ -252,10 +236,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fallbackRole = null
             )
 
-            // Optimistic role:
-            //   1. Already known locally → keep it.
-            //   2. Encoded "Name|ROLE" → use it.
-            //   3. Otherwise → MANAGER (the app's default for Google sign-ups).
             val optimisticRole = existing?.role
                 ?: parsedRole
                 ?: UserRole.MANAGER
@@ -319,19 +299,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return ApiClient.hasToken(getApplication())
     }
 
-    /**
-     * Pushes the user to /api/users/sync, then fetches /api/users/me and
-     * returns the authoritative Room user (with the server's role).
-     *
-     * The Room row is always updated with whatever the server says.
-     */
     private suspend fun syncAndResolve(
         uid: String,
         fallback: User
     ): User {
         val ctx = getApplication<Application>()
 
-        // ---- 1. Push to /api/users/sync ----
         if (NetworkMonitor.isOnline(ctx)) {
             val api = ApiClient.get(ctx)
             val response = safeApiCall(TAG) {
@@ -359,7 +332,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Offline — skipping syncUser; will use local role")
         }
 
-        // ---- 2. Fetch /api/users/me to learn the authoritative role ----
         if (NetworkMonitor.isOnline(ctx) && ApiClient.hasToken(ctx)) {
             val api = ApiClient.get(ctx)
             val me = safeApiCall(TAG) { api.getMe() }
@@ -386,15 +358,40 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // No correction needed — persist and return what we have.
         database.userDao().insertUser(fallback)
         return fallback
     }
 
     fun signOut() {
+        val ctx = getApplication<Application>()
+
+        // 1. Stop the foreground tracking service so it can't keep pushing
+        //    stale coordinates with an expired token.
+        try {
+            TechLocationService.stop(ctx)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to stop TechLocationService", e)
+        }
+
+        // 2. Fire-and-forget server-side cleanup while the JWT is still valid.
+        val currentUser = auth.currentUser
+        if (currentUser != null && ApiClient.hasToken(ctx)) {
+            viewModelScope.launch {
+                try {
+                    ApiRepository.stopTracking(ctx, currentUser.uid)
+                    Log.d(TAG, "signOut: cleared server-side tracking row")
+                } catch (e: Exception) {
+                    Log.w(TAG, "signOut cleanup failed", e)
+                }
+            }
+        }
+
+        // 3. Now sign out of Firebase + Google and clear the JWT.
         auth.signOut()
         googleSignInClient.signOut()
-        ApiClient.clearToken(getApplication())
+        ApiClient.clearToken(ctx)
+
+        // 4. Emit unauthenticated so NavGraph re-routes to login.
         _authState.value = AuthState.Unauthenticated
     }
 }

@@ -4,6 +4,7 @@ package com.insy7315.advancedairconapp.services
 import android.content.Context
 import android.util.Log
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
+import com.insy7315.advancedairconapp.data.api.ApiClient
 import com.insy7315.advancedairconapp.data.api.ApiRepository
 import com.insy7315.advancedairconapp.data.api.TechLocationDto
 import com.insy7315.advancedairconapp.data.entities.TechLocation
@@ -121,8 +122,9 @@ object LocationTrackingCoordinator {
         try { LocationTrackingManager.stopTracking(technicianId) }
         catch (e: Exception) { Log.w(TAG, "Firestore stop failed", e) }
 
-        // 3. REST delete
-        if (NetworkMonitor.isOnline(context)) {
+        // 3. REST delete (only if we still have a token — otherwise the
+        //    server's 2-minute staleness rule hides the row anyway).
+        if (NetworkMonitor.isOnline(context) && ApiClient.hasToken(context)) {
             try { ApiRepository.stopTracking(context, technicianId) }
             catch (e: Exception) { Log.w(TAG, "REST stop failed", e) }
         }

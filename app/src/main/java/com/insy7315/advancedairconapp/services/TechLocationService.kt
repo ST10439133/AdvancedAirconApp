@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.LocationServices
 import com.insy7315.advancedairconapp.R
+import com.insy7315.advancedairconapp.data.api.ApiClient
 import com.insy7315.advancedairconapp.data.api.ApiRepository
 import com.insy7315.advancedairconapp.data.api.TechLocationDto
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +29,7 @@ import kotlinx.coroutines.tasks.await
 
 /**
  * Foreground service that pushes the technician's live location to the
- * backend every 10 seconds while the "on my way" toggle is active.
+ * backend every 10 seconds while "on my way" is active.
  *
  * Extras:
  *   EXTRA_TECH_ID       (String, required)
@@ -36,6 +37,9 @@ import kotlinx.coroutines.tasks.await
  *   EXTRA_JOB_ID        (Int, optional, 0 to omit)
  *   EXTRA_CUSTOMER_ID   (String, optional)
  *   EXTRA_BUILDING_NAME (String, optional)
+ *
+ * Stops itself automatically if the JWT disappears (sign-out) or the API
+ * returns 401 (session expired).
  */
 class TechLocationService : Service() {
 
@@ -100,11 +104,27 @@ class TechLocationService : Service() {
         pushJob?.cancel()
         pushJob = scope.launch {
             val client = LocationServices.getFusedLocationProviderClient(this@TechLocationService)
+
+            // If the JWT has already been cleared (user signed out), bail out
+            // immediately so we don't spin forever on 401s.
+            if (!ApiClient.hasToken(this@TechLocationService)) {
+                Log.w(TAG, "No JWT at start — stopping service")
+                stopSelfSafely()
+                return@launch
+            }
+
             while (isActive) {
                 try {
+                    // Check for sign-out before each push.
+                    if (!ApiClient.hasToken(this@TechLocationService)) {
+                        Log.w(TAG, "JWT cleared mid-run — stopping service")
+                        stopSelfSafely()
+                        return@launch
+                    }
+
                     val loc: Location? = client.lastLocation.await()
                     if (loc != null) {
-                        ApiRepository.pushLocation(
+                        val ok = ApiRepository.pushLocation(
                             context = this@TechLocationService,
                             technicianId = techId,
                             dto = TechLocationDto(
@@ -120,16 +140,36 @@ class TechLocationService : Service() {
                                 status = "ON_MY_WAY"
                             )
                         )
-                        Log.d(TAG, "pushed lat=${loc.latitude} lon=${loc.longitude}")
+                        if (ok) {
+                            Log.d(TAG, "pushed lat=${loc.latitude} lon=${loc.longitude}")
+                        } else {
+                            // pushLocation returns false on any HTTP failure
+                            // (including 401). If the token is gone, stop now.
+                            if (!ApiClient.hasToken(this@TechLocationService)) {
+                                Log.w(TAG, "Push failed and JWT is gone — stopping")
+                                stopSelfSafely()
+                                return@launch
+                            }
+                            Log.w(TAG, "push failed — will retry")
+                        }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "push failed: ${e.message}")
+                    Log.w(TAG, "push threw: ${e.message}")
                 }
                 delay(10_000L)
             }
         }
 
         return START_STICKY
+    }
+
+    private fun stopSelfSafely() {
+        try {
+            pushJob?.cancel()
+            stopSelf()
+        } catch (e: Exception) {
+            Log.w(TAG, "stopSelfSafely failed", e)
+        }
     }
 
     override fun onDestroy() {
