@@ -33,22 +33,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
-import com.insy7315.advancedairconapp.data.api.ApiRepository
 import com.insy7315.advancedairconapp.data.entities.Job
 import com.insy7315.advancedairconapp.data.entities.JobStatus
-import com.insy7315.advancedairconapp.data.entities.TechLocation
-import com.insy7315.advancedairconapp.data.network.LocationTrackingManager
 import com.insy7315.advancedairconapp.navigation.NavManager
-import com.insy7315.advancedairconapp.ui.components.LocationPusher
+import com.insy7315.advancedairconapp.services.LocationTrackingCoordinator
 import com.insy7315.advancedairconapp.utils.LocationHelper
 import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ============================================================
 // BRAND TOKENS
-// ============================================================
 private val BabyBlue     = Color(0xFF4FA8D8)
 private val BabyBlueDeep = Color(0xFF2E7BA6)
 private val BabyBlueSoft = Color(0xFFE1F1FB)
@@ -80,33 +75,14 @@ fun ServiceBookingsScreen(
         viewModel.refreshFromServer("TECHNICIAN")
     }
 
-    val activeTrackingJob = remember(allJobs) {
-        allJobs.firstOrNull { it.technicianOnWay }
-    }
-
-    if (activeTrackingJob != null) {
-        LocationPusher(
-            enabled = true,
-            context = context,
-            technicianId = activeTrackingJob.technicianId,
-            technicianName = "Technician",
-            jobId = activeTrackingJob.id,
-            customerId = activeTrackingJob.customerId,
-            buildingName = activeTrackingJob.buildingName
-        )
-    }
-
     var selectedFilter by remember { mutableStateOf("Today") }
     val filters = listOf("Today", "This Week", "This Month", "All")
 
     val ranges = remember {
         val now = Calendar.getInstance()
-
         val startOfDay = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
         val startOfDayMs = startOfDay.timeInMillis
         val endOfDayMs   = startOfDayMs + 86_400_000L
@@ -121,8 +97,7 @@ fun ServiceBookingsScreen(
             set(Calendar.DAY_OF_MONTH, 1)
         }.timeInMillis
         val endOfMonthMs = (startOfDay.clone() as Calendar).apply {
-            set(Calendar.DAY_OF_MONTH, 1)
-            add(Calendar.MONTH, 1)
+            set(Calendar.DAY_OF_MONTH, 1); add(Calendar.MONTH, 1)
         }.timeInMillis
 
         mapOf(
@@ -169,7 +144,6 @@ fun ServiceBookingsScreen(
             }
         }
         addressMap = resolved
-        Log.d("ServiceBookings", "Resolved addresses: $resolved")
     }
 
     var pendingTrackingJob by remember { mutableStateOf<Job?>(null) }
@@ -183,19 +157,20 @@ fun ServiceBookingsScreen(
 
         if (hasPermission && job != null) {
             scope.launch {
-                startTrackingForJob(
+                val ok = LocationTrackingCoordinator.startForJob(
                     context = context,
-                    job = job,
-                    viewModel = viewModel,
-                    onDone = { ok ->
-                        Toast.makeText(
-                            context,
-                            if (ok) "Customer can track you now"
-                            else "Failed to start tracking",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    technicianId = job.technicianId,
+                    technicianName = "Technician",
+                    jobId = job.id,
+                    customerId = job.customerId,
+                    buildingName = job.buildingName
                 )
+                Toast.makeText(
+                    context,
+                    if (ok) "Customer can track you now"
+                    else "Failed to start tracking",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
             Toast.makeText(
@@ -227,7 +202,6 @@ fun ServiceBookingsScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // ---- Filter chips ----
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -305,24 +279,27 @@ fun ServiceBookingsScreen(
                                 scope.launch {
                                     if (job.technicianOnWay) {
                                         viewModel.setTechnicianOnWay(job.id, false)
-                                        LocationTrackingManager.stopTracking(userId)
-                                        ApiRepository.stopTracking(context, job.technicianId)
+                                        LocationTrackingCoordinator.stopForTechnician(
+                                            context = context,
+                                            technicianId = job.technicianId
+                                        )
                                         Toast.makeText(context, "Tracking stopped", Toast.LENGTH_SHORT).show()
                                     } else {
                                         if (LocationHelper.hasLocationPermission(context)) {
-                                            startTrackingForJob(
+                                            val ok = LocationTrackingCoordinator.startForJob(
                                                 context = context,
-                                                job = job,
-                                                viewModel = viewModel,
-                                                onDone = { ok ->
-                                                    Toast.makeText(
-                                                        context,
-                                                        if (ok) "Customer can track you now"
-                                                        else "Failed to start tracking",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
+                                                technicianId = job.technicianId,
+                                                technicianName = "Technician",
+                                                jobId = job.id,
+                                                customerId = job.customerId,
+                                                buildingName = job.buildingName
                                             )
+                                            Toast.makeText(
+                                                context,
+                                                if (ok) "Customer can track you now"
+                                                else "Failed to start tracking",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
                                             pendingTrackingJob = job
                                             permissionLauncher.launch(LocationHelper.PERMISSIONS)
@@ -339,69 +316,6 @@ fun ServiceBookingsScreen(
     }
 }
 
-// ============================================================
-// Helpers — unchanged
-// ============================================================
-private suspend fun startTrackingForJob(
-    context: android.content.Context,
-    job: Job,
-    viewModel: QuoteViewModel,
-    onDone: (Boolean) -> Unit
-) {
-    val technicianId = job.technicianId
-    if (technicianId.isBlank()) {
-        Log.e("ServiceBookings", "Job #${job.id} has blank technicianId — cannot track")
-        onDone(false)
-        return
-    }
-
-    val location = LocationHelper.getCurrentLocation(context)
-    if (location == null) {
-        onDone(false)
-        return
-    }
-
-    viewModel.setTechnicianOnWay(job.id, true)
-
-    val techLocation = TechLocation(
-        technicianId = technicianId,
-        technicianName = "Technician",
-        latitude = location.latitude,
-        longitude = location.longitude,
-        jobId = job.id,
-        customerId = job.customerId,
-        buildingName = job.buildingName,
-        onMyWay = true,
-        lastUpdated = System.currentTimeMillis(),
-        status = "on_the_way"
-    )
-
-    val ok = LocationTrackingManager.updateLocation(techLocation)
-
-    ApiRepository.pushLocation(
-        context = context,
-        technicianId = technicianId,
-        dto = com.insy7315.advancedairconapp.data.api.TechLocationDto(
-            technicianId = technicianId,
-            technicianName = "Technician",
-            latitude = location.latitude,
-            longitude = location.longitude,
-            jobId = job.id,
-            customerId = job.customerId,
-            buildingName = job.buildingName,
-            isOnMyWay = true,
-            lastUpdated = System.currentTimeMillis(),
-            status = "ON_MY_WAY"
-        )
-    )
-
-    Log.d(
-        "ServiceBookings",
-        "startTracking job=${job.id} tech=$technicianId cust=${job.customerId} → $ok"
-    )
-    onDone(ok)
-}
-
 private suspend fun openMapForJob(
     context: android.content.Context,
     job: Job,
@@ -410,59 +324,31 @@ private suspend fun openMapForJob(
     val target = viewModel.resolveJobAddress(job).trim()
 
     if (target.isBlank()) {
-        Toast.makeText(
-            context,
-            "No address saved for this job",
-            Toast.LENGTH_SHORT
-        ).show()
+        Toast.makeText(context, "No address saved for this job", Toast.LENGTH_SHORT).show()
         return
     }
 
     val encoded = Uri.encode(target)
-    Log.d("ServiceBookings", "Opening map for address: '$target'")
-
     val geoUri = Uri.parse("geo:0,0?q=$encoded")
     val geoIntent = Intent(Intent.ACTION_VIEW, geoUri).apply {
         setPackage("com.google.android.apps.maps")
     }
     if (geoIntent.resolveActivity(context.packageManager) != null) {
-        try {
-            context.startActivity(geoIntent)
-            return
-        } catch (e: Exception) {
-            Log.w("ServiceBookings", "geo intent failed, falling back", e)
-        }
+        try { context.startActivity(geoIntent); return } catch (_: Exception) {}
     }
 
     val anyGeoIntent = Intent(Intent.ACTION_VIEW, geoUri)
     if (anyGeoIntent.resolveActivity(context.packageManager) != null) {
-        try {
-            context.startActivity(anyGeoIntent)
-            return
-        } catch (e: Exception) {
-            Log.w("ServiceBookings", "any geo intent failed, falling back", e)
-        }
+        try { context.startActivity(anyGeoIntent); return } catch (_: Exception) {}
     }
 
-    val httpsUri = Uri.parse(
-        "https://www.google.com/maps/search/?api=1&query=$encoded"
-    )
-    val webIntent = Intent(Intent.ACTION_VIEW, httpsUri)
-    try {
-        context.startActivity(webIntent)
-    } catch (e: Exception) {
-        Log.e("ServiceBookings", "All map intents failed", e)
-        Toast.makeText(
-            context,
-            "No app available to open maps",
-            Toast.LENGTH_SHORT
-        ).show()
+    val httpsUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$encoded")
+    try { context.startActivity(Intent(Intent.ACTION_VIEW, httpsUri)) }
+    catch (e: Exception) {
+        Toast.makeText(context, "No app available to open maps", Toast.LENGTH_SHORT).show()
     }
 }
 
-// ============================================================
-// BOOKING CARD — restyled
-// ============================================================
 @Composable
 fun BookingCard(
     job: Job,
@@ -498,7 +384,6 @@ fun BookingCard(
         )
     ) {
         Column(Modifier.padding(16.dp)) {
-            // ---- Header ----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -538,7 +423,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // ---- Meta ----
             if (resolvedAddress.isNotBlank()) {
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
@@ -577,7 +461,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(12.dp))
 
-            // ---- Tracking toggle panel ----
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = if (isLocalToggleOn) SuccessSoft else BabyBlueSoft,
@@ -633,7 +516,6 @@ fun BookingCard(
 
             Spacer(Modifier.height(12.dp))
 
-            // ---- Action row ----
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)

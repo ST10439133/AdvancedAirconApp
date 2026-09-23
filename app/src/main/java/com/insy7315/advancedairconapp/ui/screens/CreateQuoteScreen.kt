@@ -37,9 +37,7 @@ import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-
 // BRAND TOKENS
-
 private val BabyBlue        = Color(0xFF4FA8D8)
 private val BabyBlueDeep    = Color(0xFF2E7BA6)
 private val BabyBlueSoft    = Color(0xFFE1F1FB)
@@ -58,8 +56,12 @@ fun CreateQuoteScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var currentRequest by remember { mutableStateOf<ServiceRequest?>(null) }
+    var requestLoadFailed by remember { mutableStateOf(false) }
+
     LaunchedEffect(requestId) {
-        currentRequest = viewModel.getRequestById(requestId)
+        val r = viewModel.getRequestById(requestId)
+        currentRequest = r
+        requestLoadFailed = (r == null)
     }
 
     data class ServiceFeeOption(val name: String, val fee: Double, val description: String = "")
@@ -176,6 +178,21 @@ fun CreateQuoteScreen(
                             PriorityPill(req.priority.name)
                         }
                     }
+                }
+            }
+
+            if (requestLoadFailed) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = OrangeSoft)
+                ) {
+                    Text(
+                        "Could not load the request. Go back and try again.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
 
@@ -534,7 +551,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 5 -Notes
+            // SECTION 5 - Notes
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
             Card(
@@ -559,6 +576,23 @@ fun CreateQuoteScreen(
             // SEND
             Button(
                 onClick = {
+                    val req = currentRequest
+                    if (req == null) {
+                        Toast.makeText(
+                            context,
+                            "Request still loading, try again in a moment",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@Button
+                    }
+                    if (req.userId.isBlank()) {
+                        Toast.makeText(
+                            context,
+                            "This request has no customer attached — cannot send quote",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@Button
+                    }
                     if (selectedServiceFee == null) {
                         Toast.makeText(context, "Select a service type", Toast.LENGTH_SHORT).show()
                         return@Button
@@ -567,13 +601,14 @@ fun CreateQuoteScreen(
                         Toast.makeText(context, "Add at least one part", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
                     coroutineScope.launch {
                         isCreating = true
                         try {
                             val id = viewModel.createQuoteForRequest(
                                 requestId = requestId,
                                 technicianId = technicianId,
-                                customerId = currentRequest?.userId ?: "",
+                                customerId = req.userId,
                                 serviceName = selectedServiceFee!!.name,
                                 serviceFee = selectedServiceFee!!.fee,
                                 lineItems = lineItems.map { it.name to (it.quantity to it.price) },
@@ -582,6 +617,12 @@ fun CreateQuoteScreen(
                             if (id > 0) {
                                 Toast.makeText(context, "Quote sent!", Toast.LENGTH_SHORT).show()
                                 navManager.navigateBack()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "Quote not sent — please try again",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -598,7 +639,10 @@ fun CreateQuoteScreen(
                     containerColor = OrangeAccent,
                     contentColor = Color.White
                 ),
-                enabled = !isCreating && selectedServiceFee != null && lineItems.isNotEmpty()
+                enabled = !isCreating
+                        && currentRequest != null
+                        && selectedServiceFee != null
+                        && lineItems.isNotEmpty()
             ) {
                 if (isCreating) {
                     CircularProgressIndicator(

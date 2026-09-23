@@ -15,13 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -44,8 +44,6 @@ fun FieldTrackingScreen(
     navManager: NavManager,
     onBackToDashboard: () -> Unit
 ) {
-    val context = LocalContext.current
-
     val viewModel: ManagerTrackingViewModel = viewModel()
 
     val technicians by viewModel.technicians.collectAsStateWithLifecycle()
@@ -60,23 +58,22 @@ fun FieldTrackingScreen(
 
     val defaultPosition = LatLng(-26.2041, 28.0473)
 
-    val initialPosition = remember(technicians) {
-        if (technicians.isNotEmpty()) {
-            LatLng(technicians.first().latitude, technicians.first().longitude)
-        } else defaultPosition
-    }
-
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialPosition, 12f)
+        position = CameraPosition.fromLatLngZoom(defaultPosition, 12f)
     }
 
-    LaunchedEffect(technicians.size) {
-        if (technicians.isNotEmpty()) {
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(
-                LatLng(technicians.first().latitude, technicians.first().longitude),
-                12f
+    // Re-center every time the list updates (position, not just count).
+    // This makes the camera follow the technician in real time.
+    LaunchedEffect(technicians) {
+        val first = technicians.firstOrNull() ?: return@LaunchedEffect
+        cameraPositionState.animate(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.fromLatLngZoom(
+                    LatLng(first.latitude, first.longitude),
+                    14f
+                )
             )
-        }
+        )
     }
 
     Scaffold(
@@ -92,7 +89,7 @@ fun FieldTrackingScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* ViewModel auto-refreshes every 5s */ }) {
+                    IconButton(onClick = { /* polling handles refresh */ }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 }
@@ -104,7 +101,6 @@ fun FieldTrackingScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // GOOGLE MAP
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
@@ -126,6 +122,8 @@ fun FieldTrackingScreen(
                                 append(" • ")
                             }
                             append(tech.status)
+                            append(" • ")
+                            append(relativeAge(tech.lastUpdated))
                         },
                         icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
                             .defaultMarker(
@@ -144,7 +142,6 @@ fun FieldTrackingScreen(
                 }
             }
 
-            // LOADING OVERLAY
             if (isLoading && technicians.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -175,7 +172,6 @@ fun FieldTrackingScreen(
                 }
             }
 
-            // EMPTY STATE OVERLAY
             if (!isLoading && technicians.isEmpty()) {
                 Card(
                     modifier = Modifier
@@ -222,7 +218,6 @@ fun FieldTrackingScreen(
                 }
             }
 
-            // TECH COUNT BADGE (top-right)
             if (technicians.isNotEmpty()) {
                 Surface(
                     modifier = Modifier
@@ -253,7 +248,6 @@ fun FieldTrackingScreen(
                 }
             }
 
-            // BOTTOM CARD WITH TECH LIST
             if (technicians.isNotEmpty()) {
                 Card(
                     modifier = Modifier
@@ -317,11 +311,8 @@ fun FieldTrackingScreen(
     }
 }
 
-// Tech row
 @Composable
 private fun TechRow(tech: TechLocationDto) {
-    val df = SimpleDateFormat("h:mm a", Locale.getDefault())
-
     val statusColor = when (tech.status) {
         "on_the_way", "ON_MY_WAY" -> Color(0xFF03A9F4)
         "on_site"                 -> SuccessGreen
@@ -395,9 +386,19 @@ private fun TechRow(tech: TechLocationDto) {
         Spacer(Modifier.width(10.dp))
 
         Text(
-            df.format(Date(tech.lastUpdated)),
+            relativeAge(tech.lastUpdated),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+private fun relativeAge(ts: Long): String {
+    val diff = System.currentTimeMillis() - ts
+    return when {
+        diff < 15_000    -> "just now"
+        diff < 60_000    -> "${diff / 1000}s ago"
+        diff < 3_600_000 -> "${diff / 60_000}m ago"
+        else -> SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(ts))
     }
 }

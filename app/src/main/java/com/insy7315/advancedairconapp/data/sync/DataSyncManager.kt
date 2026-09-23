@@ -1,13 +1,16 @@
+// app/src/main/java/com/insy7315/advancedairconapp/data/sync/DataSyncManager.kt
 package com.insy7315.advancedairconapp.data.sync
 
 import android.content.Context
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.api.ApiClient
 import com.insy7315.advancedairconapp.data.api.BuildingDto
 import com.insy7315.advancedairconapp.data.api.JobDto
 import com.insy7315.advancedairconapp.data.api.QuoteDto
 import com.insy7315.advancedairconapp.data.api.ServiceRequestDto
+import com.insy7315.advancedairconapp.data.api.UserSyncRequest
 import com.insy7315.advancedairconapp.data.api.safeApiCall
 import com.insy7315.advancedairconapp.data.entities.*
 import com.insy7315.advancedairconapp.data.network.NetworkMonitor
@@ -22,10 +25,63 @@ import kotlinx.coroutines.withContext
  * inserting duplicates when local Room IDs differ from server IDs.
  *
  * Never lets a server-side PENDING overwrite a local ACCEPTED/DECLINED.
+ *
+ * Every entry point calls `ensureToken(context)` first: if we don't have a
+ * JWT yet (fresh install, first launch while offline, previous syncUser call
+ * failed) we transparently re-acquire one from the current Firebase user
+ * before pulling.
  */
 object DataSyncManager {
 
     private const val TAG = "DataSyncManager"
+
+    /**
+     * Ensures ApiClient has a JWT. If not, retries /api/users/sync using the
+     * Firebase user + local Room user we already have.
+     */
+    private suspend fun ensureToken(context: Context): Boolean {
+        if (ApiClient.hasToken(context)) return true
+
+        if (!NetworkMonitor.isOnline(context)) {
+            Log.d(TAG, "ensureToken: offline, cannot re-acquire JWT")
+            return false
+        }
+
+        val firebaseUser = FirebaseAuth.getInstance().currentUser
+        if (firebaseUser == null) {
+            Log.d(TAG, "ensureToken: no Firebase user, cannot re-acquire JWT")
+            return false
+        }
+
+        val db = ArcticFlowDatabase.getDatabase(context)
+        val localUser = db.userDao().getUserById(firebaseUser.uid)
+        if (localUser == null) {
+            Log.d(TAG, "ensureToken: no Room user for uid=${firebaseUser.uid}")
+            return false
+        }
+
+        val api = ApiClient.get(context)
+        val response = safeApiCall(TAG) {
+            api.syncUser(
+                UserSyncRequest(
+                    uid = localUser.uid,
+                    email = localUser.email,
+                    displayName = localUser.displayName,
+                    role = localUser.role.name,
+                    phoneNumber = localUser.phoneNumber
+                )
+            )
+        }
+
+        if (response != null) {
+            ApiClient.saveToken(context, response.token)
+            Log.d(TAG, "ensureToken: re-acquired JWT (len=${response.token.length})")
+            return true
+        }
+
+        Log.w(TAG, "ensureToken: could not re-acquire JWT")
+        return false
+    }
 
     // ============================================================
     // BUILDINGS
@@ -33,8 +89,8 @@ object DataSyncManager {
     suspend fun syncBuildings(context: Context, userId: String): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncBuildings skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncBuildings skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -63,8 +119,8 @@ object DataSyncManager {
     suspend fun syncPendingRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncPendingRequests skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncPendingRequests skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -99,8 +155,8 @@ object DataSyncManager {
     suspend fun syncMyRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncMyRequests skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncMyRequests skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -138,8 +194,8 @@ object DataSyncManager {
     suspend fun syncCustomerQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncCustomerQuotes skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncCustomerQuotes skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -174,8 +230,8 @@ object DataSyncManager {
     suspend fun syncTechnicianQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncTechnicianQuotes skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncTechnicianQuotes skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -213,8 +269,8 @@ object DataSyncManager {
     suspend fun syncCustomerJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncCustomerJobs skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncCustomerJobs skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -248,8 +304,8 @@ object DataSyncManager {
     suspend fun syncTechnicianJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncTechnicianJobs skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncTechnicianJobs skipped: no JWT yet and couldn't get one")
                 return@withContext 0
             }
 
@@ -280,11 +336,8 @@ object DataSyncManager {
     // ============================================================
     suspend fun syncEverything(context: Context, role: String) {
         try {
-            // Guard: the API interceptor needs a valid JWT. If we haven't
-            // received one yet (fresh install, just logged in), skip this
-            // pull — the next call after the token is saved will succeed.
-            if (!ApiClient.hasToken(context)) {
-                Log.d(TAG, "syncEverything skipped: no JWT yet")
+            if (!ensureToken(context)) {
+                Log.d(TAG, "syncEverything skipped: no JWT yet and couldn't get one")
                 return
             }
 

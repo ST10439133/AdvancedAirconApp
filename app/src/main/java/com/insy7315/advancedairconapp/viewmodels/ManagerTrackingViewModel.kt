@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ManagerTrackingViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application
@@ -14,10 +15,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-
 class ManagerTrackingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val TAG = "ManagerTrackingVM"
+
+    /**
+     * Anything older than this is considered stale and hidden from the map.
+     * 2 minutes is generous — the service pushes every 10s.
+     */
+    private val STALE_AFTER_MS = 2L * 60L * 1000L
 
     private val _technicians = MutableStateFlow<List<TechLocationDto>>(emptyList())
     val technicians: StateFlow<List<TechLocationDto>> = _technicians.asStateFlow()
@@ -36,13 +42,26 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
         pollJob = viewModelScope.launch {
             while (isActive) {
                 try {
-                    val list = ApiRepository.fetchLocations(getApplication(), customerId)
-                    _technicians.value = list
-                    _lastUpdated.value = System.currentTimeMillis()
+                    val raw = ApiRepository.fetchLocations(getApplication(), customerId)
+                    val now = System.currentTimeMillis()
+                    val active = raw.filter { loc ->
+                        val age = now - loc.lastUpdated
+                        val fresh = age in 0..STALE_AFTER_MS
+                        if (!fresh) {
+                            Log.d(
+                                TAG,
+                                "filtering out stale tech=${loc.technicianId} " +
+                                        "ageMs=$age"
+                            )
+                        }
+                        fresh
+                    }
+                    _technicians.value = active
+                    _lastUpdated.value = now
                     Log.d(
                         TAG,
-                        "polled ${list.size} active technicians" +
-                                if (customerId != null) " for customer=$customerId" else ""
+                        "polled ${raw.size} raw → ${active.size} fresh" +
+                                if (customerId != null) " (customer=$customerId)" else ""
                     )
                 } catch (e: Exception) {
                     Log.w(TAG, "poll failed: ${e.message}")

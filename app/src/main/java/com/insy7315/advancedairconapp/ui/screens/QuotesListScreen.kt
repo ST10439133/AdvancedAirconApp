@@ -61,7 +61,10 @@ fun QuotesListScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val quotes by (if (isCustomer) viewModel.getQuotesForCustomer(userId)
+    // Managers use the JOIN-based query so quotes created against their
+    // requests still appear even if customerId was blanked upstream.
+    // Technicians use the standard technician-side query.
+    val quotes by (if (isCustomer) viewModel.getQuotesVisibleToCustomer(userId)
     else viewModel.getQuotesForTechnician(userId))
         .collectAsState(initial = emptyList())
 
@@ -121,6 +124,20 @@ fun QuotesListScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                viewModel.refreshFromServer(if (isCustomer) "MANAGER" else "TECHNICIAN")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OrangeAccent,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Refresh")
+                    }
                 }
             }
         } else {

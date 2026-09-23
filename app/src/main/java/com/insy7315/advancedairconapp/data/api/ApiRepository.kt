@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/data/api/ApiRepository.kt
 package com.insy7315.advancedairconapp.data.api
 
 import android.content.Context
@@ -70,7 +71,12 @@ object ApiRepository {
         serverBuildingId: Int?
     ): ServiceRequestDto? = withContext(Dispatchers.IO) {
         val api = ApiClient.get(context)
+        // NOTE: userId is sent explicitly so the server has a fallback if the
+        // JWT-derived owner is missing for any reason. This prevents requests
+        // from being stored with a blank user_id and subsequently producing
+        // quotes that never match the manager's "My Quotes" filter.
         val body: Map<String, Any?> = mapOf(
+            "userId"        to request.userId,
             "buildingId"    to serverBuildingId,
             "buildingName"  to (buildingName ?: request.buildingName),
             "issueType"     to request.issueType,

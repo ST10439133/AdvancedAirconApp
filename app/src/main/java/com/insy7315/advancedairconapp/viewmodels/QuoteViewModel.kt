@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/QuoteViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.content.Context
@@ -183,6 +184,12 @@ class QuoteViewModel(
     ): Long {
         val request = getRequestById(requestId) ?: return 0L
 
+        // Prefer the request owner; fall back to whatever we were given.
+        // This prevents a blank customerId from being pushed upstream.
+        val resolvedCustomerId = request.userId
+            .ifBlank { customerId }
+            .ifBlank { "" }
+
         val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
         val total = serviceFee + partsSubtotal
         val partsDescription = lineItems.joinToString("\n") {
@@ -194,7 +201,7 @@ class QuoteViewModel(
         val quote = Quote(
             requestId = requestId,
             technicianId = technicianId,
-            customerId = customerId.ifBlank { request.userId },
+            customerId = resolvedCustomerId,
             buildingName = request.buildingName,
             issueType = request.issueType,
             description = request.description,
@@ -211,17 +218,30 @@ class QuoteViewModel(
 
         updateRequestStatus(requestId, RequestStatus.QUOTED)
 
-        createNotification(
-            userId = quote.customerId,
-            title = "New Quote Received",
-            message = "Technician quoted R${String.format(Locale.getDefault(), "%.2f", total)} for ${request.buildingName}",
-            type = NotificationType.QUOTE
-        )
+        if (resolvedCustomerId.isNotBlank()) {
+            createNotification(
+                userId = resolvedCustomerId,
+                title = "New Quote Received",
+                message = "Technician quoted R${
+                    String.format(Locale.getDefault(), "%.2f", total)
+                } for ${request.buildingName}",
+                type = NotificationType.QUOTE
+            )
+        }
         return quoteId
     }
 
     fun getQuotesForCustomer(customerId: String): Flow<List<Quote>> =
         try { quoteDao.getQuotesByCustomer(customerId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
+
+    /**
+     * Manager-side list. Matches quotes either by customerId OR by ownership
+     * of the parent service request. Rescues quotes whose customerId was
+     * blanked out upstream.
+     */
+    fun getQuotesVisibleToCustomer(customerId: String): Flow<List<Quote>> =
+        try { quoteDao.getQuotesVisibleToCustomer(customerId) }
         catch (e: Exception) { flow { emit(emptyList()) } }
 
     fun getQuotesForTechnician(technicianId: String): Flow<List<Quote>> =
@@ -320,7 +340,7 @@ class QuoteViewModel(
                 quoteId = quote.id,
                 serverQuoteId = quote.serverId,
                 requestId = quote.requestId,
-                serverRequestId = quote.serverId?.let { null } ?: request?.serverId,
+                serverRequestId = request?.serverId,
                 technicianId = quote.technicianId,
                 customerId = quote.customerId,
                 buildingName = quote.buildingName,
@@ -467,6 +487,7 @@ class QuoteViewModel(
         message: String,
         type: NotificationType
     ) {
+        if (userId.isBlank()) return
         try {
             notificationDao.insertNotification(
                 Notification(

@@ -20,12 +20,14 @@ import com.insy7315.advancedairconapp.ui.theme.ThemeManager
 import com.insy7315.advancedairconapp.ui.theme.ThemeState
 import com.insy7315.advancedairconapp.utils.LocaleManager
 import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.SampleData
 import com.insy7315.advancedairconapp.data.sync.SyncWorker
+import com.insy7315.advancedairconapp.services.LocationTrackingCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -51,26 +53,9 @@ class MainActivity : ComponentActivity() {
             Log.e("MainActivity", "Firebase initialization failed", e)
         }
 
-        // ============================================================
-        // TEMPORARY FIRESTORE TEST — remove after verifying
-        // ============================================================
-        FirebaseFirestore.getInstance()
-            .collection("test")
-            .document("package_rename_check")
-            .set(mapOf(
-                "timestamp" to System.currentTimeMillis(),
-                "package" to packageName
-            ))
-            .addOnSuccessListener {
-                Log.d("FirestoreTest", "✅ WRITE SUCCESS")
-            }
-            .addOnFailureListener { e ->
-                Log.e("FirestoreTest", "❌ WRITE FAILED: ${e.message}", e)
-            }
-        // ============================================================
-
         SyncWorker.schedule(applicationContext)
         syncSampleData()
+        cleanUpStaleTracking()
 
         setContent {
             val themeState = remember { mutableStateOf(themeManager.getThemeState()) }
@@ -96,6 +81,40 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             )
+        }
+    }
+
+    /**
+     * On cold start, if we're a technician whose jobs are all idle, wipe any
+     * lingering location row on the server for our uid. This kills the
+     * phantom pin that appears when the app was killed without tapping
+     * "stop tracking".
+     */
+    private fun cleanUpStaleTracking() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return@launch
+                val db = ArcticFlowDatabase.getDatabase(applicationContext)
+                val localUser = db.userDao().getUserById(firebaseUser.uid) ?: return@launch
+
+                if (localUser.role.name != "TECHNICIAN") return@launch
+
+                // Room returns a Flow<List<Job>>. Take the first emission.
+                val jobs = db.jobDao()
+                    .getJobsByTechnician(localUser.uid)
+                    .first()
+
+                val onMyWay = jobs.any { it.technicianOnWay }
+                if (!onMyWay) {
+                    Log.d("MainActivity", "No active tracking — clearing stale location")
+                    LocationTrackingCoordinator.stopForTechnician(
+                        context = applicationContext,
+                        technicianId = localUser.uid
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("MainActivity", "cleanUpStaleTracking failed", e)
+            }
         }
     }
 
@@ -134,8 +153,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Log.d("MainActivity",
-                    "Sample data sync: $insertedCount inserted, $updatedCount updated")
+                Log.d(
+                    "MainActivity",
+                    "Sample data sync: $insertedCount inserted, $updatedCount updated"
+                )
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error syncing sample data", e)
             }

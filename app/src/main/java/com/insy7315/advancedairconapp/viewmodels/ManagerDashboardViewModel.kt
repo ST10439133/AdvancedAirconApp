@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ManagerDashboardViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application
@@ -36,13 +37,20 @@ class ManagerDashboardViewModel(
     val pendingRequests: Flow<List<ServiceRequest>> =
         requests.map { list -> list.filter { it.status == RequestStatus.PENDING } }
 
+    /**
+     * All quotes visible to this manager. Matches either:
+     *   - by owning the parent request (requestId ∈ myRequests), OR
+     *   - by explicit customerId == userId.
+     *
+     * The second condition catches quotes whose customerId was resolved
+     * correctly on the server even if the request hasn't synced down yet.
+     */
     val quotes: Flow<List<Quote>> = combine(
         requests.map { reqs -> reqs.map { it.id }.toSet() },
         database.quoteDao().getAllQuotesFlow()
     ) { requestIds, allQuotes ->
-        if (requestIds.isEmpty()) emptyList()
-        else allQuotes
-            .filter { it.requestId in requestIds }
+        allQuotes
+            .filter { it.requestId in requestIds || it.customerId == userId }
             .sortedByDescending { it.createdAt }
     }
 
