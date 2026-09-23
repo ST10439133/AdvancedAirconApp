@@ -17,8 +17,6 @@ interface QuoteDao {
     @Delete
     suspend fun deleteQuote(quote: Quote)
 
-    // Reactive queries
-
     @Query("SELECT * FROM quotes WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun getQuotesByCustomer(customerId: String): Flow<List<Quote>>
 
@@ -37,17 +35,25 @@ interface QuoteDao {
     @Query("SELECT * FROM quotes WHERE requestId = :requestId")
     fun observeQuotesByRequest(requestId: Int): Flow<List<Quote>>
 
-    // One-shot queries
-
     @Query("SELECT * FROM quotes WHERE id = :quoteId")
     suspend fun getQuoteById(quoteId: Int): Quote?
+
+    @Query("SELECT * FROM quotes WHERE serverId = :serverId LIMIT 1")
+    suspend fun getQuoteByServerId(serverId: Int): Quote?
 
     @Query("SELECT * FROM quotes WHERE requestId = :requestId LIMIT 1")
     suspend fun getQuotesByRequest(requestId: Int): Quote?
 
-    @Query("UPDATE quotes SET status = :status WHERE id = :quoteId")
-    suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus)
+    @Query("UPDATE quotes SET status = :status, updatedAt = :updatedAt WHERE id = :quoteId")
+    suspend fun updateQuoteStatus(
+        quoteId: Int,
+        status: QuoteStatus,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("SELECT * FROM quotes ORDER BY createdAt DESC")
     suspend fun getAllQuotesOnce(): List<Quote>
+
+    @Query("UPDATE quotes SET serverId = :serverId WHERE id = :localId")
+    suspend fun setServerId(localId: Int, serverId: Int)
 }

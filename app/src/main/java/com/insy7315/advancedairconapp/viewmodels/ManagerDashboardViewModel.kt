@@ -7,17 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.api.ApiRepository
-import com.insy7315.advancedairconapp.data.api.IdMap
-import com.insy7315.advancedairconapp.data.entities.BuildingEntity
-import com.insy7315.advancedairconapp.data.entities.Job
-import com.insy7315.advancedairconapp.data.entities.JobStatus
-import com.insy7315.advancedairconapp.data.entities.Notification
-import com.insy7315.advancedairconapp.data.entities.NotificationType
-import com.insy7315.advancedairconapp.data.entities.Quote
-import com.insy7315.advancedairconapp.data.entities.QuoteStatus
-import com.insy7315.advancedairconapp.data.entities.RequestStatus
-import com.insy7315.advancedairconapp.data.entities.ServiceRequest
-import com.insy7315.advancedairconapp.data.entities.User
+import com.insy7315.advancedairconapp.data.entities.*
 import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 import com.insy7315.advancedairconapp.data.sync.DataSyncManager
 import com.insy7315.advancedairconapp.data.sync.SyncManager
@@ -32,28 +22,20 @@ class ManagerDashboardViewModel(
 ) : AndroidViewModel(application) {
 
     private val TAG = "ManagerDashboardVM"
-
     private val appContext get() = getApplication<Application>()
 
-    // ===== Live user record for the header =====
     val currentUser: Flow<User?> =
         database.userDao().observeUserById(userId)
 
-    // ===== Buildings owned by this manager =====
     val buildings: Flow<List<BuildingEntity>> =
         database.buildingDao().getBuildingsByUser(userId)
 
-    // ===== Service requests submitted by this manager =====
     val requests: Flow<List<ServiceRequest>> =
         database.serviceRequestDao().getRequestsByUser(userId)
 
-    // ===== Pending requests only =====
     val pendingRequests: Flow<List<ServiceRequest>> =
         requests.map { list -> list.filter { it.status == RequestStatus.PENDING } }
 
-    // ============================================================
-    // Quotes are fully reactive: combine request ids with live quotes
-    // ============================================================
     val quotes: Flow<List<Quote>> = combine(
         requests.map { reqs -> reqs.map { it.id }.toSet() },
         database.quoteDao().getAllQuotesFlow()
@@ -70,20 +52,13 @@ class ManagerDashboardViewModel(
     val acceptedQuotes: Flow<List<Quote>> =
         quotes.map { list -> list.filter { it.status == QuoteStatus.ACCEPTED } }
 
-
-    // ============================================================
-    // PULL FROM SERVER
-    // ============================================================
     suspend fun refreshFromServer(userRole: String) {
-        try {
-            DataSyncManager.syncEverything(appContext, userRole)
-        } catch (e: Exception) {
-            Log.e(TAG, "refreshFromServer failed", e)
-        }
+        try { DataSyncManager.syncEverything(appContext, userRole) }
+        catch (e: Exception) { Log.e(TAG, "refreshFromServer failed", e) }
     }
 
     // ============================================================
-    // ACCEPT QUOTE — offline-aware
+    // ACCEPT QUOTE
     // ============================================================
     suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
         val quoteDao = database.quoteDao()
@@ -92,19 +67,31 @@ class ManagerDashboardViewModel(
         val notificationDao = database.notificationDao()
 
         try {
-            quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
             val quote = quoteDao.getQuoteById(quoteId)
             if (quote == null) {
-                Log.w(TAG, "acceptQuote: quote $quoteId not found")
+                Log.e(TAG, "acceptQuote: quote $quoteId not found")
                 return
             }
 
             val request = requestDao.getRequestById(quote.requestId)
-            val jobAddress = request?.fullAddress ?: ""
+            if (request == null) {
+                Log.e(TAG, "acceptQuote: request ${quote.requestId} not found " +
+                        "for quote $quoteId (this is a sync bug — pull-sync " +
+                        "created a different local id)")
+                return
+            }
 
+            // 1. Local quote status
+            quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
+
+            // 2. Local job
             val newJob = Job(
+                id = 0,
+                serverId = null,
                 quoteId = quote.id,
-                requestId = quote.requestId,
+                serverQuoteId = quote.serverId,
+                requestId = request.id,
+                serverRequestId = request.serverId,
                 technicianId = quote.technicianId,
                 customerId = quote.customerId,
                 buildingName = quote.buildingName,
@@ -113,12 +100,14 @@ class ManagerDashboardViewModel(
                 status = JobStatus.SCHEDULED,
                 scheduledDate = scheduledDate,
                 notes = "Time Slot: $timeSlot",
-                fullAddress = jobAddress
+                fullAddress = request.fullAddress
             )
             val newJobId = jobDao.insertJob(newJob)
 
-            requestDao.updateRequestStatus(quote.requestId, RequestStatus.ACCEPTED)
+            // 3. Local request status
+            requestDao.updateRequestStatus(request.id, RequestStatus.ACCEPTED)
 
+            // 4. Local notification for the technician
             notificationDao.insertNotification(
                 Notification(
                     title = "Job Scheduled",
@@ -128,79 +117,99 @@ class ManagerDashboardViewModel(
                 )
             )
 
-            // ============================ API SYNC (offline-aware) ============================
-            if (NetworkMonitor.isOnline(appContext)) {
-                val okQuote = ApiRepository.updateQuoteStatus(
-                    appContext, quote.id, QuoteStatus.ACCEPTED.name
-                )
-                if (!okQuote) {
-                    SyncManager.enqueue(
-                        appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
-                        mapOf("status" to QuoteStatus.ACCEPTED.name)
-                    )
-                }
+            // 5. Push to server (or queue if offline)
+            pushAcceptance(
+                quote = quote,
+                request = request,
+                newJobId = newJobId.toInt(),
+                newJob = newJob.copy(id = newJobId.toInt())
+            )
 
-                val serverQuoteId   = IdMap.getQuote(appContext, quote.id)
-                val serverRequestId = IdMap.getRequest(appContext, quote.requestId)
-
-                val dto = ApiRepository.pushJob(
-                    context = appContext,
-                    job = newJob.copy(id = newJobId.toInt()),
-                    serverQuoteId = serverQuoteId,
-                    serverRequestId = serverRequestId
-                )
-                if (dto != null) {
-                    IdMap.putJob(appContext, newJobId.toInt(), dto.id)
-                } else {
-                    SyncManager.enqueue(
-                        appContext, SyncManager.TYPE_JOB_CREATE, newJobId.toInt(), emptyMap()
-                    )
-                }
-
-                val okReq = ApiRepository.updateRequestStatus(
-                    appContext, quote.requestId, RequestStatus.ACCEPTED.name
-                )
-                if (!okReq) {
-                    SyncManager.enqueue(
-                        appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
-                        mapOf("status" to RequestStatus.ACCEPTED.name)
-                    )
-                }
-            } else {
-                SyncManager.enqueue(
-                    appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
-                    mapOf("status" to QuoteStatus.ACCEPTED.name)
-                )
-                SyncManager.enqueue(
-                    appContext, SyncManager.TYPE_JOB_CREATE, newJobId.toInt(), emptyMap()
-                )
-                SyncManager.enqueue(
-                    appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
-                    mapOf("status" to RequestStatus.ACCEPTED.name)
-                )
-            }
         } catch (e: Exception) {
             Log.e(TAG, "acceptQuote failed for quote=$quoteId", e)
         }
     }
 
+    private suspend fun pushAcceptance(
+        quote: Quote,
+        request: ServiceRequest,
+        newJobId: Int,
+        newJob: Job
+    ) {
+        val online = NetworkMonitor.isOnline(appContext)
 
-    // DECLINE QUOTE - offline-aware
+        // QUOTE STATUS
+        val serverQuoteId = quote.serverId
+        if (serverQuoteId != null && online) {
+            val ok = ApiRepository.updateQuoteStatus(appContext, serverQuoteId, QuoteStatus.ACCEPTED.name)
+            if (!ok) SyncManager.enqueue(
+                appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
+                mapOf("status" to QuoteStatus.ACCEPTED.name)
+            )
+        } else {
+            SyncManager.enqueue(
+                appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
+                mapOf("status" to QuoteStatus.ACCEPTED.name)
+            )
+        }
 
+        // JOB CREATE
+        if (online) {
+            val dto = ApiRepository.pushJob(
+                context = appContext,
+                job = newJob,
+                serverQuoteId = quote.serverId,
+                serverRequestId = request.serverId
+            )
+            if (dto != null) {
+                database.jobDao().setServerId(newJobId, dto.id)
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_JOB_CREATE, newJobId, emptyMap()
+                )
+            }
+        } else {
+            SyncManager.enqueue(
+                appContext, SyncManager.TYPE_JOB_CREATE, newJobId, emptyMap()
+            )
+        }
+
+        // REQUEST STATUS
+        val serverRequestId = request.serverId
+        if (serverRequestId != null && online) {
+            val ok = ApiRepository.updateRequestStatus(appContext, serverRequestId, RequestStatus.ACCEPTED.name)
+            if (!ok) SyncManager.enqueue(
+                appContext, SyncManager.TYPE_REQUEST_STATUS, request.id,
+                mapOf("status" to RequestStatus.ACCEPTED.name)
+            )
+        } else {
+            SyncManager.enqueue(
+                appContext, SyncManager.TYPE_REQUEST_STATUS, request.id,
+                mapOf("status" to RequestStatus.ACCEPTED.name)
+            )
+        }
+    }
+
+    // ============================================================
+    // DECLINE QUOTE
+    // ============================================================
     suspend fun declineQuote(quoteId: Int) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
         val notificationDao = database.notificationDao()
 
         try {
-            quoteDao.updateQuoteStatus(quoteId, QuoteStatus.DECLINED)
             val quote = quoteDao.getQuoteById(quoteId)
             if (quote == null) {
                 Log.w(TAG, "declineQuote: quote $quoteId not found")
                 return
             }
+            val request = requestDao.getRequestById(quote.requestId)
 
-            requestDao.updateRequestStatus(quote.requestId, RequestStatus.PENDING)
+            quoteDao.updateQuoteStatus(quoteId, QuoteStatus.DECLINED)
+            if (request != null) {
+                requestDao.updateRequestStatus(request.id, RequestStatus.PENDING)
+            }
 
             notificationDao.insertNotification(
                 Notification(
@@ -211,35 +220,38 @@ class ManagerDashboardViewModel(
                 )
             )
 
-            if (NetworkMonitor.isOnline(appContext)) {
-                val okQuote = ApiRepository.updateQuoteStatus(
-                    appContext, quote.id, QuoteStatus.DECLINED.name
-                )
-                if (!okQuote) {
-                    SyncManager.enqueue(
-                        appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
-                        mapOf("status" to QuoteStatus.DECLINED.name)
-                    )
-                }
+            val online = NetworkMonitor.isOnline(appContext)
 
-                val okReq = ApiRepository.updateRequestStatus(
-                    appContext, quote.requestId, RequestStatus.PENDING.name
+            // Quote status
+            val sq = quote.serverId
+            if (sq != null && online) {
+                val ok = ApiRepository.updateQuoteStatus(appContext, sq, QuoteStatus.DECLINED.name)
+                if (!ok) SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
+                    mapOf("status" to QuoteStatus.DECLINED.name)
                 )
-                if (!okReq) {
-                    SyncManager.enqueue(
-                        appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
-                        mapOf("status" to RequestStatus.PENDING.name)
-                    )
-                }
             } else {
                 SyncManager.enqueue(
                     appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
                     mapOf("status" to QuoteStatus.DECLINED.name)
                 )
-                SyncManager.enqueue(
-                    appContext, SyncManager.TYPE_REQUEST_STATUS, quote.requestId,
-                    mapOf("status" to RequestStatus.PENDING.name)
-                )
+            }
+
+            // Request status
+            if (request != null) {
+                val sr = request.serverId
+                if (sr != null && online) {
+                    val ok = ApiRepository.updateRequestStatus(appContext, sr, RequestStatus.PENDING.name)
+                    if (!ok) SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_REQUEST_STATUS, request.id,
+                        mapOf("status" to RequestStatus.PENDING.name)
+                    )
+                } else {
+                    SyncManager.enqueue(
+                        appContext, SyncManager.TYPE_REQUEST_STATUS, request.id,
+                        mapOf("status" to RequestStatus.PENDING.name)
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "declineQuote failed for quote=$quoteId", e)

@@ -42,7 +42,7 @@ import com.insy7315.advancedairconapp.data.entities.User
         JobCard::class,
         SyncQueueEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(

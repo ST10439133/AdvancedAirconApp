@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BuildingDao {
+
     @Insert
     suspend fun insertBuilding(building: BuildingEntity): Long
 
@@ -21,6 +22,12 @@ interface BuildingDao {
     @Query("SELECT * FROM buildings WHERE id = :buildingId")
     suspend fun getBuildingById(buildingId: Int): BuildingEntity?
 
+    @Query("SELECT * FROM buildings WHERE serverId = :serverId LIMIT 1")
+    suspend fun getBuildingByServerId(serverId: Int): BuildingEntity?
+
     @Query("DELETE FROM buildings WHERE userId = :userId")
     suspend fun deleteAllBuildings(userId: String)
+
+    @Query("UPDATE buildings SET serverId = :serverId WHERE id = :localId")
+    suspend fun setServerId(localId: Int, serverId: Int)
 }

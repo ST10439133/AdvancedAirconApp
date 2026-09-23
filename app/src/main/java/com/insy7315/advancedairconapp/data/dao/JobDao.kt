@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface JobDao {
+
     @Insert
     suspend fun insertJob(job: Job): Long
 
@@ -31,6 +32,9 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE id = :jobId")
     suspend fun getJobById(jobId: Int): Job?
 
+    @Query("SELECT * FROM jobs WHERE serverId = :serverId LIMIT 1")
+    suspend fun getJobByServerId(serverId: Int): Job?
+
     @Query("UPDATE jobs SET status = :status WHERE id = :jobId")
     suspend fun updateJobStatus(jobId: Int, status: JobStatus)
 
@@ -39,4 +43,7 @@ interface JobDao {
 
     @Query("UPDATE jobs SET technicianOnWay = :onWay WHERE id = :jobId")
     suspend fun updateTechnicianOnWay(jobId: Int, onWay: Boolean)
+
+    @Query("UPDATE jobs SET serverId = :serverId WHERE id = :localId")
+    suspend fun setServerId(localId: Int, serverId: Int)
 }

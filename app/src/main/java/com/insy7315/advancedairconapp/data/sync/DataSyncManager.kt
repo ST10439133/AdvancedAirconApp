@@ -9,16 +9,7 @@ import com.insy7315.advancedairconapp.data.api.JobDto
 import com.insy7315.advancedairconapp.data.api.QuoteDto
 import com.insy7315.advancedairconapp.data.api.ServiceRequestDto
 import com.insy7315.advancedairconapp.data.api.safeApiCall
-import com.insy7315.advancedairconapp.data.entities.BuildingEntity
-import com.insy7315.advancedairconapp.data.entities.BuildingStatusEnum
-import com.insy7315.advancedairconapp.data.entities.BuildingType
-import com.insy7315.advancedairconapp.data.entities.Job
-import com.insy7315.advancedairconapp.data.entities.JobStatus
-import com.insy7315.advancedairconapp.data.entities.Quote
-import com.insy7315.advancedairconapp.data.entities.QuoteStatus
-import com.insy7315.advancedairconapp.data.entities.RequestPriority
-import com.insy7315.advancedairconapp.data.entities.RequestStatus
-import com.insy7315.advancedairconapp.data.entities.ServiceRequest
+import com.insy7315.advancedairconapp.data.entities.*
 import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,13 +17,11 @@ import kotlinx.coroutines.withContext
 /**
  * Pulls data from the REST API and mirrors it into Room.
  *
- * This is the PULL half of the sync loop. The SyncManager handles PUSH
- * (uploading local writes to the server). DataSyncManager handles PULL
- * (downloading remote writes to the local DB).
+ * Uses server-side IDs to match existing rows: `getXByServerId(dto.id)`
+ * instead of `getXById(dto.id)`. This prevents the pull-sync from
+ * inserting duplicates when local Room IDs differ from server IDs.
  *
- * Once downloaded, Room's Flow automatically updates every UI observing
- * the corresponding DAO. So a manager's new request becomes visible on
- * the technician's phone within seconds of opening the Requests tab.
+ * Never lets a server-side PENDING overwrite a local ACCEPTED/DECLINED.
  */
 object DataSyncManager {
 
@@ -44,6 +33,10 @@ object DataSyncManager {
     suspend fun syncBuildings(context: Context, userId: String): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncBuildings skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<BuildingDto> = safeApiCall(TAG) {
@@ -54,13 +47,13 @@ object DataSyncManager {
             var inserted = 0
 
             for (dto in dtos) {
-                val existing = db.buildingDao().getBuildingById(dto.id)
+                val existing = db.buildingDao().getBuildingByServerId(dto.id)
                 if (existing == null) {
                     db.buildingDao().insertBuilding(dto.toEntity(userId))
                     inserted++
                 }
             }
-            Log.d(TAG, "syncBuildings: $inserted new building(s) from server")
+            Log.d(TAG, "syncBuildings: $inserted new")
             inserted
         }
 
@@ -70,6 +63,10 @@ object DataSyncManager {
     suspend fun syncPendingRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncPendingRequests skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<ServiceRequestDto> = safeApiCall(TAG) {
@@ -77,22 +74,35 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var inserted = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.serviceRequestDao().getRequestById(dto.id)
+                val existing = db.serviceRequestDao().getRequestByServerId(dto.id)
                 if (existing == null) {
-                    db.serviceRequestDao().insertRequest(dto.toEntity())
-                    inserted++
+                    db.serviceRequestDao().insertRequest(dto.toEntity(db))
+                    changed++
+                } else {
+                    val incoming = dto.status.toRequestStatus()
+                    val shouldUpdate =
+                        !(existing.status == RequestStatus.ACCEPTED && incoming == RequestStatus.PENDING)
+                                && !(existing.status == RequestStatus.DECLINED && incoming == RequestStatus.PENDING)
+                    if (shouldUpdate && existing.status != incoming) {
+                        db.serviceRequestDao().updateRequestStatus(existing.id, incoming)
+                        changed++
+                    }
                 }
             }
-            Log.d(TAG, "syncPendingRequests: $inserted new request(s) from server")
-            inserted
+            Log.d(TAG, "syncPendingRequests: $changed")
+            changed
         }
 
     suspend fun syncMyRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncMyRequests skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<ServiceRequestDto> = safeApiCall(TAG) {
@@ -100,22 +110,26 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var updated = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.serviceRequestDao().getRequestById(dto.id)
+                val existing = db.serviceRequestDao().getRequestByServerId(dto.id)
                 if (existing == null) {
-                    db.serviceRequestDao().insertRequest(dto.toEntity())
-                    updated++
-                } else if (existing.status != dto.status.toRequestStatus()) {
-                    db.serviceRequestDao().updateRequestStatus(
-                        dto.id, dto.status.toRequestStatus()
-                    )
-                    updated++
+                    db.serviceRequestDao().insertRequest(dto.toEntity(db))
+                    changed++
+                } else {
+                    val incoming = dto.status.toRequestStatus()
+                    val shouldUpdate =
+                        !(existing.status == RequestStatus.ACCEPTED && incoming == RequestStatus.PENDING)
+                                && !(existing.status == RequestStatus.DECLINED && incoming == RequestStatus.PENDING)
+                    if (shouldUpdate && existing.status != incoming) {
+                        db.serviceRequestDao().updateRequestStatus(existing.id, incoming)
+                        changed++
+                    }
                 }
             }
-            Log.d(TAG, "syncMyRequests: $updated updated/new request(s)")
-            updated
+            Log.d(TAG, "syncMyRequests: $changed")
+            changed
         }
 
     // ============================================================
@@ -124,6 +138,10 @@ object DataSyncManager {
     suspend fun syncCustomerQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncCustomerQuotes skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<QuoteDto> = safeApiCall(TAG) {
@@ -131,25 +149,35 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var inserted = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.quoteDao().getQuoteById(dto.id)
+                val existing = db.quoteDao().getQuoteByServerId(dto.id)
                 if (existing == null) {
-                    db.quoteDao().insertQuote(dto.toEntity())
-                    inserted++
-                } else if (existing.status != dto.status.toQuoteStatus()) {
-                    db.quoteDao().updateQuoteStatus(dto.id, dto.status.toQuoteStatus())
-                    inserted++
+                    db.quoteDao().insertQuote(dto.toEntity(db))
+                    changed++
+                } else {
+                    val incoming = dto.status.toQuoteStatus()
+                    val shouldUpdate =
+                        !(existing.status == QuoteStatus.ACCEPTED && incoming == QuoteStatus.PENDING)
+                                && !(existing.status == QuoteStatus.DECLINED && incoming == QuoteStatus.PENDING)
+                    if (shouldUpdate && existing.status != incoming) {
+                        db.quoteDao().updateQuoteStatus(existing.id, incoming)
+                        changed++
+                    }
                 }
             }
-            Log.d(TAG, "syncCustomerQuotes: $inserted new/updated quote(s)")
-            inserted
+            Log.d(TAG, "syncCustomerQuotes: $changed")
+            changed
         }
 
     suspend fun syncTechnicianQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncTechnicianQuotes skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<QuoteDto> = safeApiCall(TAG) {
@@ -157,17 +185,26 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var inserted = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.quoteDao().getQuoteById(dto.id)
+                val existing = db.quoteDao().getQuoteByServerId(dto.id)
                 if (existing == null) {
-                    db.quoteDao().insertQuote(dto.toEntity())
-                    inserted++
+                    db.quoteDao().insertQuote(dto.toEntity(db))
+                    changed++
+                } else {
+                    val incoming = dto.status.toQuoteStatus()
+                    val shouldUpdate =
+                        !(existing.status == QuoteStatus.ACCEPTED && incoming == QuoteStatus.PENDING)
+                                && !(existing.status == QuoteStatus.DECLINED && incoming == QuoteStatus.PENDING)
+                    if (shouldUpdate && existing.status != incoming) {
+                        db.quoteDao().updateQuoteStatus(existing.id, incoming)
+                        changed++
+                    }
                 }
             }
-            Log.d(TAG, "syncTechnicianQuotes: $inserted new quote(s)")
-            inserted
+            Log.d(TAG, "syncTechnicianQuotes: $changed")
+            changed
         }
 
     // ============================================================
@@ -176,6 +213,10 @@ object DataSyncManager {
     suspend fun syncCustomerJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncCustomerJobs skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<JobDto> = safeApiCall(TAG) {
@@ -183,30 +224,34 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var inserted = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.jobDao().getJobById(dto.id)
+                val existing = db.jobDao().getJobByServerId(dto.id)
                 if (existing == null) {
-                    db.jobDao().insertJob(dto.toEntity())
-                    inserted++
+                    db.jobDao().insertJob(dto.toEntity(db))
+                    changed++
                 } else {
                     if (existing.status != dto.status.toJobStatus()) {
-                        db.jobDao().updateJobStatus(dto.id, dto.status.toJobStatus())
+                        db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
                     }
                     if (existing.technicianOnWay != dto.technicianOnWay) {
-                        db.jobDao().updateTechnicianOnWay(dto.id, dto.technicianOnWay)
+                        db.jobDao().updateTechnicianOnWay(existing.id, dto.technicianOnWay)
                     }
-                    inserted++
+                    changed++
                 }
             }
-            Log.d(TAG, "syncCustomerJobs: $inserted new/updated job(s)")
-            inserted
+            Log.d(TAG, "syncCustomerJobs: $changed")
+            changed
         }
 
     suspend fun syncTechnicianJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncTechnicianJobs skipped: no JWT yet")
+                return@withContext 0
+            }
 
             val api = ApiClient.get(context)
             val dtos: List<JobDto> = safeApiCall(TAG) {
@@ -214,29 +259,35 @@ object DataSyncManager {
             } ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
-            var inserted = 0
+            var changed = 0
 
             for (dto in dtos) {
-                val existing = db.jobDao().getJobById(dto.id)
+                val existing = db.jobDao().getJobByServerId(dto.id)
                 if (existing == null) {
-                    db.jobDao().insertJob(dto.toEntity())
-                    inserted++
-                } else {
-                    if (existing.status != dto.status.toJobStatus()) {
-                        db.jobDao().updateJobStatus(dto.id, dto.status.toJobStatus())
-                    }
-                    inserted++
+                    db.jobDao().insertJob(dto.toEntity(db))
+                    changed++
+                } else if (existing.status != dto.status.toJobStatus()) {
+                    db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
+                    changed++
                 }
             }
-            Log.d(TAG, "syncTechnicianJobs: $inserted new/updated job(s)")
-            inserted
+            Log.d(TAG, "syncTechnicianJobs: $changed")
+            changed
         }
 
     // ============================================================
-    // CONVENIENCE — pull everything at once
+    // CONVENIENCE
     // ============================================================
     suspend fun syncEverything(context: Context, role: String) {
         try {
+            // Guard: the API interceptor needs a valid JWT. If we haven't
+            // received one yet (fresh install, just logged in), skip this
+            // pull — the next call after the token is saved will succeed.
+            if (!ApiClient.hasToken(context)) {
+                Log.d(TAG, "syncEverything skipped: no JWT yet")
+                return
+            }
+
             when (role.uppercase()) {
                 "MANAGER" -> {
                     syncMyRequests(context)
@@ -256,11 +307,12 @@ object DataSyncManager {
     }
 
     // ============================================================
-    // DTO → ENTITY MAPPERS
+    // DTO -> ENTITY MAPPERS
     // ============================================================
 
     private fun BuildingDto.toEntity(userId: String) = BuildingEntity(
-        id = id,
+        id = 0,
+        serverId = id,
         userId = userId,
         name = name,
         address = address.orEmpty(),
@@ -278,71 +330,84 @@ object DataSyncManager {
             .getOrDefault(BuildingStatusEnum.ACTIVE)
     )
 
-    private fun ServiceRequestDto.toEntity() = ServiceRequest(
-        id = id,
-        userId = userId,
-        buildingId = buildingId,
-        buildingName = buildingName.orEmpty(),
-        issueType = issueType.orEmpty(),
-        description = description.orEmpty(),
-        priority = priority.toRequestPriority(),
-        preferredDate = preferredDate,
-        status = status.toRequestStatus(),
-        fullAddress = fullAddress.orEmpty(),
-        createdAt = createdAt,
-        updatedAt = updatedAt
-    )
+    private suspend fun ServiceRequestDto.toEntity(db: ArcticFlowDatabase): ServiceRequest {
+        val localBuilding = db.buildingDao().getBuildingByServerId(buildingId)
+        return ServiceRequest(
+            id = 0,
+            serverId = id,
+            userId = userId,
+            buildingId = localBuilding?.id ?: 0,
+            serverBuildingId = buildingId,
+            buildingName = buildingName.orEmpty(),
+            issueType = issueType.orEmpty(),
+            description = description.orEmpty(),
+            priority = priority.toRequestPriority(),
+            preferredDate = preferredDate,
+            status = status.toRequestStatus(),
+            fullAddress = fullAddress.orEmpty(),
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
 
-    private fun QuoteDto.toEntity() = Quote(
-        id = id,
-        requestId = requestId,
-        technicianId = technicianId,
-        customerId = customerId,
-        buildingName = buildingName.orEmpty(),
-        issueType = issueType.orEmpty(),
-        description = "",
-        scopeOfWork = "",
-        partsRequired = "",
-        laborCost = 0.0,
-        partsCost = 0.0,
-        totalCost = grandTotal,
-        taxAmount = 0.0,
-        grandTotal = grandTotal,
-        status = status.toQuoteStatus(),
-        validUntil = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
-        createdAt = createdAt,
-        updatedAt = createdAt
-    )
+    private suspend fun QuoteDto.toEntity(db: ArcticFlowDatabase): Quote {
+        val localRequest = db.serviceRequestDao().getRequestByServerId(requestId)
+        return Quote(
+            id = 0,
+            serverId = id,
+            requestId = localRequest?.id ?: 0,
+            serverRequestId = requestId,
+            technicianId = technicianId,
+            customerId = customerId,
+            buildingName = buildingName.orEmpty(),
+            issueType = issueType.orEmpty(),
+            description = "",
+            scopeOfWork = "",
+            partsRequired = "",
+            laborCost = 0.0,
+            partsCost = 0.0,
+            totalCost = grandTotal,
+            taxAmount = 0.0,
+            grandTotal = grandTotal,
+            status = status.toQuoteStatus(),
+            validUntil = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
+            createdAt = createdAt,
+            updatedAt = createdAt
+        )
+    }
 
-    private fun JobDto.toEntity() = Job(
-        id = id,
-        quoteId = quoteId,
-        requestId = requestId,
-        technicianId = technicianId,
-        customerId = customerId,
-        buildingName = buildingName.orEmpty(),
-        issueType = issueType.orEmpty(),
-        description = "",
-        status = status.toJobStatus(),
-        scheduledDate = scheduledDate,
-        technicianOnWay = technicianOnWay,
-        fullAddress = fullAddress.orEmpty(),
-        createdAt = createdAt
-    )
+    private suspend fun JobDto.toEntity(db: ArcticFlowDatabase): Job {
+        val localQuote = db.quoteDao().getQuoteByServerId(quoteId)
+        val localRequest = db.serviceRequestDao().getRequestByServerId(requestId)
+        return Job(
+            id = 0,
+            serverId = id,
+            quoteId = localQuote?.id ?: 0,
+            serverQuoteId = quoteId,
+            requestId = localRequest?.id ?: 0,
+            serverRequestId = requestId,
+            technicianId = technicianId,
+            customerId = customerId,
+            buildingName = buildingName.orEmpty(),
+            issueType = issueType.orEmpty(),
+            description = "",
+            status = status.toJobStatus(),
+            scheduledDate = scheduledDate,
+            technicianOnWay = technicianOnWay,
+            fullAddress = fullAddress.orEmpty(),
+            createdAt = createdAt
+        )
+    }
 
     private fun String.toRequestStatus(): RequestStatus =
-        runCatching { RequestStatus.valueOf(uppercase()) }
-            .getOrDefault(RequestStatus.PENDING)
+        runCatching { RequestStatus.valueOf(uppercase()) }.getOrDefault(RequestStatus.PENDING)
 
     private fun String.toRequestPriority(): RequestPriority =
-        runCatching { RequestPriority.valueOf(uppercase()) }
-            .getOrDefault(RequestPriority.MEDIUM)
+        runCatching { RequestPriority.valueOf(uppercase()) }.getOrDefault(RequestPriority.MEDIUM)
 
     private fun String.toQuoteStatus(): QuoteStatus =
-        runCatching { QuoteStatus.valueOf(uppercase()) }
-            .getOrDefault(QuoteStatus.PENDING)
+        runCatching { QuoteStatus.valueOf(uppercase()) }.getOrDefault(QuoteStatus.PENDING)
 
     private fun String.toJobStatus(): JobStatus =
-        runCatching { JobStatus.valueOf(uppercase()) }
-            .getOrDefault(JobStatus.PENDING)
+        runCatching { JobStatus.valueOf(uppercase()) }.getOrDefault(JobStatus.PENDING)
 }

@@ -42,7 +42,6 @@ data class Technician(
     val rating: Float = 0f
 )
 
-// Use DashboardBuilding instead of Building to avoid conflict with Room entity
 data class DashboardBuilding(
     val id: String,
     val name: String,
@@ -72,14 +71,6 @@ enum class JobPriority {
     LOW
 }
 
-enum class JobStatus {
-    PENDING,
-    ASSIGNED,
-    IN_PROGRESS,
-    COMPLETED,
-    CANCELLED,
-    SCHEDULED
-}
 
 enum class BuildingStatus {
     ACTIVE,

@@ -66,11 +66,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Parse "Name|ROLE" from a Firebase display name.
-     * - Falls back to the email prefix if the name is blank.
-     * - Falls back to TECHNICIAN if the role is missing/invalid.
-     */
     private fun parseFirebaseNameAndRole(
         rawName: String?,
         fallbackEmail: String?
@@ -95,7 +90,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         viewModelScope.launch {
             try {
@@ -106,29 +100,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             "email='${firebaseUser.email}'"
                 )
 
-                // Parse the Firebase display name
-                val (displayName, role) = parseFirebaseNameAndRole(
+                val (displayName, parsedRole) = parseFirebaseNameAndRole(
                     rawName = firebaseUser.displayName,
                     fallbackEmail = firebaseUser.email
                 )
 
-                // Preserve the original createdAt if the row already exists,
-                // otherwise stamp the current time. Also preserve phoneNumber
-                // and photoUrl if the app ever stores them locally.
                 val existing = database.userDao().getUserById(firebaseUser.uid)
 
+                // FIX: trust Room's saved role over Firebase parsing.
                 val user = User(
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: existing?.email ?: "",
                     displayName = displayName,
-                    role = role,
+                    role = existing?.role ?: parsedRole,
                     phoneNumber = existing?.phoneNumber,
                     photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                     isEmailVerified = firebaseUser.isEmailVerified,
                     createdAt = existing?.createdAt ?: System.currentTimeMillis()
                 )
 
-                // Upsert — @Insert(onConflict = REPLACE) overwrites the row
                 database.userDao().insertUser(user)
                 Log.d(TAG, "Upserted Room user: $user")
 
@@ -152,7 +142,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Store "Name|ROLE" in Firebase so we can rebuild on next login
                 val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                     .setDisplayName("$displayName|${role.name}")
                     .build()
@@ -191,19 +180,19 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Always rebuild the Room row from Firebase so name changes propagate
-                val (displayName, role) = parseFirebaseNameAndRole(
+                val (displayName, parsedRole) = parseFirebaseNameAndRole(
                     rawName = firebaseUser.displayName,
                     fallbackEmail = firebaseUser.email
                 )
 
                 val existing = database.userDao().getUserById(firebaseUser.uid)
 
+                // FIX: trust Room's saved role over Firebase parsing.
                 val user = User(
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: email,
                     displayName = displayName,
-                    role = role,
+                    role = existing?.role ?: parsedRole,
                     phoneNumber = existing?.phoneNumber,
                     photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                     isEmailVerified = firebaseUser.isEmailVerified,
@@ -233,8 +222,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val result = auth.signInWithCredential(credential).await()
             val firebaseUser = result.user
             if (firebaseUser != null) {
-                // Google display names are plain names (no "|ROLE" suffix) —
-                // so default to TECHNICIAN unless a Room row already sets a role.
                 val existing = database.userDao().getUserById(firebaseUser.uid)
                 val (displayName, parsedRole) = parseFirebaseNameAndRole(
                     rawName = firebaseUser.displayName,
@@ -245,7 +232,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: existing?.email ?: "",
                     displayName = displayName,
-                    // Preserve an existing role if the user was already registered
                     role = existing?.role ?: parsedRole,
                     phoneNumber = existing?.phoneNumber,
                     photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
@@ -290,7 +276,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             SignInResult(success = false, message = "No saved session.")
         }
     }
-
 
     private suspend fun syncUserToApi(user: User) {
         val ctx = getApplication<Application>()
