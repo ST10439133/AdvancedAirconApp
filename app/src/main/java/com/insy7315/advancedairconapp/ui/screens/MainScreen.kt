@@ -20,8 +20,8 @@ import com.insy7315.advancedairconapp.ui.components.OfflineBanner
 import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 
 // BRAND TOKENS
-private val BabyBlueSoft = Color(0xFFE1F1FB)
-private val BabyBlueDeep = Color(0xFF2E7BA6)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
+private val BabyBlueDeep = Color(0xFF152A47)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

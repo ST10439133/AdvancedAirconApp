@@ -41,11 +41,11 @@ import com.insy7315.advancedairconapp.viewmodels.ProductViewModel
 import java.util.Locale
 
 // BRAND TOKENS
-private val BabyBlue        = Color(0xFF4FA8D8)
-private val BabyBlueDeep    = Color(0xFF2E7BA6)
-private val BabyBlueSoft    = Color(0xFFE1F1FB)
-private val OrangeAccent    = Color(0xFFF7941D)
-private val OrangeSoft      = Color(0xFFFFEBD2)
+private val BabyBlue        = Color(0xFF1F3A5F)
+private val BabyBlueDeep    = Color(0xFF152A47)
+private val BabyBlueSoft    = Color(0xFFE8EDF3)
+private val OrangeAccent    = Color(0xFFC8102E)
+private val OrangeSoft      = Color(0xFFFBE5E8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

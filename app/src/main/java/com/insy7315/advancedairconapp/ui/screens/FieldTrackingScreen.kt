@@ -32,10 +32,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // BRAND TOKENS
-private val BabyBlue     = Color(0xFF4FA8D8)
-private val BabyBlueDeep = Color(0xFF2E7BA6)
-private val BabyBlueSoft = Color(0xFFE1F1FB)
-private val OrangeAccent = Color(0xFFF7941D)
+private val BabyBlue     = Color(0xFF1F3A5F)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
+private val OrangeAccent = Color(0xFFC8102E)
 private val SuccessGreen = Color(0xFF2E7D32)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,9 +314,9 @@ fun FieldTrackingScreen(
 @Composable
 private fun TechRow(tech: TechLocationDto) {
     val statusColor = when (tech.status) {
-        "on_the_way", "ON_MY_WAY" -> Color(0xFF03A9F4)
+        "on_the_way", "ON_MY_WAY" -> Color(0xFF1F3A5F)
         "on_site"                 -> SuccessGreen
-        "completed"               -> Color(0xFF9C27B0)
+        "completed"               -> Color(0xFF8B1E20)
         else                      -> OrangeAccent
     }
 

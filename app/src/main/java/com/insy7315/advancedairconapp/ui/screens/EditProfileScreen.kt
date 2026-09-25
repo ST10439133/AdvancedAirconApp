@@ -30,9 +30,9 @@ import com.insy7315.advancedairconapp.navigation.NavManager
 import kotlinx.coroutines.launch
 
 // BRAND TOKENS
-private val BabyBlue     = Color(0xFF4FA8D8)
-private val BabyBlueDeep = Color(0xFF2E7BA6)
-private val OrangeAccent = Color(0xFFF7941D)
+private val BabyBlue     = Color(0xFF1F3A5F)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val OrangeAccent = Color(0xFFC8102E)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

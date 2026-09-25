@@ -33,13 +33,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // BRAND TOKENS
-private val BabyBlue     = Color(0xFF4FA8D8)
-private val BabyBlueDeep = Color(0xFF2E7BA6)
-private val BabyBlueSoft = Color(0xFFE1F1FB)
+private val BabyBlue     = Color(0xFF1F3A5F)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val SuccessGreen = Color(0xFF2E7D32)
 private val SuccessSoft  = Color(0xFFE6F4EA)
-private val ErrorRed     = Color(0xFFBA1A1A)
-private val ErrorSoft    = Color(0xFFFFDAD6)
+private val ErrorRed     = Color(0xFF8B1E20)
+private val ErrorSoft    = Color(0xFFF4DADD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

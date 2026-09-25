@@ -24,14 +24,14 @@ import androidx.compose.ui.unit.dp
 import com.insy7315.advancedairconapp.navigation.NavManager
 
 // BRAND TOKENS
-private val BabyBlueDeep = Color(0xFF2E7BA6)
-private val BabyBlueSoft = Color(0xFFE1F1FB)
-private val OrangeAccent = Color(0xFFF7941D)
-private val OrangeSoft   = Color(0xFFFFEBD2)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
+private val OrangeAccent = Color(0xFFC8102E)
+private val OrangeSoft   = Color(0xFFFBE5E8)
 private val SuccessGreen = Color(0xFF2E7D32)
 private val SuccessSoft  = Color(0xFFE6F4EA)
-private val ErrorRed     = Color(0xFFBA1A1A)
-private val ErrorSoft    = Color(0xFFFFDAD6)
+private val ErrorRed     = Color(0xFF8B1E20)
+private val ErrorSoft    = Color(0xFFF4DADD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

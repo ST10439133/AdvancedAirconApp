@@ -36,10 +36,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // BRAND TOKENS
-private val BabyBlue     = Color(0xFF4FA8D8)
-private val BabyBlueDeep = Color(0xFF2E7BA6)
-private val BabyBlueSoft = Color(0xFFE1F1FB)
-private val OrangeAccent = Color(0xFFF7941D)
+private val BabyBlue     = Color(0xFF1F3A5F)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
+private val OrangeAccent = Color(0xFFC8102E)
 
 // Filter options
 private enum class JobFilter(val label: String) {
@@ -61,7 +61,6 @@ fun JobsScreen(
         factory = QuoteViewModel.Factory(ArcticFlowDatabase.getDatabase(context), context)
     )
 
-    // ✅ EXPLICIT TYPE so Kotlin knows this is a List<Job>
     val jobs: List<Job> by viewModel
         .getJobsForTechnician(userId)
         .collectAsState(initial = emptyList())
@@ -466,10 +465,10 @@ private fun StatusBadge(status: JobStatus) {
 
 private fun JobStatus.color(): Color = when (this) {
     JobStatus.COMPLETED   -> Color(0xFF2E7D32)
-    JobStatus.IN_PROGRESS -> Color(0xFF2196F3)
-    JobStatus.SCHEDULED   -> Color(0xFF03A9F4)
-    JobStatus.PENDING     -> Color(0xFFF7941D)
-    JobStatus.ASSIGNED    -> Color(0xFF9C27B0)
+    JobStatus.IN_PROGRESS -> Color(0xFF1F3A5F)
+    JobStatus.SCHEDULED   -> Color(0xFF152A47)
+    JobStatus.PENDING     -> Color(0xFFC8102E)
+    JobStatus.ASSIGNED    -> Color(0xFF8B1E20)
     JobStatus.CANCELLED   -> Color(0xFF9E9E9E)
 }
 
