@@ -1,6 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/services/TechLocationService.kt
 package com.insy7315.advancedairconapp.services
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,20 +27,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Foreground service that pushes the technician's live location to the
  * backend every 10 seconds while "on my way" is active.
- *
- * Extras:
- *   EXTRA_TECH_ID       (String, required)
- *   EXTRA_TECH_NAME     (String, optional)
- *   EXTRA_JOB_ID        (Int, optional, 0 to omit)
- *   EXTRA_CUSTOMER_ID   (String, optional)
- *   EXTRA_BUILDING_NAME (String, optional)
- *
- * Stops itself automatically if the JWT disappears (sign-out) or the API
- * returns 401 (session expired).
  */
 class TechLocationService : Service() {
 
@@ -86,6 +78,7 @@ class TechLocationService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    @SuppressLint("MissingPermission")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val techId = intent?.getStringExtra(EXTRA_TECH_ID).orEmpty()
         if (techId.isBlank()) {
@@ -105,8 +98,6 @@ class TechLocationService : Service() {
         pushJob = scope.launch {
             val client = LocationServices.getFusedLocationProviderClient(this@TechLocationService)
 
-            // If the JWT has already been cleared (user signed out), bail out
-            // immediately so we don't spin forever on 401s.
             if (!ApiClient.hasToken(this@TechLocationService)) {
                 Log.w(TAG, "No JWT at start — stopping service")
                 stopSelfSafely()
@@ -115,14 +106,20 @@ class TechLocationService : Service() {
 
             while (isActive) {
                 try {
-                    // Check for sign-out before each push.
                     if (!ApiClient.hasToken(this@TechLocationService)) {
                         Log.w(TAG, "JWT cleared mid-run — stopping service")
                         stopSelfSafely()
                         return@launch
                     }
 
-                    val loc: Location? = client.lastLocation.await()
+                    val loc: Location? = try {
+                        client.lastLocation.await()
+                    } catch (e: SecurityException) {
+                        Log.e(TAG, "Location permission revoked mid-run", e)
+                        stopSelfSafely()
+                        return@launch
+                    }
+
                     if (loc != null) {
                         val ok = ApiRepository.pushLocation(
                             context = this@TechLocationService,
@@ -143,8 +140,6 @@ class TechLocationService : Service() {
                         if (ok) {
                             Log.d(TAG, "pushed lat=${loc.latitude} lon=${loc.longitude}")
                         } else {
-                            // pushLocation returns false on any HTTP failure
-                            // (including 401). If the token is gone, stop now.
                             if (!ApiClient.hasToken(this@TechLocationService)) {
                                 Log.w(TAG, "Push failed and JWT is gone — stopping")
                                 stopSelfSafely()
@@ -156,7 +151,7 @@ class TechLocationService : Service() {
                 } catch (e: Exception) {
                     Log.w(TAG, "push threw: ${e.message}")
                 }
-                delay(10_000L)
+                delay(10.seconds)
             }
         }
 
@@ -199,7 +194,7 @@ class TechLocationService : Service() {
             "On the way to $buildingName"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_aircon)
             .setContentTitle("ArcticFlow tracking active")
             .setContentText(content)
             .setOngoing(true)
