@@ -107,9 +107,40 @@ object DataSyncManager {
                 if (existing == null) {
                     db.buildingDao().insertBuilding(dto.toEntity(userId))
                     inserted++
+                } else {
+                    // If the server doesn't return lat/lng (it currently
+                    // doesn't), keep whatever coords we already have
+                    // locally from when the manager added the building.
+                    val merged = existing.copy(
+                        name = dto.name,
+                        address = dto.address.orEmpty(),
+                        suburb = dto.suburb.orEmpty(),
+                        city = dto.city.orEmpty(),
+                        province = dto.province.orEmpty(),
+                        postalCode = dto.postalCode.orEmpty(),
+                        fullAddress = dto.fullAddress.orEmpty(),
+                        unitCount = dto.unitCount,
+                        floors = dto.floors,
+                        buildingType = runCatching {
+                            BuildingType.valueOf(dto.buildingType)
+                        }.getOrDefault(BuildingType.RESIDENTIAL),
+                        registeredDate = dto.registeredDate,
+                        status = runCatching {
+                            BuildingStatusEnum.valueOf(dto.status)
+                        }.getOrDefault(BuildingStatusEnum.ACTIVE),
+                        // Preserve local coordinates if the server sent 0/null
+                        latitude = if ((dto.latitude ?: 0.0) != 0.0)
+                            dto.latitude!! else existing.latitude,
+                        longitude = if ((dto.longitude ?: 0.0) != 0.0)
+                            dto.longitude!! else existing.longitude
+                    )
+                    if (merged != existing) {
+                        db.buildingDao().updateBuilding(merged)
+                        inserted++
+                    }
                 }
             }
-            Log.d(TAG, "syncBuildings: $inserted new")
+            Log.d(TAG, "syncBuildings: $inserted new/updated")
             inserted
         }
 
@@ -349,6 +380,7 @@ object DataSyncManager {
                     syncBuildings(context, "")
                 }
                 else -> {
+                    syncBuildings(context, "")
                     syncPendingRequests(context)
                     syncTechnicianQuotes(context)
                     syncTechnicianJobs(context)
@@ -374,6 +406,8 @@ object DataSyncManager {
         province = province.orEmpty(),
         postalCode = postalCode.orEmpty(),
         fullAddress = fullAddress.orEmpty(),
+        latitude = latitude ?: 0.0,
+        longitude = longitude ?: 0.0,
         unitCount = unitCount,
         floors = floors,
         buildingType = runCatching { BuildingType.valueOf(buildingType) }

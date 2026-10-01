@@ -2,11 +2,6 @@ package com.insy7315.advancedairconapp.data.api
 
 import com.google.gson.annotations.SerializedName
 
-// Data classes mirroring the JSON shapes returned by the
-// ArcticFlow REST API. Gson maps snake_case JSON keys to
-// camelCase Kotlin properties via @SerializedName.
-
-
 data class UserSyncRequest(
     val uid: String,
     val email: String,
@@ -40,7 +35,9 @@ data class BuildingDto(
     val floors: Int,
     @SerializedName("building_type") val buildingType: String,
     @SerializedName("registered_date") val registeredDate: Long,
-    val status: String
+    val status: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class ServiceRequestDto(
@@ -95,9 +92,12 @@ data class TechLocationDto(
     @SerializedName("building_name") val buildingName: String?,
     @SerializedName("is_on_my_way") val isOnMyWay: Boolean,
     @SerializedName("last_updated") val lastUpdated: Long,
-    val status: String
+    val status: String,
+    @SerializedName("destination_latitude")
+    val destinationLatitude: Double = 0.0,
+    @SerializedName("destination_longitude")
+    val destinationLongitude: Double = 0.0
 )
-
 
 data class StatusUpdate(val status: String)
 data class OnWayUpdate(val onWay: Boolean)

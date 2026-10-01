@@ -25,6 +25,14 @@ interface BuildingDao {
     @Query("SELECT * FROM buildings WHERE serverId = :serverId LIMIT 1")
     suspend fun getBuildingByServerId(serverId: Int): BuildingEntity?
 
+    // NEW — used by the map to resolve destination coordinates from a
+    // technician's location push (matching by building name)
+    @Query("SELECT * FROM buildings WHERE name = :name AND latitude != 0 LIMIT 1")
+    suspend fun findByNameWithCoords(name: String): BuildingEntity?
+
+    @Query("SELECT * FROM buildings WHERE name = :name LIMIT 1")
+    suspend fun findFirstByName(name: String): BuildingEntity?
+
     @Query("DELETE FROM buildings WHERE userId = :userId")
     suspend fun deleteAllBuildings(userId: String)
 

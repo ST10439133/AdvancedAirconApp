@@ -1,7 +1,6 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/AddBuildingScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,9 +28,7 @@ import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 
-
 // BRAND TOKENS
-
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
@@ -99,12 +96,8 @@ fun AddBuildingScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // SECTION 1 - Building Details
-
-            SectionHeader(
-                icon = Icons.Default.Business,
-                title = "Building Details"
-            )
+            // SECTION 1 — Building Details
+            SectionHeader(icon = Icons.Default.Business, title = "Building Details")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -151,7 +144,6 @@ fun AddBuildingScreen(
                         )
                     }
 
-                    // Building Type chips
                     Column {
                         Text(
                             text = "Building Type",
@@ -163,7 +155,7 @@ fun AddBuildingScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            BuildingType.values().take(3).forEach { type ->
+                            BuildingType.entries.take(3).forEach { type ->
                                 FilterChip(
                                     selected = buildingType == type,
                                     onClick = { buildingType = type },
@@ -183,7 +175,7 @@ fun AddBuildingScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            BuildingType.values().drop(3).forEach { type ->
+                            BuildingType.entries.drop(3).forEach { type ->
                                 FilterChip(
                                     selected = buildingType == type,
                                     onClick = { buildingType = type },
@@ -202,13 +194,8 @@ fun AddBuildingScreen(
                 }
             }
 
-
-            // SECTION 2 - Location
-
-            SectionHeader(
-                icon = Icons.Default.LocationOn,
-                title = "Location"
-            )
+            // SECTION 2 — Location
+            SectionHeader(icon = Icons.Default.LocationOn, title = "Location")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -219,7 +206,7 @@ fun AddBuildingScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // ---- Province ----
+                    // Province
                     ExposedDropdownMenuBox(
                         expanded = provinceExpanded,
                         onExpandedChange = {
@@ -258,7 +245,7 @@ fun AddBuildingScreen(
                         }
                     }
 
-                    // ---- City ----
+                    // City
                     ExposedDropdownMenuBox(
                         expanded = cityExpanded,
                         onExpandedChange = {
@@ -300,7 +287,7 @@ fun AddBuildingScreen(
                         }
                     }
 
-                    // ---- Suburb ----
+                    // Suburb
                     ExposedDropdownMenuBox(
                         expanded = suburbExpanded,
                         onExpandedChange = {
@@ -350,12 +337,8 @@ fun AddBuildingScreen(
                 }
             }
 
-
-            // SECTION 3 - Address
-            SectionHeader(
-                icon = Icons.Default.Place,
-                title = "Address"
-            )
+            // SECTION 3 — Address
+            SectionHeader(icon = Icons.Default.Place, title = "Address")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -370,7 +353,7 @@ fun AddBuildingScreen(
                         value = street,
                         onValueChange = { street = it },
                         label = { Text("Street Address *") },
-                        placeholder = { Text("e.g. 48 Allamanda Rd") },
+                        placeholder = { Text("e.g. 12 Radar Drive") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -385,7 +368,7 @@ fun AddBuildingScreen(
                             }
                         },
                         label = { Text("Postal Code *") },
-                        placeholder = { Text("e.g. 2092") },
+                        placeholder = { Text("e.g. 4051") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -393,7 +376,6 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
-                    // ---- Address preview ----
                     if (previewAddress.isNotBlank()) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -431,43 +413,23 @@ fun AddBuildingScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-
             // SUBMIT
-
             Button(
                 onClick = {
                     if (name.isBlank() || street.isBlank() ||
                         province.isBlank() || city.isBlank() ||
                         suburb.isBlank() || postalCode.isBlank()
                     ) {
-                        Toast.makeText(
-                            context,
-                            "Please fill in all required fields",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     if (postalCode.length != 4) {
-                        Toast.makeText(
-                            context,
-                            "Postal code must be 4 digits",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, "Postal code must be 4 digits", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
                     coroutineScope.launch {
                         isSaving = true
-
-                        Log.d(
-                            "AddBuildingScreen",
-                            "Saving building:\n" +
-                                    "  address='$street'\n" +
-                                    "  suburb='$suburb'\n" +
-                                    "  city='$city'\n" +
-                                    "  province='$province'\n" +
-                                    "  postalCode='$postalCode'\n" +
-                                    "  fullAddress='$previewAddress'"
-                        )
 
                         val building = BuildingEntity(
                             userId = userId,
@@ -478,17 +440,14 @@ fun AddBuildingScreen(
                             province = province,
                             postalCode = postalCode,
                             fullAddress = previewAddress,
+                            // latitude / longitude will default to 0.0 — not used this submission
                             unitCount = unitCount.toIntOrNull() ?: 1,
                             floors = floors.toIntOrNull() ?: 1,
                             buildingType = buildingType
                         )
                         viewModel.addBuilding(userId, building)
                         isSaving = false
-                        Toast.makeText(
-                            context,
-                            "Building added successfully!",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, "Building added successfully!", Toast.LENGTH_SHORT).show()
                         navManager.navigateBack()
                     }
                 },
@@ -521,9 +480,7 @@ fun AddBuildingScreen(
     }
 }
 
-
 // SECTION HEADER
-
 @Composable
 private fun SectionHeader(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

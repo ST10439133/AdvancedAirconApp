@@ -43,6 +43,8 @@ class QuoteViewModel(
             if (NetworkMonitor.isOnline(appContext)) {
                 val dto = ApiRepository.pushBuilding(appContext, localRow)
                 if (dto != null) {
+                    // Keep the local lat/lng — the server may not return them.
+                    // Only the serverId is stored from the response.
                     buildingDao.setServerId(localId.toInt(), dto.id)
                 } else {
                     SyncManager.enqueue(
@@ -184,8 +186,6 @@ class QuoteViewModel(
     ): Long {
         val request = getRequestById(requestId) ?: return 0L
 
-        // Prefer the request owner; fall back to whatever we were given.
-        // This prevents a blank customerId from being pushed upstream.
         val resolvedCustomerId = request.userId
             .ifBlank { customerId }
             .ifBlank { "" }
@@ -235,11 +235,6 @@ class QuoteViewModel(
         try { quoteDao.getQuotesByCustomer(customerId) }
         catch (e: Exception) { flow { emit(emptyList()) } }
 
-    /**
-     * Manager-side list. Matches quotes either by customerId OR by ownership
-     * of the parent service request. Rescues quotes whose customerId was
-     * blanked out upstream.
-     */
     fun getQuotesVisibleToCustomer(customerId: String): Flow<List<Quote>> =
         try { quoteDao.getQuotesVisibleToCustomer(customerId) }
         catch (e: Exception) { flow { emit(emptyList()) } }

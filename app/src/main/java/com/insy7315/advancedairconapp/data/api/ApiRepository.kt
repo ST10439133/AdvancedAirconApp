@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/data/api/ApiRepository.kt
 package com.insy7315.advancedairconapp.data.api
 
 import android.content.Context
@@ -15,7 +14,6 @@ object ApiRepository {
 
     private const val TAG = "ApiRepository"
 
-    // ---------- USER ----------
     suspend fun syncUser(context: Context, user: User): String? =
         withContext(Dispatchers.IO) {
             val api = ApiClient.get(context)
@@ -33,7 +31,6 @@ object ApiRepository {
             response?.token?.also { ApiClient.saveToken(context, it) }
         }
 
-    // ---------- BUILDINGS ----------
     suspend fun pushBuilding(
         context: Context,
         building: BuildingEntity
@@ -51,7 +48,9 @@ object ApiRepository {
             "floors"         to building.floors,
             "buildingType"   to building.buildingType.name,
             "registeredDate" to building.registeredDate,
-            "status"         to building.status.name
+            "status"         to building.status.name,
+            "latitude"       to building.latitude,
+            "longitude"      to building.longitude
         )
         safeApiCall(TAG) { api.createBuilding(body) }
     }
@@ -62,7 +61,6 @@ object ApiRepository {
             safeApiCall(TAG) { api.deleteBuilding(serverId); true } == true
         }
 
-    // ---------- SERVICE REQUESTS ----------
     suspend fun pushServiceRequest(
         context: Context,
         request: ServiceRequest,
@@ -71,10 +69,6 @@ object ApiRepository {
         serverBuildingId: Int?
     ): ServiceRequestDto? = withContext(Dispatchers.IO) {
         val api = ApiClient.get(context)
-        // NOTE: userId is sent explicitly so the server has a fallback if the
-        // JWT-derived owner is missing for any reason. This prevents requests
-        // from being stored with a blank user_id and subsequently producing
-        // quotes that never match the manager's "My Quotes" filter.
         val body: Map<String, Any?> = mapOf(
             "userId"        to request.userId,
             "buildingId"    to serverBuildingId,
@@ -100,7 +94,6 @@ object ApiRepository {
         } == true
     }
 
-    // ---------- QUOTES ----------
     suspend fun pushQuote(
         context: Context,
         quote: Quote,
@@ -140,7 +133,6 @@ object ApiRepository {
         } == true
     }
 
-    // ---------- JOBS ----------
     suspend fun pushJob(
         context: Context,
         job: Job,
@@ -186,7 +178,6 @@ object ApiRepository {
         } == true
     }
 
-    // ---------- LIVE LOCATIONS ----------
     suspend fun pushLocation(
         context: Context,
         technicianId: String,
@@ -201,7 +192,9 @@ object ApiRepository {
             "customerId"     to dto.customerId,
             "buildingName"   to dto.buildingName,
             "isOnMyWay"      to dto.isOnMyWay,
-            "status"         to dto.status
+            "status"         to dto.status,
+            "destinationLatitude"  to dto.destinationLatitude,
+            "destinationLongitude" to dto.destinationLongitude
         )
         safeApiCall(TAG) { api.updateLocationRaw(technicianId, body); true } == true
     }

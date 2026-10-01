@@ -2,7 +2,6 @@ package com.insy7315.advancedairconapp.data.entities
 
 import com.google.firebase.firestore.PropertyName
 
-
 data class TechLocation(
     val technicianId: String = "",
     val technicianName: String = "",
@@ -11,6 +10,8 @@ data class TechLocation(
     val jobId: Int = 0,
     val customerId: String = "",
     val buildingName: String = "",
+    val destinationLatitude: Double = 0.0,
+    val destinationLongitude: Double = 0.0,
 
     @get:PropertyName("isOnMyWay")
     @set:PropertyName("isOnMyWay")
@@ -19,6 +20,9 @@ data class TechLocation(
     val lastUpdated: Long = System.currentTimeMillis(),
     val status: String = "idle"
 ) {
-
-    constructor() : this("", "", 0.0, 0.0, 0, "", "", false, 0L, "idle")
+    constructor() : this(
+        "", "", 0.0, 0.0, 0, "", "",
+        0.0, 0.0,
+        false, 0L, "idle"
+    )
 }

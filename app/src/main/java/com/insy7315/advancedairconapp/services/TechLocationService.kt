@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/services/TechLocationService.kt
 package com.insy7315.advancedairconapp.services
 
 import android.annotation.SuppressLint
@@ -29,10 +28,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Foreground service that pushes the technician's live location to the
- * backend every 10 seconds while "on my way" is active.
- */
 class TechLocationService : Service() {
 
     companion object {
@@ -45,6 +40,8 @@ class TechLocationService : Service() {
         const val EXTRA_JOB_ID = "job_id"
         const val EXTRA_CUSTOMER_ID = "customer_id"
         const val EXTRA_BUILDING_NAME = "building_name"
+        const val EXTRA_DEST_LAT = "dest_lat"
+        const val EXTRA_DEST_LNG = "dest_lng"
 
         fun start(
             context: Context,
@@ -52,7 +49,9 @@ class TechLocationService : Service() {
             technicianName: String?,
             jobId: Int?,
             customerId: String?,
-            buildingName: String?
+            buildingName: String?,
+            destinationLatitude: Double = 0.0,
+            destinationLongitude: Double = 0.0
         ) {
             val intent = Intent(context, TechLocationService::class.java).apply {
                 putExtra(EXTRA_TECH_ID, technicianId)
@@ -60,6 +59,8 @@ class TechLocationService : Service() {
                 putExtra(EXTRA_JOB_ID, jobId ?: 0)
                 putExtra(EXTRA_CUSTOMER_ID, customerId)
                 putExtra(EXTRA_BUILDING_NAME, buildingName)
+                putExtra(EXTRA_DEST_LAT, destinationLatitude)
+                putExtra(EXTRA_DEST_LNG, destinationLongitude)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -91,6 +92,8 @@ class TechLocationService : Service() {
         val jobId = intent?.getIntExtra(EXTRA_JOB_ID, 0)?.takeIf { it != 0 }
         val customerId = intent?.getStringExtra(EXTRA_CUSTOMER_ID)
         val buildingName = intent?.getStringExtra(EXTRA_BUILDING_NAME)
+        val destLat = intent?.getDoubleExtra(EXTRA_DEST_LAT, 0.0) ?: 0.0
+        val destLng = intent?.getDoubleExtra(EXTRA_DEST_LNG, 0.0) ?: 0.0
 
         startForeground(NOTIFICATION_ID, buildNotification(buildingName))
 
@@ -134,7 +137,9 @@ class TechLocationService : Service() {
                                 buildingName = buildingName,
                                 isOnMyWay = true,
                                 lastUpdated = System.currentTimeMillis(),
-                                status = "ON_MY_WAY"
+                                status = "ON_MY_WAY",
+                                destinationLatitude = destLat,
+                                destinationLongitude = destLng
                             )
                         )
                         if (ok) {
@@ -195,7 +200,7 @@ class TechLocationService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_aircon)
-            .setContentTitle("ArcticFlow tracking active")
+            .setContentTitle("ArcticFlow Tracking Active")
             .setContentText(content)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/FieldTrackingScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.background
@@ -22,8 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.Dash
+import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import com.insy7315.advancedairconapp.data.api.TechLocationDto
 import com.insy7315.advancedairconapp.navigation.NavManager
@@ -31,7 +34,6 @@ import com.insy7315.advancedairconapp.viewmodels.ManagerTrackingViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-// BRAND TOKENS
 private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
@@ -49,31 +51,35 @@ fun FieldTrackingScreen(
     val technicians by viewModel.technicians.collectAsStateWithLifecycle()
     val isLoading by viewModel.isPolling.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        viewModel.startPolling(customerId = null)
-    }
-    DisposableEffect(Unit) {
-        onDispose { viewModel.stopPolling() }
-    }
+    LaunchedEffect(Unit) { viewModel.startPolling(customerId = null) }
+    DisposableEffect(Unit) { onDispose { viewModel.stopPolling() } }
 
-    val defaultPosition = LatLng(-26.2041, 28.0473)
+    val defaultPosition = LatLng(-29.8587, 31.0218)
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(defaultPosition, 12f)
     }
 
-    // Re-center every time the list updates (position, not just count).
-    // This makes the camera follow the technician in real time.
     LaunchedEffect(technicians) {
         val first = technicians.firstOrNull() ?: return@LaunchedEffect
-        cameraPositionState.animate(
-            CameraUpdateFactory.newCameraPosition(
-                CameraPosition.fromLatLngZoom(
-                    LatLng(first.latitude, first.longitude),
-                    14f
+        val techLatLng = LatLng(first.latitude, first.longitude)
+        val hasDest = first.destinationLatitude != 0.0 && first.destinationLongitude != 0.0
+
+        if (hasDest) {
+            val bounds = LatLngBounds.builder()
+                .include(techLatLng)
+                .include(LatLng(first.destinationLatitude, first.destinationLongitude))
+                .build()
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngBounds(bounds, 120)
+            )
+        } else {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.fromLatLngZoom(techLatLng, 14f)
                 )
             )
-        )
+        }
     }
 
     Scaffold(
@@ -96,11 +102,7 @@ fun FieldTrackingScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
@@ -111,34 +113,78 @@ fun FieldTrackingScreen(
                 )
             ) {
                 technicians.forEach { tech ->
-                    Marker(
-                        state = MarkerState(
-                            position = LatLng(tech.latitude, tech.longitude)
-                        ),
-                        title = tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
-                        snippet = buildString {
-                            if (!tech.buildingName.isNullOrBlank()) {
-                                append(tech.buildingName)
-                                append(" • ")
-                            }
-                            append(tech.status)
-                            append(" • ")
-                            append(relativeAge(tech.lastUpdated))
-                        },
-                        icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
-                            .defaultMarker(
-                                when (tech.status) {
-                                    "on_the_way", "ON_MY_WAY" ->
-                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE
-                                    "on_site" ->
-                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN
-                                    "completed" ->
-                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET
-                                    else ->
-                                        com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE
-                                }
-                            )
+                    val techLatLng = LatLng(tech.latitude, tech.longitude)
+                    val hasDest = tech.destinationLatitude != 0.0 &&
+                            tech.destinationLongitude != 0.0
+
+                    // Google Maps' built-in marker bitmaps — these are
+                    // raster images bundled with Play Services, so they
+                    // cannot trigger the "Failed to decode image" crash.
+                    val carIcon = BitmapDescriptorFactory.defaultMarker(
+                        BitmapDescriptorFactory.HUE_BLUE
                     )
+                    val houseIcon = BitmapDescriptorFactory.defaultMarker(
+                        BitmapDescriptorFactory.HUE_GREEN
+                    )
+
+                    Marker(
+                        state = MarkerState(position = techLatLng),
+                        title = tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
+                        snippet = "On the way • ${relativeAge(tech.lastUpdated)}",
+                        icon = carIcon
+                    )
+
+                    if (hasDest) {
+                        val destLatLng = LatLng(tech.destinationLatitude, tech.destinationLongitude)
+                        Marker(
+                            state = MarkerState(position = destLatLng),
+                            title = tech.buildingName?.takeIf { it.isNotBlank() } ?: "Destination",
+                            snippet = "Service location",
+                            icon = houseIcon
+                        )
+                        Polyline(
+                            points = listOf(techLatLng, destLatLng),
+                            color = BabyBlue,
+                            width = 8f,
+                            pattern = listOf(Dash(20f), Gap(15f))
+                        )
+                    }
+                }
+            }
+
+            LegendCard(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp)
+            )
+
+            if (technicians.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(50),
+                    color = SuccessGreen,
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "${technicians.size} active",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 }
             }
 
@@ -219,36 +265,6 @@ fun FieldTrackingScreen(
             }
 
             if (technicians.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(50),
-                    color = SuccessGreen,
-                    shadowElevation = 4.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.DirectionsCar,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "${technicians.size} active",
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-            }
-
-            if (technicians.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -260,11 +276,7 @@ fun FieldTrackingScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -300,10 +312,7 @@ fun FieldTrackingScreen(
                         Spacer(Modifier.height(10.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(Modifier.height(6.dp))
-
-                        technicians.take(3).forEach { tech ->
-                            TechRow(tech)
-                        }
+                        technicians.take(3).forEach { tech -> TechRow(tech) }
                     }
                 }
             }
@@ -312,14 +321,45 @@ fun FieldTrackingScreen(
 }
 
 @Composable
+private fun LegendCard(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            LegendRow(color = Color(0xFF1976D2), label = "On the way")
+            LegendRow(color = Color(0xFFF57C00), label = "On site")
+            LegendRow(color = Color(0xFF2E7D32), label = "Completed")
+        }
+    }
+}
+
+@Composable
+private fun LegendRow(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Color.Black)
+    }
+}
+
+@Composable
 private fun TechRow(tech: TechLocationDto) {
     val statusColor = when (tech.status) {
-        "on_the_way", "ON_MY_WAY" -> Color(0xFF1F3A5F)
+        "on_the_way", "ON_MY_WAY" -> Color(0xFF1976D2)
         "on_site"                 -> SuccessGreen
         "completed"               -> Color(0xFF8B1E20)
         else                      -> OrangeAccent
     }
-
     val statusLabel = when (tech.status) {
         "on_the_way", "ON_MY_WAY" -> "On the way"
         "on_site"                 -> "On site"
@@ -328,9 +368,7 @@ private fun TechRow(tech: TechLocationDto) {
     }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
@@ -346,9 +384,7 @@ private fun TechRow(tech: TechLocationDto) {
                 ) {}
             }
         }
-
         Spacer(Modifier.width(12.dp))
-
         Column(Modifier.weight(1f)) {
             Text(
                 tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
@@ -382,9 +418,7 @@ private fun TechRow(tech: TechLocationDto) {
                 }
             }
         }
-
         Spacer(Modifier.width(10.dp))
-
         Text(
             relativeAge(tech.lastUpdated),
             style = MaterialTheme.typography.labelSmall,

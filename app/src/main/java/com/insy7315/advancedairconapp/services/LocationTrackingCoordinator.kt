@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/services/LocationTrackingCoordinator.kt
 package com.insy7315.advancedairconapp.services
 
 import android.content.Context
@@ -12,20 +11,6 @@ import com.insy7315.advancedairconapp.data.network.LocationTrackingManager
 import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 import com.insy7315.advancedairconapp.utils.LocationHelper
 
-/**
- * Central place that starts and stops technician tracking for a job.
- *
- * Start:
- *   - verifies permission
- *   - pushes one immediate location to the server
- *   - starts TechLocationService (10s cadence, survives background)
- *
- * Stop:
- *   - stops the service
- *   - DELETEs the server-side location row
- *   - marks the Firestore doc as not-on-my-way
- *   - flips the job's technicianOnWay flag locally
- */
 object LocationTrackingCoordinator {
 
     private const val TAG = "LocationTrackingCoord"
@@ -47,7 +32,26 @@ object LocationTrackingCoordinator {
             return false
         }
 
-        // 1. One immediate push so the customer sees us right away.
+        // Look up destination coords from the local building row
+        val db = ArcticFlowDatabase.getDatabase(context)
+        var destLat = 0.0
+        var destLng = 0.0
+        try {
+            val job = db.jobDao().getJobById(jobId)
+            val request = job?.let { db.serviceRequestDao().getRequestById(it.requestId) }
+            val building = request?.let { db.buildingDao().getBuildingById(it.buildingId) }
+                ?: db.buildingDao().findFirstByName(buildingName)
+            if (building != null) {
+                destLat = building.latitude
+                destLng = building.longitude
+                Log.d(TAG, "Resolved destination: $destLat, $destLng for $buildingName")
+            } else {
+                Log.w(TAG, "No building found for '$buildingName' — dest coords default to 0")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not resolve destination coords for job $jobId", e)
+        }
+
         val location = LocationHelper.getCurrentLocation(context)
         if (location != null) {
             val dto = TechLocationDto(
@@ -60,10 +64,11 @@ object LocationTrackingCoordinator {
                 buildingName = buildingName,
                 isOnMyWay = true,
                 lastUpdated = System.currentTimeMillis(),
-                status = "ON_MY_WAY"
+                status = "ON_MY_WAY",
+                destinationLatitude = destLat,
+                destinationLongitude = destLng
             )
 
-            // Firestore (used by LocationTrackingManager.streamActiveLocations)
             try {
                 LocationTrackingManager.updateLocation(
                     TechLocation(
@@ -74,6 +79,8 @@ object LocationTrackingCoordinator {
                         jobId = jobId,
                         customerId = customerId,
                         buildingName = buildingName,
+                        destinationLatitude = destLat,
+                        destinationLongitude = destLng,
                         onMyWay = true,
                         lastUpdated = System.currentTimeMillis(),
                         status = "ON_MY_WAY"
@@ -83,7 +90,6 @@ object LocationTrackingCoordinator {
                 Log.w(TAG, "Firestore push failed", e)
             }
 
-            // REST
             if (NetworkMonitor.isOnline(context)) {
                 ApiRepository.pushLocation(context, technicianId, dto)
             }
@@ -91,19 +97,18 @@ object LocationTrackingCoordinator {
             Log.w(TAG, "startForJob: no location fix; service will keep retrying")
         }
 
-        // 2. Kick off the foreground service. It re-pushes every 10s.
         TechLocationService.start(
             context = context,
             technicianId = technicianId,
             technicianName = technicianName,
             jobId = jobId,
             customerId = customerId,
-            buildingName = buildingName
+            buildingName = buildingName,
+            destinationLatitude = destLat,
+            destinationLongitude = destLng
         )
 
-        // 3. Flip the local job flag (Room + server)
         try {
-            val db = ArcticFlowDatabase.getDatabase(context)
             db.jobDao().updateTechnicianOnWay(jobId, true)
         } catch (e: Exception) {
             Log.w(TAG, "Could not flip technicianOnWay locally", e)
@@ -115,15 +120,11 @@ object LocationTrackingCoordinator {
     suspend fun stopForTechnician(context: Context, technicianId: String) {
         if (technicianId.isBlank()) return
 
-        // 1. Kill the service
         TechLocationService.stop(context)
 
-        // 2. Firestore clear
         try { LocationTrackingManager.stopTracking(technicianId) }
         catch (e: Exception) { Log.w(TAG, "Firestore stop failed", e) }
 
-        // 3. REST delete (only if we still have a token — otherwise the
-        //    server's 2-minute staleness rule hides the row anyway).
         if (NetworkMonitor.isOnline(context) && ApiClient.hasToken(context)) {
             try { ApiRepository.stopTracking(context, technicianId) }
             catch (e: Exception) { Log.w(TAG, "REST stop failed", e) }

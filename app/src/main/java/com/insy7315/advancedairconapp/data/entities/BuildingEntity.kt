@@ -18,6 +18,11 @@ data class BuildingEntity(
     val province: String = "",
     val postalCode: String = "",
     val fullAddress: String = "",
+
+    // Destination coordinates for the tracking map
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+
     val unitCount: Int = 1,
     val floors: Int = 1,
     val buildingType: BuildingType = BuildingType.RESIDENTIAL,
