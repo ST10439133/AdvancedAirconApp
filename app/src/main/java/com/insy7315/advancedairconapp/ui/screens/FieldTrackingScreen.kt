@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/FieldTrackingScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.background
@@ -117,30 +118,29 @@ fun FieldTrackingScreen(
                     val hasDest = tech.destinationLatitude != 0.0 &&
                             tech.destinationLongitude != 0.0
 
-                    // Google Maps' built-in marker bitmaps — these are
-                    // raster images bundled with Play Services, so they
-                    // cannot trigger the "Failed to decode image" crash.
-                    val carIcon = BitmapDescriptorFactory.defaultMarker(
-                        BitmapDescriptorFactory.HUE_BLUE
-                    )
-                    val houseIcon = BitmapDescriptorFactory.defaultMarker(
-                        BitmapDescriptorFactory.HUE_GREEN
-                    )
+                    val markerHue = when (tech.status.uppercase()) {
+                        "COMPLETED" -> BitmapDescriptorFactory.HUE_GREEN
+                        "ON_SITE"   -> BitmapDescriptorFactory.HUE_ORANGE
+                        else        -> BitmapDescriptorFactory.HUE_BLUE
+                    }
 
                     Marker(
                         state = MarkerState(position = techLatLng),
                         title = tech.technicianName?.takeIf { it.isNotBlank() } ?: "Technician",
-                        snippet = "On the way • ${relativeAge(tech.lastUpdated)}",
-                        icon = carIcon
+                        snippet = "${statusLabel(tech.status)} • ${relativeAge(tech.lastUpdated)}",
+                        icon = BitmapDescriptorFactory.defaultMarker(markerHue)
                     )
 
                     if (hasDest) {
-                        val destLatLng = LatLng(tech.destinationLatitude, tech.destinationLongitude)
+                        val destLatLng =
+                            LatLng(tech.destinationLatitude, tech.destinationLongitude)
                         Marker(
                             state = MarkerState(position = destLatLng),
                             title = tech.buildingName?.takeIf { it.isNotBlank() } ?: "Destination",
                             snippet = "Service location",
-                            icon = houseIcon
+                            icon = BitmapDescriptorFactory.defaultMarker(
+                                BitmapDescriptorFactory.HUE_GREEN
+                            )
                         )
                         Polyline(
                             points = listOf(techLatLng, destLatLng),
@@ -334,7 +334,7 @@ private fun LegendCard(modifier: Modifier = Modifier) {
         ) {
             LegendRow(color = Color(0xFF1976D2), label = "On the way")
             LegendRow(color = Color(0xFFF57C00), label = "On site")
-            LegendRow(color = Color(0xFF2E7D32), label = "Completed")
+            LegendRow(color = SuccessGreen,      label = "Completed")
         }
     }
 }
@@ -352,20 +352,24 @@ private fun LegendRow(color: Color, label: String) {
     }
 }
 
+private fun statusColor(status: String): Color = when (status.uppercase()) {
+    "ON_MY_WAY", "ON_THE_WAY" -> Color(0xFF1976D2)
+    "ON_SITE"                 -> Color(0xFFF57C00)
+    "COMPLETED"               -> SuccessGreen
+    else                      -> OrangeAccent
+}
+
+private fun statusLabel(status: String): String = when (status.uppercase()) {
+    "ON_MY_WAY", "ON_THE_WAY" -> "On the way"
+    "ON_SITE"                 -> "On site"
+    "COMPLETED"               -> "Completed"
+    else                      -> "Idle"
+}
+
 @Composable
 private fun TechRow(tech: TechLocationDto) {
-    val statusColor = when (tech.status) {
-        "on_the_way", "ON_MY_WAY" -> Color(0xFF1976D2)
-        "on_site"                 -> SuccessGreen
-        "completed"               -> Color(0xFF8B1E20)
-        else                      -> OrangeAccent
-    }
-    val statusLabel = when (tech.status) {
-        "on_the_way", "ON_MY_WAY" -> "On the way"
-        "on_site"                 -> "On site"
-        "completed"               -> "Completed"
-        else                      -> "Idle"
-    }
+    val rowColor = statusColor(tech.status)
+    val rowLabel = statusLabel(tech.status)
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -373,13 +377,13 @@ private fun TechRow(tech: TechLocationDto) {
     ) {
         Surface(
             shape = CircleShape,
-            color = statusColor.copy(alpha = 0.15f),
+            color = rowColor.copy(alpha = 0.15f),
             modifier = Modifier.size(34.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Surface(
                     shape = CircleShape,
-                    color = statusColor,
+                    color = rowColor,
                     modifier = Modifier.size(10.dp)
                 ) {}
             }
@@ -406,12 +410,12 @@ private fun TechRow(tech: TechLocationDto) {
                 Spacer(Modifier.width(6.dp))
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = statusColor.copy(alpha = 0.14f)
+                    color = rowColor.copy(alpha = 0.14f)
                 ) {
                     Text(
-                        statusLabel,
+                        rowLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
+                        color = rowColor,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )

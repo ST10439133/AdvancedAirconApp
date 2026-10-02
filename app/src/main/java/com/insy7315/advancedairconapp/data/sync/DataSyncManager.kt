@@ -17,28 +17,10 @@ import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Pulls data from the REST API and mirrors it into Room.
- *
- * Uses server-side IDs to match existing rows: `getXByServerId(dto.id)`
- * instead of `getXById(dto.id)`. This prevents the pull-sync from
- * inserting duplicates when local Room IDs differ from server IDs.
- *
- * Never lets a server-side PENDING overwrite a local ACCEPTED/DECLINED.
- *
- * Every entry point calls `ensureToken(context)` first: if we don't have a
- * JWT yet (fresh install, first launch while offline, previous syncUser call
- * failed) we transparently re-acquire one from the current Firebase user
- * before pulling.
- */
 object DataSyncManager {
 
     private const val TAG = "DataSyncManager"
 
-    /**
-     * Ensures ApiClient has a JWT. If not, retries /api/users/sync using the
-     * Firebase user + local Room user we already have.
-     */
     private suspend fun ensureToken(context: Context): Boolean {
         if (ApiClient.hasToken(context)) return true
 
@@ -108,9 +90,6 @@ object DataSyncManager {
                     db.buildingDao().insertBuilding(dto.toEntity(userId))
                     inserted++
                 } else {
-                    // If the server doesn't return lat/lng (it currently
-                    // doesn't), keep whatever coords we already have
-                    // locally from when the manager added the building.
                     val merged = existing.copy(
                         name = dto.name,
                         address = dto.address.orEmpty(),
@@ -128,7 +107,6 @@ object DataSyncManager {
                         status = runCatching {
                             BuildingStatusEnum.valueOf(dto.status)
                         }.getOrDefault(BuildingStatusEnum.ACTIVE),
-                        // Preserve local coordinates if the server sent 0/null
                         latitude = if ((dto.latitude ?: 0.0) != 0.0)
                             dto.latitude!! else existing.latitude,
                         longitude = if ((dto.longitude ?: 0.0) != 0.0)
@@ -353,9 +331,17 @@ object DataSyncManager {
                 if (existing == null) {
                     db.jobDao().insertJob(dto.toEntity(db))
                     changed++
-                } else if (existing.status != dto.status.toJobStatus()) {
-                    db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
-                    changed++
+                } else {
+                    // Status
+                    if (existing.status != dto.status.toJobStatus()) {
+                        db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
+                        changed++
+                    }
+                    // Reconcile technicianOnWay from server
+                    if (existing.technicianOnWay != dto.technicianOnWay) {
+                        db.jobDao().updateTechnicianOnWay(existing.id, dto.technicianOnWay)
+                        changed++
+                    }
                 }
             }
             Log.d(TAG, "syncTechnicianJobs: $changed")

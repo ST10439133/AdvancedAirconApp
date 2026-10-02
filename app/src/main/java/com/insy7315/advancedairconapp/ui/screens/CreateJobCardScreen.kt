@@ -62,12 +62,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // BRAND TOKENS
-private val BabyBlue        = Color(0xFF1F3A5F)
-private val BabyBlueDeep    = Color(0xFF152A47)
-private val BabyBlueSoft    = Color(0xFFE8EDF3)
-private val OrangeAccent    = Color(0xFFC8102E)
-private val OrangeSoft      = Color(0xFFFBE5E8)
-private val SuccessGreen    = Color(0xFF2E7D32)
+private val BabyBlue     = Color(0xFF1F3A5F)
+private val BabyBlueDeep = Color(0xFF152A47)
+private val BabyBlueSoft = Color(0xFFE8EDF3)
+private val OrangeAccent = Color(0xFFC8102E)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +77,7 @@ fun CreateJobCardScreen(
     val coroutineScope = rememberCoroutineScope()
     val database = ArcticFlowDatabase.getDatabase(context)
     val viewModel: JobCardViewModel = viewModel(
-        factory = JobCardViewModel.Factory(database)
+        factory = JobCardViewModel.Factory(database, context)
     )
 
     var currentJob by remember { mutableStateOf<Job?>(null) }
@@ -330,7 +328,6 @@ fun CreateJobCardScreen(
                             }
                         }
 
-                        // Camera tile
                         item {
                             PhotoTile(
                                 icon = Icons.Default.AddAPhoto,
@@ -340,7 +337,6 @@ fun CreateJobCardScreen(
                             )
                         }
 
-                        // Gallery tile
                         item {
                             PhotoTile(
                                 icon = Icons.Default.PhotoLibrary,
@@ -690,25 +686,41 @@ fun CreateJobCardScreen(
                         if (workSummary.isNotBlank()) {
                             coroutineScope.launch {
                                 isSubmitting = true
-                                val id = viewModel.saveJobCard(
-                                    jobId = jobId,
-                                    technicianId = currentJob?.technicianId ?: "",
-                                    buildingName = currentJob?.buildingName ?: "",
-                                    workSummary = workSummary,
-                                    partsUsed = parts,
-                                    startTime = startTime,
-                                    endTime = endTime,
-                                    additionalNotes = additionalNotes,
-                                    photoPaths = photoPaths
-                                )
-                                viewModel.submitJobCard(id)
-                                isSubmitting = false
-                                Toast.makeText(
-                                    context,
-                                    "Job card submitted!",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                navManager.navigateBack()
+                                try {
+                                    val id = viewModel.saveJobCard(
+                                        jobId = jobId,
+                                        technicianId = currentJob?.technicianId ?: "",
+                                        buildingName = currentJob?.buildingName ?: "",
+                                        workSummary = workSummary,
+                                        partsUsed = parts,
+                                        startTime = startTime,
+                                        endTime = endTime,
+                                        additionalNotes = additionalNotes,
+                                        photoPaths = photoPaths
+                                    )
+
+                                    // Await the entire submit here — in the
+                                    // SCREEN's scope, not viewModelScope. That
+                                    // way navigateBack() runs only AFTER the
+                                    // service is stopped, Firestore is updated,
+                                    // and the REST calls have completed.
+                                    viewModel.submitJobCardAndWait(id)
+
+                                    isSubmitting = false
+                                    Toast.makeText(
+                                        context,
+                                        "Job card submitted!",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    navManager.navigateBack()
+                                } catch (e: Exception) {
+                                    isSubmitting = false
+                                    Toast.makeText(
+                                        context,
+                                        "Submit failed: ${e.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
                         } else {
                             Toast.makeText(
