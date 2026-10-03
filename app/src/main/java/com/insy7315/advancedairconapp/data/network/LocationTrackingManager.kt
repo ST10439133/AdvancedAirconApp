@@ -33,10 +33,53 @@ object LocationTrackingManager {
             Log.d(TAG, "UPDATED → doc=${location.technicianId} " +
                     "lat=${location.latitude}, lng=${location.longitude}, " +
                     "jobId=${location.jobId}, customerId=${location.customerId}, " +
-                    "onMyWay=${location.onMyWay}")
+                    "onMyWay=${location.onMyWay}, status=${location.status}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update location", e)
+            false
+        }
+    }
+
+    /**
+     * Writes a COMPLETED marker to Firestore. This is the channel the
+     * manager's device uses to learn that a technician finished a job,
+     * because the REST backend may filter COMPLETED rows out of
+     * GET /api/locations.
+     */
+    suspend fun markCompleted(
+        technicianId: String,
+        technicianName: String?,
+        jobId: Int?,
+        customerId: String?,
+        buildingName: String?
+    ): Boolean {
+        if (technicianId.isBlank()) return false
+        return try {
+            val payload = mapOf(
+                "technicianId" to technicianId,
+                "technicianName" to (technicianName ?: "Technician"),
+                "latitude" to 0.0,
+                "longitude" to 0.0,
+                "jobId" to (jobId ?: 0),
+                "customerId" to (customerId ?: ""),
+                "buildingName" to (buildingName ?: ""),
+                "destinationLatitude" to 0.0,
+                "destinationLongitude" to 0.0,
+                "isOnMyWay" to false,
+                "onMyWay" to false,
+                "lastUpdated" to System.currentTimeMillis(),
+                "status" to "COMPLETED",
+                "completedAt" to System.currentTimeMillis()
+            )
+            firestore.collection(COLLECTION)
+                .document(technicianId)
+                .set(payload, SetOptions.merge())
+                .await()
+            Log.d(TAG, "MARKED COMPLETED → doc=$technicianId jobId=$jobId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to mark completed", e)
             false
         }
     }
@@ -118,7 +161,7 @@ object LocationTrackingManager {
                         val loc = doc.toObject(TechLocation::class.java)
                         Log.d(TAG, "  doc=${doc.id} → techId=${loc?.technicianId} " +
                                 "jobId=${loc?.jobId} onMyWay=${loc?.onMyWay} " +
-                                "custId=${loc?.customerId}")
+                                "custId=${loc?.customerId} status=${loc?.status}")
                         loc
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse doc ${doc.id}", e)
@@ -149,6 +192,35 @@ object LocationTrackingManager {
         awaitClose {
             Log.d(TAG, "Removing listener")
             listener.remove()
+        }
+    }
+
+    /**
+     * One-shot read of every Firestore doc currently marked COMPLETED.
+     * The manager-side tracking VM uses this to seed its local sticky
+     * cache, since the REST endpoint may not return completed rows.
+     */
+    suspend fun fetchCompleted(): List<TechLocation> {
+        return try {
+            val snapshot = firestore.collection(COLLECTION)
+                .get()
+                .await()
+            val list = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val loc = doc.toObject(TechLocation::class.java)
+                    if (loc != null && loc.status.equals("COMPLETED", ignoreCase = true)) {
+                        loc
+                    } else null
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse completed doc ${doc.id}", e)
+                    null
+                }
+            }
+            Log.d(TAG, "fetchCompleted: ${list.size} completed docs")
+            list
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchCompleted failed", e)
+            emptyList()
         }
     }
 

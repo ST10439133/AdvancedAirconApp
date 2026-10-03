@@ -275,6 +275,19 @@ object DataSyncManager {
     // ============================================================
     // JOBS
     // ============================================================
+
+    /**
+     * Customer-side job sync.
+     *
+     * technicianOnWay is reconciled defensively:
+     *   - If the local job is COMPLETED or CANCELLED, always accept
+     *     the server's OFF.
+     *   - If local == ON but server says OFF, KEEP the local ON.
+     *     This is the manager's view — the source of truth for
+     *     "on my way" is the technician's own device while they are
+     *     actively tracking. The server may lag behind.
+     *   - Otherwise let the server win.
+     */
     suspend fun syncCustomerJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -297,19 +310,50 @@ object DataSyncManager {
                     db.jobDao().insertJob(dto.toEntity(db))
                     changed++
                 } else {
-                    if (existing.status != dto.status.toJobStatus()) {
-                        db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
+                    val incomingStatus = dto.status.toJobStatus()
+                    val localIsTerminal =
+                        existing.status == JobStatus.COMPLETED ||
+                                existing.status == JobStatus.CANCELLED
+                    if (!localIsTerminal && existing.status != incomingStatus) {
+                        db.jobDao().updateJobStatus(existing.id, incomingStatus)
+                        changed++
                     }
-                    if (existing.technicianOnWay != dto.technicianOnWay) {
-                        db.jobDao().updateTechnicianOnWay(existing.id, dto.technicianOnWay)
+
+                    val serverSaysOn = dto.technicianOnWay
+                    val localSaysOn = existing.technicianOnWay
+                    val jobIsDone = incomingStatus == JobStatus.COMPLETED ||
+                            incomingStatus == JobStatus.CANCELLED
+
+                    val shouldApplyServerOnWay =
+                        when {
+                            jobIsDone -> false
+                            // Local is ON but server says OFF — keep local ON.
+                            localSaysOn && !serverSaysOn -> existing.technicianOnWay
+                            else -> serverSaysOn
+                        }
+
+                    if (existing.technicianOnWay != shouldApplyServerOnWay) {
+                        db.jobDao().updateTechnicianOnWay(
+                            existing.id,
+                            shouldApplyServerOnWay
+                        )
+                        changed++
                     }
-                    changed++
                 }
             }
             Log.d(TAG, "syncCustomerJobs: $changed")
             changed
         }
 
+    /**
+     * Technician-side job sync.
+     *
+     * Same defensive reconciliation as the customer side:
+     * the technician's local "on my way" state is authoritative while
+     * they are tracking, so the server can never flip it off behind
+     * their back (this was causing the toggle to reset after a
+     * manager round-trip).
+     */
     suspend fun syncTechnicianJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -332,14 +376,33 @@ object DataSyncManager {
                     db.jobDao().insertJob(dto.toEntity(db))
                     changed++
                 } else {
-                    // Status
-                    if (existing.status != dto.status.toJobStatus()) {
-                        db.jobDao().updateJobStatus(existing.id, dto.status.toJobStatus())
+                    val incomingStatus = dto.status.toJobStatus()
+                    val localIsTerminal =
+                        existing.status == JobStatus.COMPLETED ||
+                                existing.status == JobStatus.CANCELLED
+                    if (!localIsTerminal && existing.status != incomingStatus) {
+                        db.jobDao().updateJobStatus(existing.id, incomingStatus)
                         changed++
                     }
-                    // Reconcile technicianOnWay from server
-                    if (existing.technicianOnWay != dto.technicianOnWay) {
-                        db.jobDao().updateTechnicianOnWay(existing.id, dto.technicianOnWay)
+
+                    val serverSaysOn = dto.technicianOnWay
+                    val localSaysOn = existing.technicianOnWay
+                    val jobIsDone = incomingStatus == JobStatus.COMPLETED ||
+                            incomingStatus == JobStatus.CANCELLED
+
+                    val shouldApplyServerOnWay =
+                        when {
+                            jobIsDone -> false
+                            // Local is ON but server says OFF — keep local ON.
+                            localSaysOn && !serverSaysOn -> existing.technicianOnWay
+                            else -> serverSaysOn
+                        }
+
+                    if (existing.technicianOnWay != shouldApplyServerOnWay) {
+                        db.jobDao().updateTechnicianOnWay(
+                            existing.id,
+                            shouldApplyServerOnWay
+                        )
                         changed++
                     }
                 }

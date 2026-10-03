@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/JobCardViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.content.Context
@@ -89,19 +88,20 @@ class JobCardViewModel(
     }
 
     /**
-     * Suspending variant of submitJobCard.
+     * Full submit flow.
      *
-     * Runs the ENTIRE submit flow in the CALLER's scope, so the screen
-     * can `await` it before navigateBack() clears the ViewModel.
+     * Runs in the caller's scope so the screen can await it before
+     * navigating back (viewModelScope would be cancelled otherwise).
      *
-     * The fire-and-forget `submitJobCard()` used to get cancelled by
-     * viewModelScope the moment the user navigated back — which meant
-     * the foreground service was never stopped and the REST "on my way = false"
-     * call never fired. That's what left the tech pinging the server with
-     * status = "ON_MY_WAY" long after the job card had been submitted.
-     *
-     * USE THIS from the UI. Keep the old `submitJobCard()` only if some
-     * other caller still needs the fire-and-forget behaviour.
+     * Order of operations:
+     *   1. Mark the job card SUBMITTED (local).
+     *   2. Mark the job COMPLETED (local).
+     *   3. Stop the local foreground tracking service.
+     *   4. Write a COMPLETED marker to Firestore — this is what the
+     *      manager's device reads to render the green pin.
+     *   5. Push COMPLETED to the REST API (status, on-way off, stopTracking).
+     *   6. Prime the local sticky cache (so the tech's own device
+     *      shows green if they ever open the tracking screen).
      */
     suspend fun submitJobCardAndWait(jobCardId: Long) {
         _isLoading.value = true
@@ -138,8 +138,6 @@ class JobCardViewModel(
             )
 
             // 3. Stop the LOCAL foreground tracking service FIRST.
-            //    This is the critical step — while it runs, no more stale
-            //    location pings can reach the server.
             try {
                 TechLocationService.stop(appContext)
                 Log.d(TAG, "submitJobCardAndWait: TechLocationService.stop() called")
@@ -147,27 +145,21 @@ class JobCardViewModel(
                 Log.w(TAG, "submitJobCardAndWait: stop service failed", e)
             }
 
-            // 4. Firestore: flip the tech's doc to COMPLETED
+            // 4. Firestore: write an explicit COMPLETED marker.
+            //    Using markCompleted() writes a clean payload with
+            //    status=COMPLETED and isOnMyWay=false, which the
+            //    manager's device can reliably read.
             try {
-                LocationTrackingManager.updateLocation(
-                    TechLocation(
-                        technicianId = job.technicianId,
-                        technicianName = "Technician",
-                        latitude = 0.0,
-                        longitude = 0.0,
-                        jobId = job.id,
-                        customerId = job.customerId,
-                        buildingName = job.buildingName,
-                        destinationLatitude = 0.0,
-                        destinationLongitude = 0.0,
-                        onMyWay = false,
-                        lastUpdated = System.currentTimeMillis(),
-                        status = "COMPLETED"
-                    )
+                val ok = LocationTrackingManager.markCompleted(
+                    technicianId = job.technicianId,
+                    technicianName = "Technician",
+                    jobId = job.id,
+                    customerId = job.customerId,
+                    buildingName = job.buildingName
                 )
-                Log.d(TAG, "submitJobCardAndWait: firestore COMPLETED pushed")
+                Log.d(TAG, "submitJobCardAndWait: firestore markCompleted=$ok")
             } catch (e: Exception) {
-                Log.w(TAG, "submitJobCardAndWait: firestore push failed", e)
+                Log.w(TAG, "submitJobCardAndWait: firestore markCompleted threw", e)
             }
 
             // 5. REST: push COMPLETED, clear on-way, delete tracking row
@@ -197,9 +189,7 @@ class JobCardViewModel(
                 Log.w(TAG, "submitJobCardAndWait: offline or no token — REST skipped")
             }
 
-            // 6. Prime the manager's sticky cache so the green COMPLETED
-            //    marker persists even if the backend filters completed rows
-            //    out of GET /api/locations.
+            // 6. Prime the local sticky cache for this device.
             try {
                 ManagerTrackingViewModel.cacheCompletedTechnician(
                     appContext,
@@ -218,9 +208,9 @@ class JobCardViewModel(
                         destinationLongitude = 0.0
                     )
                 )
-                Log.d(TAG, "submitJobCardAndWait: cache primed")
+                Log.d(TAG, "submitJobCardAndWait: local cache primed")
             } catch (e: Exception) {
-                Log.w(TAG, "submitJobCardAndWait: cache prime failed", e)
+                Log.w(TAG, "submitJobCardAndWait: local cache prime failed", e)
             }
 
             _submitSuccess.value = true
@@ -234,14 +224,7 @@ class JobCardViewModel(
     }
 
     /**
-     * Legacy fire-and-forget submit.
-     *
-     * ⚠️ Do NOT call this from the UI. It runs in viewModelScope, which
-     * gets cancelled the moment the screen is popped, so the REST pushes
-     * and `TechLocationService.stop()` will silently die mid-flight.
-     *
-     * Kept only for backward compatibility with any caller that can't
-     * migrate to `submitJobCardAndWait`.
+     * Legacy fire-and-forget submit. Do NOT call from the UI.
      */
     suspend fun submitJobCard(jobCardId: Long) {
         viewModelScope.launch {

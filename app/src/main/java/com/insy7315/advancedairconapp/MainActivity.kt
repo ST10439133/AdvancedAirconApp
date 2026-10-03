@@ -87,10 +87,17 @@ class MainActivity : ComponentActivity() {
 
     /**
      * On cold start:
-     *   - If nobody is signed in, make sure the tracking service isn't
-     *     running from a previous session.
-     *   - If a technician is signed in but has no job marked "on my way",
-     *     stop the service and clear their stale server-side location row.
+     *   - If nobody is signed in, stop the local tracking service.
+     *   - If a technician is signed in and has a job marked "on my way",
+     *     make sure the local foreground service is running again so
+     *     the customer keeps seeing them.
+     *   - If a technician is signed in with NO job "on my way", stop the
+     *     local service ONLY. We deliberately DO NOT call
+     *     stopForTechnician(), because that would wipe the technician's
+     *     server-side location row (which is what was flipping the toggle
+     *     off after a manager round-trip).
+     *   - Managers never track — stop the local service only, and never
+     *     touch any technician's server row.
      */
     private fun cleanUpStaleTracking() {
         CoroutineScope(Dispatchers.IO).launch {
@@ -98,7 +105,7 @@ class MainActivity : ComponentActivity() {
                 val firebaseUser = FirebaseAuth.getInstance().currentUser
 
                 if (firebaseUser == null) {
-                    Log.d("MainActivity", "No signed-in user — stopping any tracking service")
+                    Log.d("MainActivity", "No signed-in user — stopping local tracking service")
                     TechLocationService.stop(applicationContext)
                     return@launch
                 }
@@ -107,26 +114,48 @@ class MainActivity : ComponentActivity() {
                 val localUser = db.userDao().getUserById(firebaseUser.uid) ?: return@launch
 
                 if (localUser.role.name != "TECHNICIAN") {
-                    // Managers never track. Stop anything left over.
+                    // Managers never track. Stop anything left over locally,
+                    // but DO NOT wipe any technician's server-side row.
+                    Log.d("MainActivity", "Manager signed in — stopping local service only")
                     TechLocationService.stop(applicationContext)
                     return@launch
                 }
 
-                // Room returns a Flow<List<Job>>. Take the first emission.
                 val jobs = db.jobDao()
                     .getJobsByTechnician(localUser.uid)
                     .first()
 
                 val onMyWay = jobs.any { it.technicianOnWay }
-                if (!onMyWay) {
-                    Log.d("MainActivity", "No active tracking — stopping service + clearing")
-                    TechLocationService.stop(applicationContext)
-                    LocationTrackingCoordinator.stopForTechnician(
-                        context = applicationContext,
-                        technicianId = localUser.uid
+
+                if (onMyWay) {
+                    // The technician is still on the way — restart the
+                    // foreground service so live tracking resumes without
+                    // any user interaction.
+                    val activeJob = jobs.firstOrNull { it.technicianOnWay }
+                    Log.d(
+                        "MainActivity",
+                        "Active tracking in progress — restarting service for job ${activeJob?.id}"
                     )
+                    if (activeJob != null) {
+                        LocationTrackingCoordinator.startForJob(
+                            context = applicationContext,
+                            technicianId = localUser.uid,
+                            technicianName = localUser.displayName?.substringBefore("|"),
+                            jobId = activeJob.id,
+                            customerId = activeJob.customerId,
+                            buildingName = activeJob.buildingName
+                        )
+                    }
                 } else {
-                    Log.d("MainActivity", "Active tracking in progress — leaving service alone")
+                    // No active job — stop the LOCAL service only.
+                    // DO NOT call stopForTechnician(); that deletes the
+                    // server-side row and would flip the toggle off on
+                    // the tech's next sign-in.
+                    Log.d(
+                        "MainActivity",
+                        "No local on-my-way jobs — stopping local service only"
+                    )
+                    TechLocationService.stop(applicationContext)
                 }
             } catch (e: Exception) {
                 Log.w("MainActivity", "cleanUpStaleTracking failed", e)

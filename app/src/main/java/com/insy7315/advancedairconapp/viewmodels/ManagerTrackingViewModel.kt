@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ManagerTrackingViewModel.kt
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application
@@ -10,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.api.ApiRepository
 import com.insy7315.advancedairconapp.data.api.TechLocationDto
+import com.insy7315.advancedairconapp.data.network.LocationTrackingManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,11 +24,19 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
 
     private val tag = "ManagerTrackingVM"
 
-    /** Anything not COMPLETED goes stale after 2 minutes. */
+    /**
+     * Anything not COMPLETED and not explicitly "on my way" goes
+     * stale after 2 minutes. Rows that ARE "on my way" are always
+     * kept on the map — the timestamp only tells us how fresh the
+     * GPS fix is.
+     */
     private val staleAfterMs = 2L * 60L * 1000L
 
-    /** COMPLETED markers stay on the map this long, then drop off. */
-    private val completedLingerMs = 30L * 60L * 1000L
+    /**
+     * COMPLETED markers stay on the map this long, then drop off.
+     * 24 hours covers any realistic technician → manager round-trip.
+     */
+    private val completedLingerMs = 24L * 60L * 60L * 1000L
 
     private val _technicians = MutableStateFlow<List<TechLocationDto>>(emptyList())
     val technicians: StateFlow<List<TechLocationDto>> = _technicians.asStateFlow()
@@ -41,15 +49,6 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
 
     private var pollJob: Job? = null
 
-    // ============================================================
-    // Local sticky cache for COMPLETED techs.
-    //
-    // The backend may filter completed rows out of GET /api/locations.
-    // To keep the green "Completed" marker visible we remember them
-    // here and re-attach them on every poll until they age out.
-    //
-    // Stored in SharedPreferences as JSON so it also survives a cold start.
-    // ============================================================
     private val prefs by lazy {
         getApplication<Application>()
             .getSharedPreferences("arcticflow_tracking_cache", Context.MODE_PRIVATE)
@@ -120,10 +119,6 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
-    /**
-     * Public entry point so the tech-side can flip the cache when a job
-     * card is submitted.
-     */
     fun markTechnicianCompleted(dto: TechLocationDto) {
         val map = loadCompletedCache()
         map[dto.technicianId] = CachedCompleted(
@@ -134,7 +129,6 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
         Log.d(tag, "Cached COMPLETED for ${dto.technicianId}")
     }
 
-    /** Remove a tech from the completed cache (e.g. when they start a new job). */
     fun clearCompletedCacheFor(technicianId: String) {
         val map = loadCompletedCache()
         if (map.remove(technicianId) != null) {
@@ -149,9 +143,40 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
 
         pollJob = viewModelScope.launch {
             val db = ArcticFlowDatabase.getDatabase(getApplication())
-
-            // Prime the completed cache once at start.
             val completedCache = loadCompletedCache()
+
+            // Seed the cache from Firestore on first launch so we catch
+            // completions that happened while this device wasn't polling.
+            try {
+                val firestoreCompleted = LocationTrackingManager.fetchCompleted()
+                val nowSeed = System.currentTimeMillis()
+                firestoreCompleted.forEach { loc ->
+                    completedCache[loc.technicianId] = CachedCompleted(
+                        dto = TechLocationDto(
+                            technicianId = loc.technicianId,
+                            technicianName = loc.technicianName,
+                            latitude = loc.latitude,
+                            longitude = loc.longitude,
+                            jobId = loc.jobId.takeIf { it != 0 },
+                            customerId = loc.customerId.takeIf { it.isNotBlank() },
+                            buildingName = loc.buildingName.takeIf { it.isNotBlank() },
+                            isOnMyWay = false,
+                            lastUpdated = loc.lastUpdated,
+                            status = "COMPLETED",
+                            destinationLatitude = loc.destinationLatitude,
+                            destinationLongitude = loc.destinationLongitude
+                        ),
+                        markedCompletedAt = nowSeed
+                    )
+                }
+                saveCompletedCache(completedCache)
+                Log.d(
+                    tag,
+                    "Firestore seed: ${firestoreCompleted.size} completed loaded into cache"
+                )
+            } catch (e: Exception) {
+                Log.w(tag, "Firestore seed failed", e)
+            }
 
             while (isActive) {
                 try {
@@ -186,8 +211,8 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                         }
                     }
 
-                    // 2. Any tech the server now reports as COMPLETED gets
-                    //    added to / refreshed in our local sticky cache.
+                    // 2. Any tech the server now reports as COMPLETED
+                    //    gets added to / refreshed in our local cache.
                     enriched.forEach { loc ->
                         if (loc.status.equals("COMPLETED", ignoreCase = true)) {
                             completedCache[loc.technicianId] = CachedCompleted(
@@ -197,28 +222,59 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                         }
                     }
 
-                    // 3. Any tech the server now reports as NOT completed
-                    //    (i.e. they came back on the way to another job) is
-                    //    removed from the cache.
-                    val serverIds = enriched.map { it.technicianId }.toSet()
+                    // 2b. Also pull COMPLETED docs from Firestore on each
+                    //     poll so the green pin appears promptly.
+                    try {
+                        val firestoreCompleted = LocationTrackingManager.fetchCompleted()
+                        firestoreCompleted.forEach { loc ->
+                            val existing = completedCache[loc.technicianId]
+                            val firestoreTime = loc.lastUpdated
+                            if (existing == null || firestoreTime > existing.dto.lastUpdated) {
+                                completedCache[loc.technicianId] = CachedCompleted(
+                                    dto = TechLocationDto(
+                                        technicianId = loc.technicianId,
+                                        technicianName = loc.technicianName,
+                                        latitude = loc.latitude,
+                                        longitude = loc.longitude,
+                                        jobId = loc.jobId.takeIf { it != 0 },
+                                        customerId = loc.customerId.takeIf { it.isNotBlank() },
+                                        buildingName = loc.buildingName.takeIf { it.isNotBlank() },
+                                        isOnMyWay = false,
+                                        lastUpdated = firestoreTime,
+                                        status = "COMPLETED",
+                                        destinationLatitude = loc.destinationLatitude,
+                                        destinationLongitude = loc.destinationLongitude
+                                    ),
+                                    markedCompletedAt = now
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(tag, "Firestore per-poll read failed", e)
+                    }
+
+                    // 3. Defensive cache retention — only remove when
+                    //    the server explicitly says CANCELLED or the
+                    //    tech moved to a different jobId.
                     val staleCompletedKeys = mutableListOf<String>()
                     for ((techId, cached) in completedCache) {
-                        val serverSaysCompleted =
-                            enriched.firstOrNull { it.technicianId == techId }
-                                ?.status
-                                ?.equals("COMPLETED", ignoreCase = true)
-                                ?: false
-                        if (techId in serverIds && !serverSaysCompleted && cached.dto.status
-                                .equals("COMPLETED", ignoreCase = true)
-                        ) {
-                            // Server is now returning this tech with a
-                            // non-COMPLETED status — they're on a new job.
+                        val serverRow = enriched.firstOrNull { it.technicianId == techId }
+
+                        val serverSaysCancelled = serverRow?.status
+                            ?.equals("CANCELLED", ignoreCase = true) == true
+
+                        val serverHasDifferentJob = serverRow != null &&
+                                serverRow.jobId != null &&
+                                cached.dto.jobId != null &&
+                                serverRow.jobId != cached.dto.jobId
+
+                        if (serverSaysCancelled || serverHasDifferentJob) {
                             staleCompletedKeys.add(techId)
                         }
                     }
                     staleCompletedKeys.forEach { completedCache.remove(it) }
 
-                    // 4. Expire cached entries older than COMPLETED_LINGER_MS.
+                    // 4. Expire cached entries older than linger window.
                     val expiredKeys = mutableListOf<String>()
                     for ((techId, cached) in completedCache) {
                         if ((now - cached.markedCompletedAt) > completedLingerMs) {
@@ -227,26 +283,40 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                     }
                     expiredKeys.forEach { completedCache.remove(it) }
 
-                    // 5. Compute the "live" set the server gave us,
-                    //    excluding anything the server still calls COMPLETED
-                    //    (they'll come from the cache).
+                    // 5. Build the set of techs that should be shown as
+                    //    "live". KEY CHANGE: if a tech has is_on_my_way
+                    //    true and status != COMPLETED, we always keep them
+                    //    — regardless of how old lastUpdated is. The
+                    //    timestamp only tells us how fresh the GPS fix is.
                     val liveFromServer = enriched.filter { loc ->
                         val isCompleted =
                             loc.status.equals("COMPLETED", ignoreCase = true)
-                        if (isCompleted) return@filter false
+                        val isCancelled =
+                            loc.status.equals("CANCELLED", ignoreCase = true)
 
+                        // Drop from live set — these come from the cache.
+                        if (isCompleted) return@filter false
+                        if (isCancelled) return@filter false
+
+                        // Tech explicitly said "I'm on my way" — KEEP.
+                        if (loc.isOnMyWay) return@filter true
+
+                        // Legacy rows without isOnMyWay: fall back to
+                        // the freshness rule so we don't show ghosts.
                         val hasDestination =
                             loc.destinationLatitude != 0.0 &&
                                     loc.destinationLongitude != 0.0
                         if (!hasDestination) {
-                            true
+                            // No destination at all — keep if fresh.
+                            val age = now - loc.lastUpdated
+                            age in 0..staleAfterMs
                         } else {
                             val age = now - loc.lastUpdated
                             age in 0..staleAfterMs
                         }
                     }
 
-                    // 6. Merge live-from-server + cached-completed.
+                    // 6. Merge live + cached-completed.
                     val merged = (liveFromServer + completedCache.values.map { it.dto })
                         .distinctBy { it.technicianId }
 
@@ -287,11 +357,6 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
     companion object {
         private const val KEY_COMPLETED = "completed_techs"
 
-        /**
-         * Static helper so `JobCardViewModel` (which doesn't have this VM
-         * instance) can still drop a completed tech into the cache.
-         * Call this right after pushing COMPLETED.
-         */
         fun cacheCompletedTechnician(context: Context, dto: TechLocationDto) {
             val prefs = context.applicationContext
                 .getSharedPreferences("arcticflow_tracking_cache", Context.MODE_PRIVATE)
@@ -303,7 +368,6 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                 JSONArray()
             }
 
-            // Remove any prior entry for this tech
             val cleaned = JSONArray()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
