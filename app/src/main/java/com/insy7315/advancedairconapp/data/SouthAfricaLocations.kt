@@ -1,5 +1,9 @@
 package com.insy7315.advancedairconapp.data
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+
 object SouthAfricaLocations {
 
     val provinces: List<String> = listOf(
@@ -316,5 +320,29 @@ object SouthAfricaLocations {
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .joinToString(", ")
+    }
+
+    fun combineDateAndSlot(dateMillis: Long, timeSlot: String): Long {
+        return try {
+            // Grab just the "08:00 AM" part of "08:00 AM - 09:30 AM"
+            val startPart = timeSlot.substringBefore("-").trim()
+            val timeParser = SimpleDateFormat("hh:mm a", Locale.US)
+            val parsedTime = timeParser.parse(startPart) ?: return dateMillis
+
+            // Read the parsed time-of-day
+            val timeCal = Calendar.getInstance().apply { time = parsedTime }
+
+            // Merge it into the date
+            val out = Calendar.getInstance().apply {
+                timeInMillis = dateMillis
+                set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
+                set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            out.timeInMillis
+        } catch (e: Exception) {
+            dateMillis
+        }
     }
 }

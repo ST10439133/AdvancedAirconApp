@@ -3,6 +3,7 @@ package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
@@ -19,15 +20,39 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/**
+ * Bundle of the four UI inputs. Combining these into one object means the
+ * `products` flow only ever combines TWO sources (state + raw catalogue),
+ * which eliminates the race where two quick setter calls (`_selectedBrand`
+ * then `_filterType`) could leave `combine` momentarily observing an
+ * inconsistent pair and emitting the wrong list.
+ */
+data class ProductUiState(
+    val query: String = "",
+    val brand: String? = null,
+    val sortType: SortType = SortType.NAME_ASC,
+    val filterType: FilterType = FilterType.ALL,
+    val priceMin: Double = 0.0,
+    val priceMax: Double = 100_000.0
+)
+
 class ProductViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Initialize Repository
+    private companion object {
+        const val TAG = "ProductFilter"
+    }
+
+    // ---------- Repository ----------
     private val repository = ProductRepository(
         ArcticFlowDatabase.getDatabase(application).productDao(),
         ArcticFlowDatabase.getDatabase(application).brochureDao()
     )
 
-    // State flows for UI
+    init {
+        Log.d(TAG, "ProductViewModel constructed — new code is live")
+    }
+
+    // ---------- Legacy state flows (kept for UI compatibility) ----------
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -40,102 +65,141 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     private val _filterType = MutableStateFlow(FilterType.ALL)
     val filterType: StateFlow<FilterType> = _filterType.asStateFlow()
 
-    private val _priceRange = MutableStateFlow(Pair(0.0, 100000.0))
+    private val _priceRange = MutableStateFlow(Pair(0.0, 100_000.0))
     val priceRange: StateFlow<Pair<Double, Double>> = _priceRange.asStateFlow()
 
     private val _brands = MutableStateFlow<List<String>>(emptyList())
     val brands: StateFlow<List<String>> = _brands.asStateFlow()
 
-    // Upload progress state (so the UI can show a spinner)
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
-    // Combined filtered and sorted products
-    val products = combine(
-        _searchQuery,
-        _selectedBrand,
-        _sortType,
-        _filterType,
-        _priceRange
-    ) { query, brand, sortType, filterType, priceRange ->
-        val baseFlow = when (filterType) {
-            FilterType.FAVORITES -> repository.getFavoriteProducts()
-            FilterType.BY_BRAND -> {
-                if (brand != null) repository.getProductsByBrand(brand)
-                else repository.getAllProducts()
-            }
-            FilterType.BY_PRICE_RANGE ->
-                repository.getProductsByPriceRange(priceRange.first, priceRange.second)
-            else -> repository.getAllProducts()
-        }
+    // ---------- Atomic UI state (the one the pipeline actually uses) ----------
+    private val _uiState = MutableStateFlow(ProductUiState())
+    val uiState: StateFlow<ProductUiState> = _uiState.asStateFlow()
 
-        baseFlow.map { products ->
-            var filtered = products
+    // ---------- Raw catalogue (subscribed exactly ONCE) ----------
+    private val catalogue: Flow<List<Product>> =
+        repository.getAllProducts()
+            .onEach { Log.d(TAG, "Room emitted ${it.size} products") }
 
-            if (query.isNotEmpty()) {
-                filtered = filtered.filter { product ->
-                    product.name.contains(query, ignoreCase = true) ||
-                            product.brand.contains(query, ignoreCase = true) ||
-                            product.model.contains(query, ignoreCase = true)
-                }
-            }
-
-            when (sortType) {
-                SortType.NAME_ASC -> filtered.sortedBy { it.name }
-                SortType.NAME_DESC -> filtered.sortedByDescending { it.name }
-                SortType.PRICE_LOW_TO_HIGH -> filtered.sortedBy { it.price }
-                SortType.PRICE_HIGH_TO_LOW -> filtered.sortedByDescending { it.price }
-                SortType.RATING_HIGH_TO_LOW -> filtered.sortedByDescending { it.rating }
-            }
-        }
-    }.flatMapLatest { it }
+    // ---------- Derived, filtered, sorted list ----------
+    val products: StateFlow<List<Product>> =
+        combine(catalogue, _uiState) { all, state ->
+            applyFilters(all, state)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
 
     init {
         loadBrands()
     }
 
-    // Load brands from database
+    // ---------- Filtering / sorting (pure, in-memory) ----------
+    private fun applyFilters(all: List<Product>, state: ProductUiState): List<Product> {
+        Log.d(
+            TAG,
+            "applyFilters:\n" +
+                    "  total from Room = ${all.size}\n" +
+                    "  query='${state.query}'\n" +
+                    "  brand='${state.brand}'\n" +
+                    "  filterType=${state.filterType}\n" +
+                    "  sortType=${state.sortType}"
+        )
+
+        if (all.isNotEmpty()) {
+            Log.d(
+                TAG,
+                "  DB sample: " + all.take(5).joinToString { "'${it.name}'|brand='${it.brand}'" }
+            )
+        }
+
+        // 1. Base filter
+        val base: List<Product> = when (state.filterType) {
+            FilterType.FAVORITES -> all.filter { it.isFavorite }
+            FilterType.BY_BRAND -> {
+                val b = state.brand?.trim()?.lowercase()
+                if (b.isNullOrBlank()) all
+                else all.filter { it.brand.trim().lowercase() == b }
+            }
+            FilterType.BY_PRICE_RANGE ->
+                all.filter { it.price in state.priceMin..state.priceMax }
+            FilterType.ALL -> all
+        }
+
+        // 2. Search query
+        val q = state.query.trim()
+        val searched = if (q.isEmpty()) base else base.filter { p ->
+            p.name.contains(q, ignoreCase = true) ||
+                    p.brand.contains(q, ignoreCase = true) ||
+                    p.model.contains(q, ignoreCase = true)
+        }
+
+        // 3. Sort
+        val sorted = when (state.sortType) {
+            SortType.NAME_ASC -> searched.sortedBy { it.name.lowercase() }
+            SortType.NAME_DESC -> searched.sortedByDescending { it.name.lowercase() }
+            SortType.PRICE_LOW_TO_HIGH -> searched.sortedBy { it.price }
+            SortType.PRICE_HIGH_TO_LOW -> searched.sortedByDescending { it.price }
+            SortType.RATING_HIGH_TO_LOW -> searched.sortedByDescending { it.rating }
+        }
+
+        Log.d(TAG, "  FINAL = ${sorted.size}")
+        return sorted
+    }
+
+    // ---------- Setters (each writes legacy + atomic in one go) ----------
+    private fun updateState(transform: (ProductUiState) -> ProductUiState) {
+        _uiState.value = transform(_uiState.value)
+    }
+
     private fun loadBrands() {
         viewModelScope.launch {
-            _brands.value = repository.getAllBrands()
+            val b = repository.getAllBrands()
+            Log.d(TAG, "loadBrands: $b")
+            _brands.value = b
         }
     }
 
-    // Search products
     fun searchProducts(query: String) {
+        Log.d(TAG, "searchProducts('$query')")
         _searchQuery.value = query
+        updateState { it.copy(query = query) }
     }
 
-    // Filter by brand
     fun filterByBrand(brand: String?) {
+        Log.d(TAG, "filterByBrand('$brand')")
         _selectedBrand.value = brand
-        _filterType.value = if (brand != null) FilterType.BY_BRAND else FilterType.ALL
+        val newType = if (brand != null) FilterType.BY_BRAND else FilterType.ALL
+        _filterType.value = newType
+        updateState { it.copy(brand = brand, filterType = newType) }
     }
 
-    // Filter by price range
     fun filterByPriceRange(min: Double, max: Double) {
+        Log.d(TAG, "filterByPriceRange($min..$max)")
         _priceRange.value = Pair(min, max)
         _filterType.value = FilterType.BY_PRICE_RANGE
+        updateState {
+            it.copy(priceMin = min, priceMax = max, filterType = FilterType.BY_PRICE_RANGE)
+        }
     }
 
-    // Sort products
     fun sortProducts(sortType: SortType) {
+        Log.d(TAG, "sortProducts($sortType)")
         _sortType.value = sortType
+        updateState { it.copy(sortType = sortType) }
     }
 
-    // Toggle favorite status
     fun toggleFavorite(productId: Int, isFavorite: Boolean) {
         viewModelScope.launch {
             repository.toggleFavorite(productId, isFavorite)
         }
     }
 
-    // Get single product by ID
-    suspend fun getProductById(id: Int): Product? {
-        return repository.getProductById(id)
-    }
+    suspend fun getProductById(id: Int): Product? = repository.getProductById(id)
 
-    // Add new product
     fun addProduct(product: Product) {
         viewModelScope.launch {
             repository.insertProduct(product)
@@ -143,7 +207,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Delete product
     fun deleteProduct(product: Product) {
         viewModelScope.launch {
             repository.deleteProduct(product)
@@ -151,7 +214,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Clear all products
     fun clearAllProducts() {
         viewModelScope.launch {
             repository.clearAllProducts()
@@ -159,8 +221,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // SUPABASE IMAGE UPLOAD
-
+    // ---------- Supabase uploads (unchanged) ----------
     suspend fun uploadProductImage(
         uri: Uri,
         fileName: String,
@@ -169,7 +230,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         _isUploading.value = true
         return try {
             withContext(Dispatchers.IO) {
-                // 1. Copy the picked image into a temp file
                 val inputStream = contentResolver.openInputStream(uri)
                     ?: throw IllegalStateException("Cannot open URI: $uri")
 
@@ -180,18 +240,13 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
 
-                // 2. Upload to the "products" bucket in Supabase
                 SupabaseManager.client
                     .storage
                     .from("products")
-                    .upload(fileName, tempFile) {
-                        upsert = true
-                    }
+                    .upload(fileName, tempFile) { upsert = true }
 
-                // 3. Clean up the temp file
                 tempFile.delete()
 
-                // 4. Return the public URL so we can save it to RoomDB
                 val baseUrl = SupabaseManager.client.supabaseUrl
                     .removePrefix("https://")
                     .removePrefix("http://")
@@ -205,8 +260,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // SUPABASE PDF CATALOGUE UPLOAD
-
     suspend fun uploadProductCatalogue(
         uri: Uri,
         fileName: String,
@@ -215,11 +268,9 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         _isUploading.value = true
         return try {
             withContext(Dispatchers.IO) {
-                // 1. Copy the picked PDF into a temp file
                 val inputStream = contentResolver.openInputStream(uri)
                     ?: throw IllegalStateException("Cannot open URI: $uri")
 
-                // Force .pdf extension so it's unambiguous
                 val safeName = if (fileName.endsWith(".pdf", ignoreCase = true))
                     fileName else "$fileName.pdf"
 
@@ -230,18 +281,13 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
 
-                // 2. Upload to the "products" bucket (same bucket works fine)
                 SupabaseManager.client
                     .storage
                     .from("products")
-                    .upload(safeName, tempFile) {
-                        upsert = true
-                    }
+                    .upload(safeName, tempFile) { upsert = true }
 
-                // 3. Clean up
                 tempFile.delete()
 
-                // 4. Return the public URL
                 val baseUrl = SupabaseManager.client.supabaseUrl
                     .removePrefix("https://")
                     .removePrefix("http://")
@@ -255,14 +301,11 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Refresh data from Azure
     fun syncDataFromAzure() {
         viewModelScope.launch {
             try {
                 loadBrands()
-            } catch (e: Exception) {
-                // Handle error
-            }
+            } catch (_: Exception) { }
         }
     }
 }

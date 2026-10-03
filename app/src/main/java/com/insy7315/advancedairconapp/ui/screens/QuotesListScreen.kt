@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import com.insy7315.advancedairconapp.data.entities.Quote
 import com.insy7315.advancedairconapp.data.entities.QuoteStatus
 import com.insy7315.advancedairconapp.navigation.NavManager
@@ -61,9 +62,6 @@ fun QuotesListScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Managers use the JOIN-based query so quotes created against their
-    // requests still appear even if customerId was blanked upstream.
-    // Technicians use the standard technician-side query.
     val quotes by (if (isCustomer) viewModel.getQuotesVisibleToCustomer(userId)
     else viewModel.getQuotesForTechnician(userId))
         .collectAsState(initial = emptyList())
@@ -363,11 +361,15 @@ fun ScheduleQuoteDialog(
 
     val dateFmt = SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault())
     val cal = Calendar.getInstance()
+
+    // IMPORTANT: store only the DATE (midnight). The chosen slot's
+    // start time is merged in on Confirm.
     val picker = DatePickerDialog(
         context,
         { _, y, m, d ->
             val c = Calendar.getInstance()
-            c.set(y, m, d, 9, 0)
+            c.set(y, m, d, 0, 0, 0)
+            c.set(Calendar.MILLISECOND, 0)
             selectedDate = c.timeInMillis
         },
         cal.get(Calendar.YEAR),
@@ -456,8 +458,11 @@ fun ScheduleQuoteDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (selectedDate != null && selectedSlot.isNotBlank()) {
-                        onConfirm(selectedDate!!, selectedSlot)
+                    val d = selectedDate
+                    if (d != null && selectedSlot.isNotBlank()) {
+                        // Merge the picked date with the start time of the slot.
+                        val combined = SouthAfricaLocations.combineDateAndSlot(d, selectedSlot)
+                        onConfirm(combined, selectedSlot)
                     }
                 },
                 enabled = selectedDate != null && selectedSlot.isNotBlank(),

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
+import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import com.insy7315.advancedairconapp.data.entities.Quote
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.components.AppTopBar
@@ -72,8 +73,6 @@ fun ManagerDashboardScreen(
     val notificationViewModel: NotificationViewModel = viewModel(
         factory = NotificationViewModel.Factory(context, userId)
     )
-
-
 
     LaunchedEffect(Unit) {
         notificationViewModel.addSampleNotifications()
@@ -628,11 +627,15 @@ fun ScheduleAcceptDialog(
 
     val dateFmt = SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault())
     val cal = Calendar.getInstance()
+
+    // IMPORTANT: store only the DATE (midnight). The time will be
+    // merged in from the chosen slot when the user hits Confirm.
     val picker = DatePickerDialog(
         context,
         { _, y, m, d ->
             val c = Calendar.getInstance()
-            c.set(y, m, d, 9, 0)
+            c.set(y, m, d, 0, 0, 0)
+            c.set(Calendar.MILLISECOND, 0)
             selectedDate = c.timeInMillis
         },
         cal.get(Calendar.YEAR),
@@ -721,8 +724,11 @@ fun ScheduleAcceptDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (selectedDate != null && selectedSlot.isNotBlank()) {
-                        onConfirm(selectedDate!!, selectedSlot)
+                    val d = selectedDate
+                    if (d != null && selectedSlot.isNotBlank()) {
+                        // Merge the picked date with the start time of the slot.
+                        val combined = SouthAfricaLocations.combineDateAndSlot(d, selectedSlot)
+                        onConfirm(combined, selectedSlot)
                     }
                 },
                 enabled = selectedDate != null && selectedSlot.isNotBlank(),

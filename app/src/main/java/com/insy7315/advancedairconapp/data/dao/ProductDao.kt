@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/data/dao/ProductDao.kt
 package com.insy7315.advancedairconapp.data.dao
 
 import androidx.room.*
@@ -25,7 +26,13 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :productId")
     suspend fun getProductById(productId: Int): Product?
 
-    @Query("SELECT * FROM products WHERE brand = :brand ORDER BY name ASC")
+    // Case-insensitive, whitespace-tolerant. "Samsung", "samsung", and
+    // "  Samsung " all match the same brand.
+    @Query("""
+        SELECT * FROM products
+        WHERE LOWER(TRIM(brand)) = LOWER(TRIM(:brand))
+        ORDER BY name ASC
+    """)
     fun getProductsByBrand(brand: String): Flow<List<Product>>
 
     @Query("SELECT * FROM products WHERE isFavorite = 1 ORDER BY name ASC")
@@ -55,7 +62,6 @@ interface ProductDao {
     @Query("SELECT COUNT(*) FROM products")
     suspend fun getProductCount(): Int
 
-    // app/src/main/java/com/prog7314/arcticflow/data/dao/ProductDao.kt
     @Query("SELECT * FROM products")
     suspend fun getAllProductsOnce(): List<Product>
 }

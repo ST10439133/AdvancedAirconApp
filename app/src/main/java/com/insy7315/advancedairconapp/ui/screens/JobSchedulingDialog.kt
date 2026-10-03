@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,7 +44,7 @@ fun JobSchedulingDialog(
         "03:30 PM - 05:00 PM"
     )
 
-    // Calculate available dates (next 14 days)
+    // Calculate available dates (next 14 days, weekdays only)
     val availableDates = remember {
         val dates = mutableListOf<Pair<Long, String>>()
         val calendar = Calendar.getInstance()
@@ -107,9 +108,20 @@ fun JobSchedulingDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             availableDates.take(5).forEach { (timestamp, display) ->
+                                // Normalise the chip's stored value to midnight
+                                // so the time slot always wins on merge.
+                                val midnight = remember(timestamp) {
+                                    Calendar.getInstance().apply {
+                                        timeInMillis = timestamp
+                                        set(Calendar.HOUR_OF_DAY, 0)
+                                        set(Calendar.MINUTE, 0)
+                                        set(Calendar.SECOND, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }.timeInMillis
+                                }
                                 FilterChip(
-                                    selected = selectedDate == timestamp,
-                                    onClick = { selectedDate = timestamp },
+                                    selected = selectedDate == midnight,
+                                    onClick = { selectedDate = midnight },
                                     label = {
                                         Text(display, maxLines = 1, softWrap = false)
                                     }
@@ -166,8 +178,11 @@ fun JobSchedulingDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (selectedDate != null && selectedTimeSlot.isNotEmpty()) {
-                        onSchedule(selectedDate!!, selectedTimeSlot)
+                    val d = selectedDate
+                    if (d != null && selectedTimeSlot.isNotEmpty()) {
+                        // Merge date with the chosen slot's start time.
+                        val combined = SouthAfricaLocations.combineDateAndSlot(d, selectedTimeSlot)
+                        onSchedule(combined, selectedTimeSlot)
                     }
                 },
                 enabled = selectedDate != null && selectedTimeSlot.isNotEmpty(),
