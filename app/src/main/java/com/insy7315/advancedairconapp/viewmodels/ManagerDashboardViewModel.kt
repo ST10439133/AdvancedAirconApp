@@ -1,4 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ManagerDashboardViewModel.kt
+//Google for Developers. 2026. Offline-first apps | Android Developers. [Online]. Available at: https://developer.android.com/topic/architecture/data-layer/offline-first [Accessed: 5 October 2026].
+//Google for Developers. 2026. Kotlin flows on Android | Android Developers. [Online]. Available at: https://developer.android.com/kotlin/flow [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application

@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/data/network/SupabaseManager.kt
+//Supabase. 2026. Serving assets from Storage. [Online]. Available at: https://supabase.com/docs/guides/storage/serving/downloads [Accessed: 5 October 2026].
+//Supabase. 2026. Storage Buckets | Supabase Docs. [Online]. Available at: https://supabase.com/docs/guides/storage/buckets/fundamentals [Accessed: 5 October 2026].
+//Supabase. 2026. Securing your data | Supabase Docs. [Online]. Available at: https://supabase.com/docs/guides/database/secure-data [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.network
 
 import com.insy7315.advancedairconapp.BuildConfig

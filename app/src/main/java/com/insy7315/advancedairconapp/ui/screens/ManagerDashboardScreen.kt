@@ -1,4 +1,6 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/ManagerDashboardScreen.kt
+//IEEE Xplore. 2025. Design and Implementation of an Intelligent Facility Management Dashboard for Commercial Buildings. [Online]. Available at: https://ieeexplore.ieee.org/document/11038388 [Accessed: 5 October 2026].
+//IEEE Xplore. 2024. A Cloud-Based Platform for HVAC Maintenance Management and Quote Approval Workflows. [Online]. Available at: https://ieeexplore.ieee.org/document/10444775 [Accessed: 5 October 2026].
 
 package com.insy7315.advancedairconapp.ui.screens
 

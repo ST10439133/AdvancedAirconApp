@@ -1,3 +1,7 @@
+//Android Developers. 2026. Read network state | Connectivity. [Online]. Available at: https://developer.android.com/develop/connectivity/network-ops/reading-network-state [Accessed: 5 October 2026].
+//GitHub. 2026. connectivity_validator/doc/how-it-works.md. [Online]. Available at: https://github.com/sabeelmuttil/connectivity_validator/blob/master/doc/how-it-works.md [Accessed: 5 October 2026].
+// Android Open Source. 2025. NetworkStateTracker.kt - WorkManager. [Online]. Available at: https://android.googlesource.com/platform/frameworks/support/+/90e1ce986b2fecb289231b9e4261611b36bafa68/work/work-runtime/src/main/java/androidx/work/impl/constraints/trackers/NetworkStateTracker.kt [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.network
 
 import android.content.Context

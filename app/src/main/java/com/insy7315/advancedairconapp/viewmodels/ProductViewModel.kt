@@ -1,4 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/viewmodels/ProductViewModel.kt
+//Google for Developers. 2026. StateFlow and SharedFlow | Android Developers. [Online]. Available at: https://developer.android.com/kotlin/flow/stateflow-and-sharedflow [Accessed: 5 October 2026].
+//Google for Developers. 2026. Combine flows | Android Developers. [Online]. Available at: https://developer.android.com/kotlin/flow/combine [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application

@@ -1,3 +1,6 @@
+//Android Developers. 2026. Foreground service types are required. [Online]. Available at: https://developer.android.google.cn/about/versions/14/changes/fgs-types-required?hl=en [Accessed: 5 October 2026].
+// IEEE Xplore. 2026. Building HIPAA-Compliant Offline Edge CRM Workflows with Secure ePHI Management and Resilient Synchronization. [Online]. Available at: https://ieeexplore.ieee.org/document/11476488/similar#similar [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.services
 
 import android.content.Context

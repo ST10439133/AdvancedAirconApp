@@ -1,3 +1,7 @@
+//IEEE Xplore. 2026. A Comparative Study of User Experience in Mobile Banking Authentication Mechanism: Usability Analysis Using Usability Testing and SUS. [Online]. Available at: https://ieeexplore.ieee.org/abstract/document/11323707 [Accessed: 5 October 2026].
+//IEEE Xplore. 2025. Implementation of Biometric Technology in Indonesian Mobile Banking: A TAM Perspective on Enhancing Transaction Security and Enjoyment. [Online]. Available at: https://ieeexplore.ieee.org/abstract/document/11005053 [Accessed: 5 October 2026].
+//Android Developers. 2026. androidx.biometric | API Reference. [Online]. Available at: https://developer.android.com/reference/androidx/biometric/package-summary [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.auth
 
 import android.content.Context

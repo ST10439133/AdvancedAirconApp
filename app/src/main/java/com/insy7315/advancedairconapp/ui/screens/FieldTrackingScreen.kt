@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/FieldTrackingScreen.kt
+// IEEE Xplore. 2023. Real Time Vehicle Tracking System For Smart Cities. [Online]. Available at: https://ieeexplore.ieee.org/document/10245776 [Accessed: 5 October 2026].
+//Google for Developers. 2026. Maps Compose Library | Maps SDK for Android. [Online]. Available at: https://developers.google.com/maps/documentation/android-sdk/maps-compose [Accessed: 5 October 2026].
+//Google for Developers. 2026. Polylines and Polygons to Represent Routes and Areas | Maps SDK for Android. [Online]. Available at: https://developers.google.cn/maps/documentation/android-sdk/polygon-tutorial [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.background

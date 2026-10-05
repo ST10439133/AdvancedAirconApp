@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/data/sync/DataSyncManager.kt
+//IEEE Xplore. 2026. Building HIPAA-Compliant Offline Edge CRM Workflows with Secure ePHI Management and Resilient Synchronization. [Online]. Available at: https://ieeexplore.ieee.org/document/11476488/similar#similar [Accessed: 5 October 2026].
+//Android Developers. 2026. Build an offline-first app | App architecture. [Online]. Available at: https://developer.android.com/topic/architecture/data-layer/offline-first [Accessed: 5 October 2026].
+// Google for Developers. 2026. Use Kotlin coroutines in your Android app. [Online]. Available at: https://developer.android.com/codelabs/kotlin-coroutines [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.sync
 
 import android.content.Context

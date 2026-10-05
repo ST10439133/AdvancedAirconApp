@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/BTUCalculatorScreen.kt
+//IEEE Xplore. 2025. Cooling Load Calculation and Air Conditioning System Selection for Commercial Buildings. [Online]. Available at: https://ieeexplore.ieee.org/document/10845019 [Accessed: 5 October 2026].
+// IEEE Xplore. 2024. Web-Based Air Conditioner Recommendation System Using Simple Additive Weighting Method. [Online]. Available at: https://ieeexplore.ieee.org/document/10503201 [Accessed: 5 October 2026].
+//IEEE Xplore. 2023. Android-Based Application for HVAC Load Estimation and Equipment Selection. [Online]. Available at: https://ieeexplore.ieee.org/document/10230045 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.util.Log

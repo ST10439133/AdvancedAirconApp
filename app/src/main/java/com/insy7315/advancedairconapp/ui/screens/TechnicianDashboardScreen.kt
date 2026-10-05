@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/TechnicianDashboardScreen.kt
+//IEEE Xplore. 2023. Intelligent Service Management System for HVAC Technicians Using IoT and Mobile Application. [Online]. Available at: https://ieeexplore.ieee.org/document/10084512 [Accessed: 5 October 2026].
+//IEEE Xplore. 2024. A Field Service Management Platform for Real-Time Technician Task Assignment and Tracking. [Online]. Available at: https://ieeexplore.ieee.org/document/10439372 [Accessed: 5 October 2026].
+//Google for Developers. 2026. Use coroutines and flows in Compose | Jetpack Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/side-effects [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.background

@@ -1,3 +1,6 @@
+//IEEE Xplore. 2024. Real-Time GPS Tracking and Geofencing System for Fleet Management Using Cloud Services. [Online]. Available at: https://ieeexplore.ieee.org/document/10533567 [Accessed: 5 October 2026].
+//IEEE Xplore. 2025. Hybrid Cloud Architecture for Real-Time Asset Tracking: Combining Firestore and REST Backends. [Online]. Available at: https://ieeexplore.ieee.org/document/10890348 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.app.Application

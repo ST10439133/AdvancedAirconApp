@@ -1,4 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/AddBuildingScreen.kt
+//IEEE Xplore. 2023. Design and Development of an Android-Based Building Management System Using Location Services. [Online]. Available at: https://ieeexplore.ieee.org/document/10184486 [Accessed: 5 October 2026].
+//IEEE Xplore. 2024. User-Friendly Data Entry Design for Mobile Facility Management Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/10455021 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast

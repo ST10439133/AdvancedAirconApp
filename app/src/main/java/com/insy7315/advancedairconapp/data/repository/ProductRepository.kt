@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/data/repository/ProductRepository.kt
+//Android Developers. 2026. Repository pattern | Android Developers. [Online]. Available at: https://developer.android.com/codelabs/basic-android-kotlin-training-repository-pattern [Accessed: 5 October 2026].
+//IEEE Xplore. 2024. Development of Android-Based Catalogue Application Using Room Database and MVVM Architecture. [Online]. Available at: https://ieeexplore.ieee.org/document/10467923 [Accessed: 5 October 2026].
+//Google for Developers. 2026. Data Layer - Android Architecture Guide. [Online]. Available at: https://developer.android.com/topic/architecture/data-layer [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.repository
 
 import com.insy7315.advancedairconapp.data.dao.BrochureDao

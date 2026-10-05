@@ -1,3 +1,7 @@
+//IEEE Xplore. 2019. An Observational Study on the State of REST API Uses in Android Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/8816905 [Accessed: 5 October 2026].
+//IEEE Xplore. 2018. Android REST APIs: Volley vs Retrofit. [Online]. Available at: https://ieeexplore.ieee.org/document/8618824 [Accessed: 5 October 2026].
+//IEEE Xplore. 2025. A Case Study on Simplifying Mobile Integration Using JAX-RS Reference Implementation for RESTful Web Services. [Online]. Available at: https://ieeexplore.ieee.org/document/11126122 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.api
 
 import android.content.Context

@@ -1,3 +1,7 @@
+//IEEE Xplore. 2019. An Observational Study on the State of REST API Uses in Android Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/8816905 [Accessed: 5 October 2026].
+//Google Open Source. 2026. Gson User Guide. [Online]. Available at: https://android.googlesource.com/platform/external/gson/+/refs/heads/main/UserGuide.md [Accessed: 5 October 2026].
+//IEEE Xplore. 2018. Android REST APIs: Volley vs Retrofit. [Online]. Available at: https://ieeexplore.ieee.org/document/8618824 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.api
 
 import com.google.gson.annotations.SerializedName

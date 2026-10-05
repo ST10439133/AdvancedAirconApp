@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/utils/LocationHelper.kt
+//Google for Developers. 2026. Get the last known location | Android Developers. [Online]. Available at: https://developer.android.com/develop/sensors-and-location/location/retrieve-current [Accessed: 5 October 2026].
+//Google for Developers. 2026. Request location permissions | Android Developers. [Online]. Available at: https://developer.android.com/develop/sensors-and-location/location/permissions [Accessed: 5 October 2026].
+
+
 package com.insy7315.advancedairconapp.utils
 
 import android.Manifest

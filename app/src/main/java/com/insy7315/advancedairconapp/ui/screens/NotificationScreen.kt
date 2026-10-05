@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/NotificationScreen.kt
+//IEEE Xplore. 2025. Design and Implementation of a Real-Time Notification System for Android-Based Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/11045678 [Accessed: 5 October 2026].
+//IEEE Xplore. 2024. A Comprehensive Analysis of Push Notification Technology in Mobile Applications and Its Impact on User Engagement. [Online]. Available at: https://ieeexplore.ieee.org/document/10459575 [Accessed: 5 October 2026].
+//Android Developers. 2026. ScrollableTabRow | API reference. [Online]. Available at: https://developer.android.com/reference/kotlin/androidx/compose/material3/package-summary#ScrollableTabRow(kotlin.Int,androidx.compose.ui.Modifier,kotlin.Int,androidx.compose.ui.graphics.Color,androidx.compose.ui.unit.Dp,androidx.compose.ui.graphics.Color,androidx.compose.foundation.layout.PaddingValues,kotlin.Function1) [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.clickable

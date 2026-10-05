@@ -1,3 +1,7 @@
+//Android Developers. 2026. PeriodicWorkRequest | API reference. [Online]. Available at: https://developer.android.com/reference/kotlin/androidx/work/PeriodicWorkRequest [Accessed: 5 October 2026].
+//Android Developers. 2026. Constraints.Builder | API reference. [Online]. Available at: https://developer.android.com/reference/androidx/work/Constraints.Builder [Accessed: 5 October 2026].
+//Android Developers. 2026. Background work. [Online]. Available at: https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.sync
 
 import android.content.Context

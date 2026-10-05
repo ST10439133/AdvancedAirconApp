@@ -1,3 +1,7 @@
+// IEEE Xplore. 2024. Real-Time Vehicle Tracking System Using Firebase Cloud Firestore. [Online]. Available at: https://ieeexplore.ieee.org/document/10533567 [Accessed: 5 October 2026].
+//IEEE Xplore. 2023. Firestore: The NoSQL Serverless Database for the Application Developer. [Online]. Available at: https://research.google/pubs/firestore-the-nosql-serverless-database-for-the-application-developer/ [Accessed: 5 October 2026].
+//IEEE Xplore. 2025. Design and Implementation of a Real-Time Logistics Tracking Platform Based on Cloud Firestore and Android. [Online]. Available at: https://ieeexplore.ieee.org/document/10890348 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.network
 
 import android.util.Log

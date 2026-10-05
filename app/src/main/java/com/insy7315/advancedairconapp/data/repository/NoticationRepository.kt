@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/data/repository/NotificationRepository.kt
+//Android Developers. 2026. Repository pattern | Android Developers. [Online]. Available at: https://developer.android.com/codelabs/basic-android-kotlin-training-repository-pattern [Accessed: 5 October 2026].
+//Android Developers. 2026. Android Room with a View - Kotlin | Android Developers. [Online]. Available at: https://developer.android.com/codelabs/android-room-with-a-view-kotlin [Accessed: 5 October 2026].
+//Actito. 2026. Inbox | Android | SDK. [Online]. Available at: https://docs.notifica.re/sdk/v5/android/inbox/ [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.repository
 
 import com.insy7315.advancedairconapp.data.dao.NotificationDao

@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/auth/AuthViewModel.kt
+//IEEE Xplore. 2025. Enhancing Mobile Applications with Firebase: A Case Study of the Eco-Explore App. [Online]. Available at: https://ieeexplore.ieee.org/document/11171090 [Accessed: 3 October 2026].
+//IEEE Xplore. 2023. Firestore: The NoSQL Serverless Database for the Application Developer. [Online]. Available at: https://research.google/pubs/firestore-the-nosql-serverless-database-for-the-application-developer/ [Accessed: 3 October 2026].
+//IEEE Xplore. 2024. Development of SQL and NoSQL Database Integration Using Query Direct Access and Change Data Capture Approaches in an Android Application. [Online]. Available at: https://ieeexplore.ieee.org/document/10862087 [Accessed: 3 October 2026].
+
 package com.insy7315.advancedairconapp.auth
 
 import android.app.Application

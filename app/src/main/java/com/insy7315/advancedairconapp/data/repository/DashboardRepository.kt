@@ -1,3 +1,7 @@
+//IEEE Xplore. 2025. Design and Development of Book Tracker Application Using MVVM Architecture on Android to Improve the Literacy of FIK UPNVJ Student. [Online]. Available at: https://ieeexplore.ieee.org/document/11327212 [Accessed: 5 October 2026].
+//Google for Developers. 2021. Refactoring Duolingo on Android with MVVM and Jetpack Libraries | Developer Stories. [Online]. Available at: https://developer.android.com/stories/apps/duolingo-excellence [Accessed: 5 October 2026].
+//Garuda. 2026. Comparative Performance Analysis of MVVM and MVI Architectures in Android Applications. [Online]. Available at: https://garuda.kemdiktisaintek.go.id/documents/detail/5943081 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.repository
 
 import com.insy7315.advancedairconapp.data.entities.*

@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/ProductListScreen.kt
+//IEEE Xplore. 2024. Design and Development of a Mobile Product Catalogue Application Using Android and Cloud Storage. [Online]. Available at: https://ieeexplore.ieee.org/document/10467923 [Accessed: 5 October 2026].
+//IEEE Xplore. 2023. Product Recommendation System for HVAC Equipment Selection Using Multi-Criteria Decision Making. [Online]. Available at: https://ieeexplore.ieee.org/document/10085412 [Accessed: 5 October 2026].
+// Coil. 2026. Coil Compose | Coil. [Online]. Available at: https://coil-kt.github.io/coil/compose/ [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.util.Log

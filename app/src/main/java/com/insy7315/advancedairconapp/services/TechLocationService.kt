@@ -1,3 +1,7 @@
+// Android Developers. 2026. Foreground service types are required. [Online]. Available at: https://developer.android.com/about/versions/14/changes/fgs-types-required [Accessed: 5 October 2026].
+//Stack Overflow. 2021. Coroutine doesn't stop when the service containing it stops. [Online]. Available at: https://stackoverflow.com/questions/68353369/coroutine-doesnt-stop-when-the-service-containing-it-stops [Accessed: 5 October 2026].
+//Android Developers. 2026. About background location and battery life. [Online]. Available at: https://developer.android.com/develop/sensors-and-location/location/battery [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.services
 
 import android.annotation.SuppressLint

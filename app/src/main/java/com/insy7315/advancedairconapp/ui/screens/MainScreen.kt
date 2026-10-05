@@ -1,4 +1,8 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/MainScreen.kt
+//Android Developers. 2026. Navigation with Compose | Jetpack Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/navigation [Accessed: 5 October 2026].
+//Android Developers. 2026. Material 3 NavigationBar | Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/components/navigation-bar [Accessed: 5 October 2026].
+//Android Developers. 2026. Navigation — Conditional navigation | Android Developers. [Online]. Available at: https://developer.android.com/guide/navigation/design/conditional [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.ui.screens
 
 import androidx.compose.foundation.layout.*

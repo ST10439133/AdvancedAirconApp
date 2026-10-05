@@ -1,3 +1,7 @@
+//IEEE Xplore. 2025. Advanced Data Collection and Visualization Techniques for Smart Building Management Systems. [Online]. Available at: https://ieeexplore.ieee.org/document/11029104 [Accessed: 5 October 2026].
+// IEEE Xplore. 2024. Research on the Application of Digital Twin Technology in Intelligent Building Operation and Maintenance Management. [Online]. Available at: https://ieeexplore.ieee.org/document/10737251 [Accessed: 5 October 2026].
+// IEEE Xplore. 2025. AI-Driven HVAC Energy Management Framework Using Digital Twin Technology for Commercial Buildings. [Online]. Available at: https://ieeexplore.ieee.org/document/10984721 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.data.entities
 
 data class DashboardStats(

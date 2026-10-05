@@ -1,4 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/MainActivity.kt
+//Android Developers. 2026. App startup time | Android Developers. [Online]. Available at: https://developer.android.com/topic/performance/vitals/launch-time [Accessed: 5 October 2026].
+//Google for Developers. 2026. Per-app language preferences | Android Developers. [Online]. Available at: https://developer.android.com/guide/topics/resources/app-languages [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp
 
 import android.content.Context

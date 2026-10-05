@@ -1,3 +1,6 @@
+//Android Developers. 2026. App-level language preferences | Android Developers. [Online]. Available at: https://developer.android.com/guide/topics/resources/app-languages [Accessed: 5 October 2026].
+//IEEE Xplore. 2023. Android Application Localization: Approaches and Best Practices for Multi-Language Support. [Online]. Available at: https://ieeexplore.ieee.org/document/10176544 [Accessed: 5 October 2026].
+
 package com.insy7315.advancedairconapp.utils
 
 import android.content.Context
