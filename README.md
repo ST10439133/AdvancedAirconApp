@@ -1,11 +1,21 @@
 # INSY7315 - TEAM LOGIX
+## Group members
+- ST10439133 - Camryn Naidoo
+- ST10441399 - Suvan Samlall
+- ST10451026 - Calib Frank
+- ST10446908 - Caleb Ragaven
+- ST10296234 - Joshua Chetty
+- ST10451537 - Keshvir Parthab
+
+## Suvan Samlall (ST10441399) is submitting our Task 2 WIL assignment on behalf of Camryn Naidoo (ST10439133) who is away and is unable to submit
+
+### Android App Video Link: https: https://youtu.be/sTK4bFBy2yc
+### Android App API GitHub Link: https://github.com/ST10439133/arcticflow-api
+### Website GitHub Link: https://github.com/ST10441359/HvacWebsite.git - you can find the website readme and youtube video in this link
+### Website API Link: https://github.com/ST10441359/AdvancedAirAPI.git - you can find the website api readme in this link
+
 # Advanced Aircon App — HVAC Service Management Platform
 A comprehensive Android application for HVAC service management that connects managers, technicians, and customers through a unified platform. Built with Jetpack Compose, Room, Firebase, and a Node.js backend.
-
-## Android App Video Link: https: https://youtu.be/sTK4bFBy2yc
-## Android App API GitHub Link: https://github.com/ST10439133/arcticflow-api
-## Website GitHub Link: https://github.com/ST10441359/HvacWebsite.git
-## Website API Link: https://github.com/ST10441359/AdvancedAirAPI.git
 
 ## About
 Advanced Aircon App streamlines the entire HVAC service lifecycle — from building registration and service requests to quote generation, job scheduling, real-time technician tracking, and job card completion. The app supports two distinct user roles (Manager and Technician) with role-specific dashboards, offline-first architecture, and multi-language support (English, Afrikaans, isiZulu).
@@ -172,6 +182,9 @@ open the project in Android Studio and click Run.
 
 ## Hosted On Railway
 <img width="1917" height="952" alt="api deployed" src="https://github.com/user-attachments/assets/67e1affa-e300-4a25-9ff8-0c7a41d4f18b" />
+
+## References
+Done in code
 
 
 
