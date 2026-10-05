@@ -224,6 +224,9 @@ fun RegisterScreen(
                     }
                     else -> {
                         coroutineScope.launch {
+                            // New accounts always register as MANAGER.
+                            // Technicians are provisioned through a
+                            // separate administrative flow.
                             viewModel.registerWithEmail(
                                 email = email,
                                 password = password,

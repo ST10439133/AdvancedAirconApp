@@ -25,6 +25,7 @@ import com.insy7315.advancedairconapp.data.entities.User
 import com.insy7315.advancedairconapp.data.entities.UserRole
 import com.insy7315.advancedairconapp.data.network.NetworkMonitor
 import com.insy7315.advancedairconapp.services.TechLocationService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -110,7 +111,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     fallbackRole = null
                 )
 
-                val placeholderRole = existing?.role ?: parsedRole ?: UserRole.TECHNICIAN
+                // MANAGER is the safe default for a fresh cold start.
+                val placeholderRole = existing?.role ?: parsedRole ?: UserRole.MANAGER
 
                 val placeholder = User(
                     uid = firebaseUser.uid,
@@ -133,12 +135,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
     suspend fun registerWithEmail(
         email: String,
         password: String,
         displayName: String,
-        role: UserRole
+        role: UserRole = UserRole.MANAGER
     ): SignInResult {
         _isLoading.value = true
         return try {
@@ -149,10 +150,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return SignInResult(success = false, message = "Registration failed")
             }
 
+            // Embed the role in the Firebase displayName so other devices
+            // can recover it without needing the local Room row.
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .setDisplayName("$displayName|${role.name}")
                 .build()
             firebaseUser.updateProfile(profileUpdates).await()
+            firebaseUser.reload().await()
 
             val user = User(
                 uid = firebaseUser.uid,
@@ -164,11 +168,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(user)
 
-            val finalUser = syncAndResolve(firebaseUser.uid, user)
+            // Trust the local role — do NOT let the server override it
+            // during registration. The server will catch up shortly, and
+            // the next login will naturally reconcile anyway.
+            val finalUser = syncAndResolve(
+                uid = firebaseUser.uid,
+                fallback = user,
+                trustLocalRole = true
+            )
+
+            // Sanity check: the role we return MUST be MANAGER.
+            val resolvedRole = if (finalUser.role == role) finalUser else finalUser.copy(role = role)
+            if (resolvedRole != finalUser) {
+                database.userDao().insertUser(resolvedRole)
+            }
 
             _isLoading.value = false
-            _authState.value = AuthState.Authenticated(finalUser)
-            SignInResult(success = true, user = finalUser)
+            _authState.value = AuthState.Authenticated(resolvedRole)
+            SignInResult(success = true, user = resolvedRole)
         } catch (e: Exception) {
             _isLoading.value = false
             _authState.value = AuthState.Error(e.message ?: "Registration failed")
@@ -261,7 +278,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(seed)
 
-            val finalUser = syncAndResolve(firebaseUser.uid, seed)
+            // For a brand-new Google account we also trust the local
+            // role, so the very first sign-in doesn't get clobbered
+            // by a stale server default. If the account existed already
+            // we let the server reconcile normally.
+            val finalUser = syncAndResolve(
+                uid = firebaseUser.uid,
+                fallback = seed,
+                trustLocalRole = !seenBeforeOnThisDevice
+            )
 
             _isLoading.value = false
             _authState.value = AuthState.Authenticated(finalUser)
@@ -287,7 +312,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val currentUser = auth.currentUser
         return if (currentUser != null) {
             handleFirebaseUser(currentUser)
-            kotlinx.coroutines.delay(200)
+            delay(200)
             val user = database.userDao().getUserById(currentUser.uid)
             SignInResult(success = true, user = user)
         } else {
@@ -304,7 +329,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun syncAndResolve(
         uid: String,
-        fallback: User
+        fallback: User,
+        trustLocalRole: Boolean = false
     ): User {
         val ctx = getApplication<Application>()
 
@@ -337,6 +363,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         if (NetworkMonitor.isOnline(ctx) && ApiClient.hasToken(ctx)) {
             val api = ApiClient.get(ctx)
+
+            // Give the server a moment to commit the write before we
+            // read the user back. This dramatically reduces the chance
+            // of reading a stale role right after a syncUser call.
+            delay(400)
+
             val me = safeApiCall(TAG) { api.getMe() }
             if (me != null) {
                 val serverRole = try {
@@ -345,7 +377,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     Log.w(TAG, "Server returned unknown role '${me.role}'")
                     null
                 }
-                if (serverRole != null && serverRole != fallback.role) {
+
+                if (trustLocalRole) {
+                    // We just wrote the role we want locally. Log the
+                    // server's value for diagnostics, but DO NOT
+                    // overwrite the local role.
+                    Log.d(
+                        TAG,
+                        "trustLocalRole=true — ignoring server role " +
+                                "(server=$serverRole, local=${fallback.role})"
+                    )
+                } else if (serverRole != null && serverRole != fallback.role) {
                     Log.d(
                         TAG,
                         "Server corrected role: ${fallback.role} → $serverRole"
