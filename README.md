@@ -2,7 +2,8 @@
 # Advanced Aircon App — HVAC Service Management Platform
 A comprehensive Android application for HVAC service management that connects managers, technicians, and customers through a unified platform. Built with Jetpack Compose, Room, Firebase, and a Node.js backend.
 
-## Video Link: 
+## Video Link: https: https://youtu.be/sTK4bFBy2yc
+## API GitHub Link: https://github.com/ST10439133/arcticflow-api
 
 ## About
 Advanced Aircon App streamlines the entire HVAC service lifecycle — from building registration and service requests to quote generation, job scheduling, real-time technician tracking, and job card completion. The app supports two distinct user roles (Manager and Technician) with role-specific dashboards, offline-first architecture, and multi-language support (English, Afrikaans, isiZulu).
