@@ -92,7 +92,7 @@ object SampleData {
             isFavorite = false
         ),
 
-        // ==================== Daikin ====================
+        // Daikin
         Product(
             name = "Daikin Emura Wall-Mounted Air Conditioner",
             brand = "Daikin",

@@ -361,35 +361,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return fallback
     }
 
-    /**
-     * Sign-out MUST NOT wipe the technician's server-side tracking row.
-     *
-     * Previously we called ApiRepository.stopTracking() here. That deleted
-     * the row entirely, so when the same technician signed back in the
-     * server had no record of "on my way" and the toggle flipped off.
-     *
-     * We now only stop the LOCAL foreground service. The service already
-     * self-terminates when the JWT is cleared, and MainActivity's
-     * cleanUpStaleTracking() will clear truly-stale rows on cold start if
-     * the tech really isn't on the way to any job.
-     */
     fun signOut() {
         val ctx = getApplication<Application>()
 
-        // 1. Stop the local foreground tracking service.
+        // Stop the local foreground tracking service
         try {
             TechLocationService.stop(ctx)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to stop TechLocationService", e)
         }
 
-        // 2. Sign out of Firebase + Google and clear the JWT.
-        //    (No server-side stopTracking here on purpose — see comment above.)
+        // Sign out of Firebase + Google and clear the JWT
         auth.signOut()
         googleSignInClient.signOut()
         ApiClient.clearToken(ctx)
 
-        // 3. Emit unauthenticated so NavGraph re-routes to login.
+        // Emit unauthenticated so NavGraph re-routes to login
         _authState.value = AuthState.Unauthenticated
     }
 }

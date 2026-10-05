@@ -68,7 +68,7 @@ fun QuoteHistoryScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // ===== Filter chips =====
+            // Filter chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

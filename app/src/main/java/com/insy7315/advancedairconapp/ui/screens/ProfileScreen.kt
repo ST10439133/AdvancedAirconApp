@@ -85,7 +85,7 @@ fun ProfileScreen(
             ) {
                 Spacer(Modifier.height(8.dp))
 
-                // ===== AVATAR =====
+                // AVATAR
                 Surface(
                     modifier = Modifier.size(120.dp),
                     shape = CircleShape,
@@ -133,7 +133,7 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                // ===== INFO CARD =====
+                // INFO CARD
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),

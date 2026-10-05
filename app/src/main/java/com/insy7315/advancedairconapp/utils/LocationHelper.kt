@@ -16,7 +16,7 @@ object LocationHelper {
 
     private const val TAG = "LocationHelper"
 
-    // Fallback location if the device can't provide one (useful for emulators/tests)
+    // Fallback location if the device can't provide one
     private const val FALLBACK_LAT = -26.2041    // Johannesburg
     private const val FALLBACK_LNG = 28.0473
 

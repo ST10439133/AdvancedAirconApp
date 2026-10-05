@@ -355,7 +355,7 @@ fun ProductCard(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ===== PRODUCT IMAGE =====
+            // PRODUCT IMAGE
             Box(
                 modifier = Modifier
                     .size(84.dp)

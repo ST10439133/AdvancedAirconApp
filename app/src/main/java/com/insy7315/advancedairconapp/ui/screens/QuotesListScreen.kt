@@ -38,9 +38,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ============================================================
 // BRAND TOKENS
-// ============================================================
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
@@ -195,9 +193,7 @@ fun QuotesListScreen(
     }
 }
 
-// ============================================================
 // QUOTE ROW
-// ============================================================
 @Composable
 fun QuoteRow(
     quote: Quote,

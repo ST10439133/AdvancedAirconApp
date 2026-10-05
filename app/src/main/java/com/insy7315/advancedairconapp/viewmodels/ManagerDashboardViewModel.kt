@@ -37,14 +37,6 @@ class ManagerDashboardViewModel(
     val pendingRequests: Flow<List<ServiceRequest>> =
         requests.map { list -> list.filter { it.status == RequestStatus.PENDING } }
 
-    /**
-     * All quotes visible to this manager. Matches either:
-     *   - by owning the parent request (requestId ∈ myRequests), OR
-     *   - by explicit customerId == userId.
-     *
-     * The second condition catches quotes whose customerId was resolved
-     * correctly on the server even if the request hasn't synced down yet.
-     */
     val quotes: Flow<List<Quote>> = combine(
         requests.map { reqs -> reqs.map { it.id }.toSet() },
         database.quoteDao().getAllQuotesFlow()
@@ -65,9 +57,7 @@ class ManagerDashboardViewModel(
         catch (e: Exception) { Log.e(TAG, "refreshFromServer failed", e) }
     }
 
-    // ============================================================
     // ACCEPT QUOTE
-    // ============================================================
     suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
@@ -198,9 +188,7 @@ class ManagerDashboardViewModel(
         }
     }
 
-    // ============================================================
     // DECLINE QUOTE
-    // ============================================================
     suspend fun declineQuote(quoteId: Int) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()

@@ -87,22 +87,6 @@ class JobCardViewModel(
         }
     }
 
-    /**
-     * Full submit flow.
-     *
-     * Runs in the caller's scope so the screen can await it before
-     * navigating back (viewModelScope would be cancelled otherwise).
-     *
-     * Order of operations:
-     *   1. Mark the job card SUBMITTED (local).
-     *   2. Mark the job COMPLETED (local).
-     *   3. Stop the local foreground tracking service.
-     *   4. Write a COMPLETED marker to Firestore — this is what the
-     *      manager's device reads to render the green pin.
-     *   5. Push COMPLETED to the REST API (status, on-way off, stopTracking).
-     *   6. Prime the local sticky cache (so the tech's own device
-     *      shows green if they ever open the tracking screen).
-     */
     suspend fun submitJobCardAndWait(jobCardId: Long) {
         _isLoading.value = true
         try {
@@ -146,9 +130,6 @@ class JobCardViewModel(
             }
 
             // 4. Firestore: write an explicit COMPLETED marker.
-            //    Using markCompleted() writes a clean payload with
-            //    status=COMPLETED and isOnMyWay=false, which the
-            //    manager's device can reliably read.
             try {
                 val ok = LocationTrackingManager.markCompleted(
                     technicianId = job.technicianId,
@@ -223,9 +204,6 @@ class JobCardViewModel(
         }
     }
 
-    /**
-     * Legacy fire-and-forget submit. Do NOT call from the UI.
-     */
     suspend fun submitJobCard(jobCardId: Long) {
         viewModelScope.launch {
             submitJobCardAndWait(jobCardId)

@@ -211,7 +211,7 @@ object SouthAfricaLocations {
             "Uitenhage CBD", "KwaNobuhle", "Rosedale"
         ),
 
-        // ============ FREE STATE ============
+        // FREE STATE
         "Free State|Bloemfontein" to listOf(
             "Bloemfontein CBD", "Westdene", "Universitas", "Heidedal",
             "Mangaung", "Langenhoven Park"
@@ -229,7 +229,7 @@ object SouthAfricaLocations {
             "Kroonstad CBD", "Maokeng", "Constantia"
         ),
 
-        // ============ LIMPOPO ============
+        // LIMPOPO
         "Limpopo|Polokwane" to listOf(
             "Polokwane CBD", "Bendor", "Fauna Park", "Seshego", "Mankweng"
         ),

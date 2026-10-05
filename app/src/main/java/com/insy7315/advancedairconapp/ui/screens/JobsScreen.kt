@@ -132,7 +132,7 @@ fun JobsScreen(
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ---- Hero summary ----
+            //Hero summary
             item {
                 Box(
                     modifier = Modifier
@@ -193,7 +193,7 @@ fun JobsScreen(
                 }
             }
 
-            // ---- Section header ----
+            // Section header
             item {
                 Row(
                     modifier = Modifier
@@ -215,7 +215,7 @@ fun JobsScreen(
                 }
             }
 
-            // ---- List / empty ----
+            //List / empty
             if (filteredJobs.isEmpty()) {
                 item {
                     Box(

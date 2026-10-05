@@ -24,18 +24,8 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
 
     private val tag = "ManagerTrackingVM"
 
-    /**
-     * Anything not COMPLETED and not explicitly "on my way" goes
-     * stale after 2 minutes. Rows that ARE "on my way" are always
-     * kept on the map — the timestamp only tells us how fresh the
-     * GPS fix is.
-     */
     private val staleAfterMs = 2L * 60L * 1000L
 
-    /**
-     * COMPLETED markers stay on the map this long, then drop off.
-     * 24 hours covers any realistic technician → manager round-trip.
-     */
     private val completedLingerMs = 24L * 60L * 60L * 1000L
 
     private val _technicians = MutableStateFlow<List<TechLocationDto>>(emptyList())
@@ -145,8 +135,7 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
             val db = ArcticFlowDatabase.getDatabase(getApplication())
             val completedCache = loadCompletedCache()
 
-            // Seed the cache from Firestore on first launch so we catch
-            // completions that happened while this device wasn't polling.
+            // Seed the cache from Firestore on first launch so we catch completions that happened while this device wasn't polling.
             try {
                 val firestoreCompleted = LocationTrackingManager.fetchCompleted()
                 val nowSeed = System.currentTimeMillis()
@@ -183,8 +172,7 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                     val raw = ApiRepository.fetchLocations(getApplication(), customerId)
                     val now = System.currentTimeMillis()
 
-                    // 1. Resolve destination coords locally for any tech
-                    //    the server didn't enrich.
+                    // 1. Resolve destination coords locally for any tech the server didn't enrich.
                     val enriched = raw.map { loc ->
                         if (loc.destinationLatitude != 0.0 ||
                             loc.destinationLongitude != 0.0 ||
@@ -211,8 +199,7 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                         }
                     }
 
-                    // 2. Any tech the server now reports as COMPLETED
-                    //    gets added to / refreshed in our local cache.
+                    // 2. Any tech the server now reports as COMPLETED gets added to / refreshed in our local cache.
                     enriched.forEach { loc ->
                         if (loc.status.equals("COMPLETED", ignoreCase = true)) {
                             completedCache[loc.technicianId] = CachedCompleted(
@@ -222,8 +209,7 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                         }
                     }
 
-                    // 2b. Also pull COMPLETED docs from Firestore on each
-                    //     poll so the green pin appears promptly.
+                    // Also pull COMPLETED docs from Firestore on each poll so the green pin appears promptly.
                     try {
                         val firestoreCompleted = LocationTrackingManager.fetchCompleted()
                         firestoreCompleted.forEach { loc ->
@@ -283,11 +269,7 @@ class ManagerTrackingViewModel(application: Application) : AndroidViewModel(appl
                     }
                     expiredKeys.forEach { completedCache.remove(it) }
 
-                    // 5. Build the set of techs that should be shown as
-                    //    "live". KEY CHANGE: if a tech has is_on_my_way
-                    //    true and status != COMPLETED, we always keep them
-                    //    — regardless of how old lastUpdated is. The
-                    //    timestamp only tells us how fresh the GPS fix is.
+                    // 5. Build the set of techs that should be shown as "live".
                     val liveFromServer = enriched.filter { loc ->
                         val isCompleted =
                             loc.status.equals("COMPLETED", ignoreCase = true)

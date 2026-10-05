@@ -5,10 +5,7 @@ import retrofit2.HttpException
 import java.io.IOException
 
 
-// safeApiCall - runs a suspend API call and returns null on
-// failure. This is what keeps the app resilient when the API
-// is unreachable (offline mode). It also logs the failure so
-// we can diagnose issues in Logcat.
+// safeApiCall - runs a suspend API call and returns null on failure
 
 suspend fun <T> safeApiCall(
     tag: String = "ApiCall",

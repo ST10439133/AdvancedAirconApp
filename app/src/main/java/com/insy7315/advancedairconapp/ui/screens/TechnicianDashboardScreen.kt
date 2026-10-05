@@ -33,9 +33,7 @@ import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ============================================================
 // BRAND TOKENS
-// ============================================================
 private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
@@ -107,7 +105,7 @@ fun TechnicianDashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ===== WELCOME =====
+            // WELCOME
             item {
                 Column {
                     Text(
@@ -227,9 +225,7 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // =========================================================
             // NEW REQUESTS BANNER
-            // =========================================================
             if (pendingRequests.isNotEmpty()) {
                 item {
                     Card(
@@ -290,9 +286,7 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // =========================================================
             // TODAY'S SCHEDULE
-            // =========================================================
             item {
                 Text(
                     "Today's Schedule",
@@ -358,9 +352,7 @@ fun TechnicianDashboardScreen(
     }
 }
 
-// ============================================================
 // Supporting overview tile
-// ============================================================
 @Composable
 private fun TechOverviewTile(
     value: String,
@@ -413,9 +405,7 @@ private fun TechOverviewTile(
     }
 }
 
-// ============================================================
 // Today's job card
-// ============================================================
 @Composable
 private fun TodayJobCard(job: com.insy7315.advancedairconapp.data.entities.Job) {
     val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())

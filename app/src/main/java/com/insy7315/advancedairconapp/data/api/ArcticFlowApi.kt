@@ -2,13 +2,10 @@ package com.insy7315.advancedairconapp.data.api
 
 import retrofit2.http.*
 
-// Retrofit interface describing every REST endpoint exposed by
-// the ArcticFlow Node.js API. The Authorization header is
-// injected globally by ApiClient's OkHttp interceptor, so no
-// @Header("Authorization") parameters are needed here.
+// Retrofit interface describing every REST endpoint exposed by the ArcticFlow Node.js API.
 interface ArcticFlowApi {
 
-    // ---- Users ----
+    // Users
     @POST("api/users/sync")
     suspend fun syncUser(@Body body: UserSyncRequest): UserSyncResponse
 

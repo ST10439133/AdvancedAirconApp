@@ -34,7 +34,7 @@ class QuoteViewModel(
         catch (e: Exception) { Log.e(tag, "refreshFromServer failed", e) }
     }
 
-    // ==================== BUILDINGS ====================
+    // BUILDINGS
     suspend fun addBuilding(userId: String, building: BuildingEntity): Long =
         try {
             val localId = buildingDao.insertBuilding(building.copy(userId = userId))
@@ -68,7 +68,7 @@ class QuoteViewModel(
     suspend fun getBuildingById(buildingId: Int): BuildingEntity? =
         try { buildingDao.getBuildingById(buildingId) } catch (e: Exception) { null }
 
-    // ==================== SERVICE REQUESTS ====================
+    // SERVICE REQUESTS
     suspend fun createServiceRequest(request: ServiceRequest): Long =
         try {
             val localId = requestDao.insertRequest(request)
@@ -145,7 +145,7 @@ class QuoteViewModel(
         try { requestDao.deleteRequest(request) } catch (_: Exception) {}
     }
 
-    // ==================== QUOTES ====================
+    // QUOTES
     suspend fun createQuote(quote: Quote): Long =
         try {
             val localId = quoteDao.insertQuote(quote)
@@ -246,7 +246,7 @@ class QuoteViewModel(
     suspend fun getQuoteById(quoteId: Int): Quote? =
         try { quoteDao.getQuoteById(quoteId) } catch (e: Exception) { null }
 
-    // ==================== QUOTE ACCEPT/DECLINE ====================
+    // QUOTE ACCEPT/DECLINE
     suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
@@ -316,7 +316,7 @@ class QuoteViewModel(
         } catch (e: Exception) { Log.e(tag, "updateQuoteStatusWithSchedule failed", e) }
     }
 
-    // ==================== JOBS ====================
+    // JOBS
     private suspend fun createJobFromQuoteWithSchedule(
         quote: Quote,
         scheduledDate: Long?,
@@ -475,7 +475,7 @@ class QuoteViewModel(
         } catch (e: Exception) { Log.e(tag, "setTechnicianOnWay failed", e) }
     }
 
-    // ==================== NOTIFICATIONS ====================
+    // NOTIFICATIONS
     private suspend fun createNotification(
         userId: String,
         title: String,

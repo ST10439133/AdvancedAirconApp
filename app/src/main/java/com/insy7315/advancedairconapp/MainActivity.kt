@@ -85,20 +85,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * On cold start:
-     *   - If nobody is signed in, stop the local tracking service.
-     *   - If a technician is signed in and has a job marked "on my way",
-     *     make sure the local foreground service is running again so
-     *     the customer keeps seeing them.
-     *   - If a technician is signed in with NO job "on my way", stop the
-     *     local service ONLY. We deliberately DO NOT call
-     *     stopForTechnician(), because that would wipe the technician's
-     *     server-side location row (which is what was flipping the toggle
-     *     off after a manager round-trip).
-     *   - Managers never track — stop the local service only, and never
-     *     touch any technician's server row.
-     */
     private fun cleanUpStaleTracking() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -128,9 +114,7 @@ class MainActivity : ComponentActivity() {
                 val onMyWay = jobs.any { it.technicianOnWay }
 
                 if (onMyWay) {
-                    // The technician is still on the way — restart the
-                    // foreground service so live tracking resumes without
-                    // any user interaction.
+                    // The technician is still on the way
                     val activeJob = jobs.firstOrNull { it.technicianOnWay }
                     Log.d(
                         "MainActivity",
@@ -147,10 +131,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 } else {
-                    // No active job — stop the LOCAL service only.
-                    // DO NOT call stopForTechnician(); that deletes the
-                    // server-side row and would flip the toggle off on
-                    // the tech's next sign-in.
+                    // No active job
                     Log.d(
                         "MainActivity",
                         "No local on-my-way jobs — stopping local service only"

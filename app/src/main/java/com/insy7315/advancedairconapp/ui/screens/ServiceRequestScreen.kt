@@ -108,7 +108,7 @@ fun ServiceRequestScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ---- Empty buildings warning ----
+            // Empty buildings warning
             if (buildings.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

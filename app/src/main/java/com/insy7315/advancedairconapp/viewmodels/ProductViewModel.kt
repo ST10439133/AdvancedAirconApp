@@ -20,13 +20,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/**
- * Bundle of the four UI inputs. Combining these into one object means the
- * `products` flow only ever combines TWO sources (state + raw catalogue),
- * which eliminates the race where two quick setter calls (`_selectedBrand`
- * then `_filterType`) could leave `combine` momentarily observing an
- * inconsistent pair and emitting the wrong list.
- */
 data class ProductUiState(
     val query: String = "",
     val brand: String? = null,
@@ -42,7 +35,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         const val TAG = "ProductFilter"
     }
 
-    // ---------- Repository ----------
+    // Repository
     private val repository = ProductRepository(
         ArcticFlowDatabase.getDatabase(application).productDao(),
         ArcticFlowDatabase.getDatabase(application).brochureDao()
@@ -52,7 +45,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         Log.d(TAG, "ProductViewModel constructed — new code is live")
     }
 
-    // ---------- Legacy state flows (kept for UI compatibility) ----------
+    // Legacy state flows (kept for UI compatibility)
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -74,16 +67,16 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
-    // ---------- Atomic UI state (the one the pipeline actually uses) ----------
+    // Atomic UI state (the one the pipeline actually uses)
     private val _uiState = MutableStateFlow(ProductUiState())
     val uiState: StateFlow<ProductUiState> = _uiState.asStateFlow()
 
-    // ---------- Raw catalogue (subscribed exactly ONCE) ----------
+    // Raw catalogue
     private val catalogue: Flow<List<Product>> =
         repository.getAllProducts()
             .onEach { Log.d(TAG, "Room emitted ${it.size} products") }
 
-    // ---------- Derived, filtered, sorted list ----------
+    // Derived, filtered, sorted list
     val products: StateFlow<List<Product>> =
         combine(catalogue, _uiState) { all, state ->
             applyFilters(all, state)
@@ -97,7 +90,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         loadBrands()
     }
 
-    // ---------- Filtering / sorting (pure, in-memory) ----------
+    // Filtering / sorting
     private fun applyFilters(all: List<Product>, state: ProductUiState): List<Product> {
         Log.d(
             TAG,
@@ -150,7 +143,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         return sorted
     }
 
-    // ---------- Setters (each writes legacy + atomic in one go) ----------
+    // Setters
     private fun updateState(transform: (ProductUiState) -> ProductUiState) {
         _uiState.value = transform(_uiState.value)
     }
@@ -221,7 +214,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // ---------- Supabase uploads (unchanged) ----------
+    // Supabase uploads
     suspend fun uploadProductImage(
         uri: Uri,
         fileName: String,

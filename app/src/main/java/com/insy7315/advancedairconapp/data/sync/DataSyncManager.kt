@@ -65,9 +65,7 @@ object DataSyncManager {
         return false
     }
 
-    // ============================================================
     // BUILDINGS
-    // ============================================================
     suspend fun syncBuildings(context: Context, userId: String): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -122,9 +120,7 @@ object DataSyncManager {
             inserted
         }
 
-    // ============================================================
     // SERVICE REQUESTS
-    // ============================================================
     suspend fun syncPendingRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -197,9 +193,7 @@ object DataSyncManager {
             changed
         }
 
-    // ============================================================
     // QUOTES
-    // ============================================================
     suspend fun syncCustomerQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -272,22 +266,7 @@ object DataSyncManager {
             changed
         }
 
-    // ============================================================
     // JOBS
-    // ============================================================
-
-    /**
-     * Customer-side job sync.
-     *
-     * technicianOnWay is reconciled defensively:
-     *   - If the local job is COMPLETED or CANCELLED, always accept
-     *     the server's OFF.
-     *   - If local == ON but server says OFF, KEEP the local ON.
-     *     This is the manager's view — the source of truth for
-     *     "on my way" is the technician's own device while they are
-     *     actively tracking. The server may lag behind.
-     *   - Otherwise let the server win.
-     */
     suspend fun syncCustomerJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -345,15 +324,6 @@ object DataSyncManager {
             changed
         }
 
-    /**
-     * Technician-side job sync.
-     *
-     * Same defensive reconciliation as the customer side:
-     * the technician's local "on my way" state is authoritative while
-     * they are tracking, so the server can never flip it off behind
-     * their back (this was causing the toggle to reset after a
-     * manager round-trip).
-     */
     suspend fun syncTechnicianJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
@@ -411,9 +381,7 @@ object DataSyncManager {
             changed
         }
 
-    // ============================================================
     // CONVENIENCE
-    // ============================================================
     suspend fun syncEverything(context: Context, role: String) {
         try {
             if (!ensureToken(context)) {
@@ -440,9 +408,7 @@ object DataSyncManager {
         }
     }
 
-    // ============================================================
-    // DTO -> ENTITY MAPPERS
-    // ============================================================
+    // DTO
 
     private fun BuildingDto.toEntity(userId: String) = BuildingEntity(
         id = 0,

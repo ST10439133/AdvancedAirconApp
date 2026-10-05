@@ -74,16 +74,6 @@ object SyncManager {
         synced
     }
 
-    /**
-     * Replays a queued item against the API.
-     *
-     * Returns TRUE if the item should be removed from the queue, FALSE if
-     * it should be retried later.
-     *
-     * Key rule: if the underlying local entity no longer exists (deleted,
-     * or never inserted), we DROP the queue item — return true. Otherwise
-     * the queue jams forever on items that can never succeed.
-     */
     private suspend fun replay(context: Context, item: SyncQueueEntity): Boolean {
         val json = JSONObject(item.payloadJson)
         val db = ArcticFlowDatabase.getDatabase(context)

@@ -19,7 +19,6 @@ object LocationTrackingManager {
 
     // Technician side
 
-
     suspend fun updateLocation(location: TechLocation): Boolean {
         if (location.technicianId.isBlank()) {
             Log.e(TAG, "Refusing to write location with blank technicianId")
@@ -123,15 +122,6 @@ object LocationTrackingManager {
 
     // READ — Customer side
 
-
-    /**
-     * Streams live locations of technicians currently "on the way".
-     *
-     * NOTE: We intentionally listen to the WHOLE collection (no server-side
-     * whereEqualTo) because a server-side filter on a field that a legacy
-     * document doesn't have would silently exclude that document. Filtering
-     * client-side is more robust here.
-     */
     fun streamActiveLocations(
         customerId: String? = null,
         technicianIds: Set<String>? = null,
@@ -195,11 +185,6 @@ object LocationTrackingManager {
         }
     }
 
-    /**
-     * One-shot read of every Firestore doc currently marked COMPLETED.
-     * The manager-side tracking VM uses this to seed its local sticky
-     * cache, since the REST endpoint may not return completed rows.
-     */
     suspend fun fetchCompleted(): List<TechLocation> {
         return try {
             val snapshot = firestore.collection(COLLECTION)

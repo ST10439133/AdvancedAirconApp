@@ -43,9 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-// ============================================================
 // BRAND TOKENS
-// ============================================================
 private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
@@ -133,9 +131,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // =========================================================
             // OVERVIEW
-            // =========================================================
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
@@ -239,9 +235,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // =========================================================
             // QUOTES AWAITING APPROVAL
-            // =========================================================
             item {
                 Text(
                     "Quotes Awaiting Your Approval",
@@ -312,9 +306,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // =========================================================
             //  QUICK ACTIONS
-            // =========================================================
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -379,7 +371,7 @@ fun ManagerDashboardScreen(
         }
     }
 
-    // ===== SCHEDULING DIALOG =====
+    // SCHEDULING DIALOG
     quoteToSchedule?.let { quote ->
         ScheduleAcceptDialog(
             quote = quote,
@@ -399,9 +391,7 @@ fun ManagerDashboardScreen(
     }
 }
 
-// ============================================================
 // OVERVIEW TILE
-// ============================================================
 @Composable
 fun OverviewTile(
     value: String,
@@ -454,9 +444,7 @@ fun OverviewTile(
     }
 }
 
-// ============================================================
 // QUICK ACTION BUTTON
-// ============================================================
 @Composable
 fun QuickActionButton(
     icon: ImageVector,
@@ -496,9 +484,7 @@ fun QuickActionButton(
     }
 }
 
-// ============================================================
 // PENDING QUOTE CARD
-// ============================================================
 @Composable
 fun PendingQuoteCard(
     quote: Quote,
@@ -602,9 +588,7 @@ fun PendingQuoteCard(
     }
 }
 
-// ============================================================
 // SCHEDULE ACCEPT DIALOG
-// ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleAcceptDialog(
@@ -627,9 +611,6 @@ fun ScheduleAcceptDialog(
 
     val dateFmt = SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault())
     val cal = Calendar.getInstance()
-
-    // IMPORTANT: store only the DATE (midnight). The time will be
-    // merged in from the chosen slot when the user hits Confirm.
     val picker = DatePickerDialog(
         context,
         { _, y, m, d ->

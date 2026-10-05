@@ -94,7 +94,7 @@ fun CreateJobCardScreen(
     var partQtyStr by remember { mutableStateOf("1") }
     var partDropdownExpanded by remember { mutableStateOf(false) }
 
-    // ---- Camera launcher ----
+    // Camera launcher
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -265,7 +265,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            // SECTION 1 - Work Summary
+            // Work Summary
             SectionHeader(icon = Icons.Default.Description, title = "Work Performed")
 
             Card(
@@ -288,7 +288,7 @@ fun CreateJobCardScreen(
                 )
             }
 
-            // SECTION 2 - Job Site Photos
+            //Job Site Photos
             SectionHeader(icon = Icons.Default.AddAPhoto, title = "Job Site Photos")
 
             Card(
@@ -349,7 +349,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            // SECTION 3 - Parts Used
+            //Parts Used
             SectionHeader(icon = Icons.Default.Build, title = "Parts Used")
 
             Card(
@@ -544,7 +544,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            // SECTION 4 - Time Logged
+            //Time Logged
             SectionHeader(icon = Icons.Default.Timer, title = "Time Logged")
 
             Card(
@@ -619,7 +619,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            // SECTION 5 - Additional Notes
+            //Additional Notes
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
             Card(
@@ -699,11 +699,7 @@ fun CreateJobCardScreen(
                                         photoPaths = photoPaths
                                     )
 
-                                    // Await the entire submit here — in the
-                                    // SCREEN's scope, not viewModelScope. That
-                                    // way navigateBack() runs only AFTER the
-                                    // service is stopped, Firestore is updated,
-                                    // and the REST calls have completed.
+                                    // Await the entire submit here
                                     viewModel.submitJobCardAndWait(id)
 
                                     isSubmitting = false
