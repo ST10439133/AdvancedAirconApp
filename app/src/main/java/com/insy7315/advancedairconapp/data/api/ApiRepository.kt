@@ -228,10 +228,15 @@ object ApiRepository {
         dto: TechLocationDto
     ): Boolean = withContext(Dispatchers.IO) {
         val api = ApiClient.get(context)
+
+        // FORCE DURBAN COORDINATES FOR TESTING
+        val forcedLat = -29.8587
+        val forcedLng = 31.0218
+
         val body: Map<String, Any?> = mapOf(
             "technicianName" to dto.technicianName,
-            "latitude"       to dto.latitude,
-            "longitude"      to dto.longitude,
+            "latitude"       to forcedLat,
+            "longitude"      to forcedLng,
             "jobId"          to dto.jobId,
             "customerId"     to dto.customerId,
             "buildingName"   to dto.buildingName,
@@ -247,8 +252,9 @@ object ApiRepository {
         context: Context,
         customerId: String? = null
     ): List<TechLocationDto> = withContext(Dispatchers.IO) {
-        val api = ApiClient.get(context)
-        safeApiCall(TAG) { api.getActiveLocations(customerId) } ?: emptyList()
+        // BYPASSED: Railway backend is down. Returning empty list.
+        // The map uses Firestore directly now.
+        emptyList()
     }
 
     suspend fun stopTracking(context: Context, technicianId: String): Boolean =

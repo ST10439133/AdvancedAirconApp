@@ -237,6 +237,8 @@ class JobCardViewModel(
             }
 
             // 6. Prime the local sticky cache for this device.
+            // NOTE: Commented out because Firestore handles the completed state directly now.
+            /*
             try {
                 ManagerTrackingViewModel.cacheCompletedTechnician(
                     appContext,
@@ -259,6 +261,7 @@ class JobCardViewModel(
             } catch (e: Exception) {
                 Log.w(TAG, "submitJobCardAndWait: local cache prime failed", e)
             }
+            */
 
             _submitSuccess.value = true
             Log.d(TAG, "submitJobCardAndWait: done")

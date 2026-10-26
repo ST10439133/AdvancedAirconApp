@@ -29,14 +29,21 @@ object LocationTrackingManager {
             return false
         }
         return try {
+            // FORCE DURBAN COORDINATES FOR TESTING
+            val forcedLocation = location.copy(
+                latitude = -29.8587,
+                longitude = 31.0218
+            )
+
             firestore.collection(COLLECTION)
-                .document(location.technicianId)
-                .set(location, SetOptions.merge())
+                .document(forcedLocation.technicianId)
+                .set(forcedLocation, SetOptions.merge())
                 .await()
-            Log.d(TAG, "UPDATED → doc=${location.technicianId} " +
-                    "lat=${location.latitude}, lng=${location.longitude}, " +
-                    "jobId=${location.jobId}, customerId=${location.customerId}, " +
-                    "onMyWay=${location.onMyWay}, status=${location.status}")
+
+            Log.d(TAG, "UPDATED → doc=${forcedLocation.technicianId} " +
+                    "lat=${forcedLocation.latitude}, lng=${forcedLocation.longitude}, " +
+                    "jobId=${forcedLocation.jobId}, customerId=${forcedLocation.customerId}, " +
+                    "onMyWay=${forcedLocation.onMyWay}, status=${forcedLocation.status}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update location", e)

@@ -2,7 +2,6 @@
 //Google for Developers. 2026. Get the last known location | Android Developers. [Online]. Available at: https://developer.android.com/develop/sensors-and-location/location/retrieve-current [Accessed: 5 October 2026].
 //Google for Developers. 2026. Request location permissions | Android Developers. [Online]. Available at: https://developer.android.com/develop/sensors-and-location/location/permissions [Accessed: 5 October 2026].
 
-
 package com.insy7315.advancedairconapp.utils
 
 import android.Manifest
@@ -20,9 +19,9 @@ object LocationHelper {
 
     private const val TAG = "LocationHelper"
 
-    // Fallback location if the device can't provide one
-    private const val FALLBACK_LAT = -26.2041    // Johannesburg
-    private const val FALLBACK_LNG = 28.0473
+    // Fallback location if the device can't provide one (Now set to Durban)
+    private const val FALLBACK_LAT = -29.8587
+    private const val FALLBACK_LNG = 31.0218
 
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(context: Context): Location? {

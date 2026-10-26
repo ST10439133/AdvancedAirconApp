@@ -45,6 +45,8 @@ class QuoteViewModel(
             val localId = buildingDao.insertBuilding(building.copy(userId = userId))
             val localRow = buildingDao.getBuildingById(localId.toInt()) ?: return localId
 
+            // TEMPORARILY BYPASSED FOR OFFLINE TESTING
+            /*
             if (NetworkMonitor.isOnline(appContext)) {
                 val dto = ApiRepository.pushBuilding(appContext, localRow)
                 if (dto != null) {
@@ -59,6 +61,7 @@ class QuoteViewModel(
                     appContext, SyncManager.TYPE_BUILDING_CREATE, localId.toInt(), emptyMap()
                 )
             }
+            */
             localId
         } catch (e: Exception) {
             Log.e(tag, "addBuilding failed", e); 0L
