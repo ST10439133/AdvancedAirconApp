@@ -71,6 +71,30 @@ class QuoteViewModel(
     suspend fun getBuildingById(buildingId: Int): BuildingEntity? =
         try { buildingDao.getBuildingById(buildingId) } catch (e: Exception) { null }
 
+    // ============================================================
+    // DIAGNOSTIC VERSION
+    // ============================================================
+    suspend fun getAddressSuggestions(prefix: String, limit: Int = 6): List<String> {
+        val q = prefix.trim()
+        if (q.length < 2) {
+            Log.d("AddrSuggest", "skip: query too short ('$q')")
+            return emptyList()
+        }
+        return try {
+            val all = buildingDao.getAllBuildingsDebug()
+            Log.d("AddrSuggest", "DB has ${all.size} building(s). Query='$q'")
+            all.forEach { b ->
+                Log.d("AddrSuggest", "  row id=${b.id} name='${b.name}' addr='${b.address}' full='${b.fullAddress}'")
+            }
+            val result = buildingDao.findAddressesLike(q).take(limit)
+            Log.d("AddrSuggest", "Result count=${result.size}: $result")
+            result
+        } catch (e: Exception) {
+            Log.e("AddrSuggest", "DAO query failed for '$q'", e)
+            emptyList()
+        }
+    }
+
     // SERVICE REQUESTS
     suspend fun createServiceRequest(request: ServiceRequest): Long =
         try {
@@ -319,10 +343,24 @@ class QuoteViewModel(
         quoteId: Int,
         status: QuoteStatus,
         scheduledDate: Long? = null,
-        timeSlot: String? = null
+        timeSlot: String? = null,
+        declineReason: String? = null,
+        declinedBy: String? = null
     ) {
         try {
-            quoteDao.updateQuoteStatus(quoteId, status)
+            val quoteBefore = quoteDao.getQuoteById(quoteId) ?: return
+
+            if (status == QuoteStatus.DECLINED) {
+                quoteDao.updateQuoteDecline(
+                    quoteId = quoteId,
+                    status = QuoteStatus.DECLINED,
+                    reason = declineReason.orEmpty().trim(),
+                    by = declinedBy ?: "CUSTOMER"
+                )
+            } else {
+                quoteDao.updateQuoteStatus(quoteId, status)
+            }
+
             val quote = quoteDao.getQuoteById(quoteId) ?: return
 
             val online = NetworkMonitor.isOnline(appContext)
@@ -345,17 +383,77 @@ class QuoteViewModel(
                     createJobFromQuoteWithSchedule(quote, scheduledDate, timeSlot)
 
                 QuoteStatus.DECLINED -> {
+                    val reasonText = declineReason.orEmpty().trim()
+                    val notifyUserId = when (quote.declinedBy) {
+                        "TECHNICIAN" -> quote.customerId
+                        else -> quote.technicianId
+                    }
                     createNotification(
-                        userId = quote.technicianId,
+                        userId = notifyUserId,
                         title = "Quote Declined",
-                        message = "Your quote for ${quote.buildingName} was declined.",
+                        message = "Quote #${quote.id} for ${quote.buildingName} was declined." +
+                                if (reasonText.isNotBlank()) " Reason: \"$reasonText\"" else "",
                         type = NotificationType.QUOTE
                     )
                     updateRequestStatus(quote.requestId, RequestStatus.PENDING)
+
+                    if (online && sq != null) {
+                        try {
+                            ApiRepository.updateQuoteDeclineReason(
+                                context = appContext,
+                                serverId = sq,
+                                reason = reasonText,
+                                declinedBy = quote.declinedBy ?: "CUSTOMER"
+                            )
+                        } catch (e: Exception) {
+                            Log.w(tag, "Decline reason sync failed", e)
+                        }
+                    }
                 }
                 else -> {}
             }
-        } catch (e: Exception) { Log.e(tag, "updateQuoteStatusWithSchedule failed", e) }
+        } catch (e: Exception) {
+            Log.e(tag, "updateQuoteStatusWithSchedule failed", e)
+        }
+    }
+
+    suspend fun technicianDeclineJob(jobId: Int, reason: String) {
+        try {
+            val job = jobDao.getJobById(jobId) ?: return
+            // job.quoteId is the LOCAL Room id of the quote — look it up directly.
+            val quote = quoteDao.getQuoteById(job.quoteId)
+
+            jobDao.updateJobStatus(jobId, JobStatus.CANCELLED)
+
+            if (quote != null) {
+                quoteDao.updateQuoteDecline(
+                    quoteId = quote.id,
+                    status = QuoteStatus.DECLINED,
+                    reason = reason.trim(),
+                    by = "TECHNICIAN"
+                )
+
+                createNotification(
+                    userId = quote.customerId,
+                    title = "Job Declined by Technician",
+                    message = "Your technician declined job #${job.id} for ${job.buildingName}. " +
+                            "Reason: \"${reason.trim()}\"",
+                    type = NotificationType.JOB
+                )
+
+                if (NetworkMonitor.isOnline(appContext)) {
+                    quote.serverId?.let { sid ->
+                        try {
+                            ApiRepository.updateQuoteStatus(appContext, sid, "DECLINED")
+                        } catch (e: Exception) {
+                            Log.w(tag, "technicianDeclineJob server push failed", e)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "technicianDeclineJob failed", e)
+        }
     }
 
     // ============================================================
@@ -612,10 +710,6 @@ class QuoteViewModel(
     // DOUBLE-BOOKING VALIDATION
     // ============================================================
 
-    /**
-     * Returns the technician's already-scheduled jobs on the same
-     * calendar day as [scheduledDate].
-     */
     private suspend fun jobsForTechnicianOnSameDay(
         technicianId: String,
         scheduledDate: Long
@@ -636,18 +730,12 @@ class QuoteViewModel(
         }
     }
 
-    /**
-     * Parses "08:00 AM" (from the start of "08:00 AM - 09:30 AM")
-     * into its start-of-day offset in milliseconds.
-     */
     private fun parseSlotStartMs(slot: String): Long? {
         return try {
             val startPart = slot.substringBefore("-").trim()
             val fmt = SimpleDateFormat("hh:mm a", Locale.US)
             fmt.parse(startPart)?.time
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     private fun parseSlotEndMs(slot: String): Long? {
@@ -655,18 +743,9 @@ class QuoteViewModel(
             val endPart = slot.substringAfter("-").trim()
             val fmt = SimpleDateFormat("hh:mm a", Locale.US)
             fmt.parse(endPart)?.time
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
-    /**
-     * Returns a user-facing error message if the proposed schedule
-     * collides with an existing job for this technician, or null if
-     * the slot is free.
-     *
-     * Call this BEFORE persisting an ACCEPTED quote / SCHEDULED job.
-     */
     suspend fun validateBookingConflict(
         technicianId: String,
         scheduledDate: Long,
@@ -688,7 +767,6 @@ class QuoteViewModel(
             if (existingSlot.isBlank()) {
                 return "Technician already has a job scheduled on this day."
             }
-
             if (existingSlot.equals(timeSlot, ignoreCase = true)) {
                 return "This time slot is already booked for ${job.buildingName}."
             }

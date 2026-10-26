@@ -20,13 +20,6 @@ interface QuoteDao {
     @Query("SELECT * FROM quotes WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun getQuotesByCustomer(customerId: String): Flow<List<Quote>>
 
-    /**
-     * Returns every quote the customer should see.
-     *
-     * A quote belongs to the customer if EITHER:
-     *   - the quote's customerId matches, OR
-     *   - the quote is attached to a request this customer owns.
-     */
     @Query("""
         SELECT q.* FROM quotes q
         LEFT JOIN service_requests r ON r.id = q.requestId
@@ -67,7 +60,6 @@ interface QuoteDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    // callers that specifically mean "this is the payment finalizer"
     @Query("UPDATE quotes SET status = :status, updatedAt = :updatedAt WHERE id = :quoteId")
     suspend fun updateQuoteStatusAndTotal(
         quoteId: Int,
@@ -75,7 +67,6 @@ interface QuoteDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    // update pricing (discounts / adjustments)
     @Query("""
         UPDATE quotes 
         SET grandTotal = :grandTotal, 
@@ -104,11 +95,6 @@ interface QuoteDao {
     @Query("UPDATE quotes SET serverId = :serverId WHERE id = :localId")
     suspend fun setServerId(localId: Int, serverId: Int)
 
-
-    // PAYMENT LIFECYCLE
-
-
-    // Record a successful payment against a quote and flip to PAID.
     @Query("""
         UPDATE quotes
         SET status = 'PAID',
@@ -123,10 +109,25 @@ interface QuoteDao {
         paidAt: Long = System.currentTimeMillis()
     )
 
-    // Flip a quote to AWAITING_PAYMENT after the job card is submitted.
     @Query("UPDATE quotes SET status = 'AWAITING_PAYMENT', updatedAt = :updatedAt WHERE id = :quoteId")
     suspend fun markAwaitingPayment(
         quoteId: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+        UPDATE quotes
+        SET status = :status,
+            declineReason = :reason,
+            declinedBy = :by,
+            updatedAt = :updatedAt
+        WHERE id = :quoteId
+    """)
+    suspend fun updateQuoteDecline(
+        quoteId: Int,
+        status: QuoteStatus,
+        reason: String,
+        by: String,
         updatedAt: Long = System.currentTimeMillis()
     )
 }

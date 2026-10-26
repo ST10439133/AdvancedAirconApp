@@ -70,6 +70,7 @@ fun QuotesListScreen(
     }
 
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
+    var quoteToDecline by remember { mutableStateOf<Quote?>(null) }
 
     Scaffold(
         topBar = {
@@ -151,19 +152,7 @@ fun QuotesListScreen(
                         showActions = isCustomer && quote.status == QuoteStatus.PENDING,
                         onClick = { /* TODO: open quote details */ },
                         onAccept = { quoteToSchedule = quote },
-                        onDecline = {
-                            scope.launch {
-                                viewModel.updateQuoteStatusWithSchedule(
-                                    quoteId = quote.id,
-                                    status = QuoteStatus.DECLINED
-                                )
-                                Toast.makeText(
-                                    context,
-                                    "Quote #${quote.id} declined.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
+                        onDecline = { quoteToDecline = quote },
                         onViewReceipt = { navManager.navigateToReceiptViewer(quote.id) }
                     )
                 }
@@ -171,7 +160,7 @@ fun QuotesListScreen(
         }
     }
 
-    // FIXED: validate before touching state
+    // Schedule dialog — validates the time slot before accepting
     quoteToSchedule?.let { quote ->
         ScheduleQuoteDialog(
             quote = quote,
@@ -199,6 +188,48 @@ fun QuotesListScreen(
                         Toast.LENGTH_LONG
                     ).show()
                     quoteToSchedule = null
+                }
+            }
+        )
+    }
+
+    // Decline dialog — forces a reason
+    quoteToDecline?.let { quote ->
+        DeclineReasonDialog(
+            title = if (isCustomer) "Decline Quote" else "Decline Job",
+            subtitle = "Quote #${quote.id} — ${quote.buildingName}",
+            confirmLabel = "Decline",
+            onDismiss = { quoteToDecline = null },
+            onConfirm = { reason ->
+                scope.launch {
+                    if (isCustomer) {
+                        viewModel.updateQuoteStatusWithSchedule(
+                            quoteId = quote.id,
+                            status = QuoteStatus.DECLINED,
+                            declineReason = reason,
+                            declinedBy = "CUSTOMER"
+                        )
+                    } else {
+                        // Technician declining — use the job-decline path
+                        val job = viewModel.getJobForQuote(quote.id)
+                        if (job != null) {
+                            viewModel.technicianDeclineJob(job.id, reason)
+                        } else {
+                            // Fallback: no job yet, decline the quote directly
+                            viewModel.updateQuoteStatusWithSchedule(
+                                quoteId = quote.id,
+                                status = QuoteStatus.DECLINED,
+                                declineReason = reason,
+                                declinedBy = "TECHNICIAN"
+                            )
+                        }
+                    }
+                    Toast.makeText(
+                        context,
+                        "Quote #${quote.id} declined.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    quoteToDecline = null
                 }
             }
         )
@@ -313,6 +344,31 @@ fun QuoteRow(
                     fontWeight = FontWeight.Bold,
                     color = BabyBlueDeep
                 )
+            }
+
+            // Decline reason panel — shown when DECLINED
+            if (quote.status == QuoteStatus.DECLINED && !quote.declineReason.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = ErrorSoft,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Decline reason",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ErrorRed
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            quote.declineReason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ErrorRed
+                        )
+                    }
+                }
             }
 
             // View Receipt action for PAID quotes
@@ -507,6 +563,82 @@ fun ScheduleQuoteDialog(
                     contentColor = Color.White
                 )
             ) { Text("Confirm") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+// DECLINE REASON DIALOG
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeclineReasonDialog(
+    title: String,
+    subtitle: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var reason by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = {
+                        reason = it
+                        error = null
+                    },
+                    label = { Text("Reason for declining *") },
+                    placeholder = { Text("Explain why you are declining…") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp),
+                    isError = error != null
+                )
+                error?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val trimmed = reason.trim()
+                    if (trimmed.isBlank()) {
+                        error = "A reason is required."
+                    } else {
+                        onConfirm(trimmed)
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF8B1E20),
+                    contentColor = Color.White
+                )
+            ) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

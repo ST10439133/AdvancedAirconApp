@@ -34,6 +34,11 @@ data class Quote(
     val status: QuoteStatus = QuoteStatus.PENDING,
     val validUntil: Long = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
     val notes: String = "",
+
+    // NEW: decline reason + who declined
+    val declineReason: String? = null,
+    val declinedBy: String? = null,   // "CUSTOMER" or "TECHNICIAN"
+
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 
@@ -58,4 +63,3 @@ enum class QuoteStatus {
                 part.replaceFirstChar { it.titlecase() }
             }
 }
-

@@ -78,7 +78,6 @@ class ManagerDashboardViewModel(
             val request = requestDao.getRequestById(quote.requestId)
                 ?: return "Service request not found for this quote."
 
-            // ---- Double-booking check ----
             val conflict = validateConflict(
                 technicianId = quote.technicianId,
                 scheduledDate = scheduledDate,
@@ -86,10 +85,8 @@ class ManagerDashboardViewModel(
             )
             if (conflict != null) return conflict
 
-            // 1. Local quote status
             quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
 
-            // 2. Local job
             val newJob = Job(
                 id = 0,
                 serverId = null,
@@ -109,10 +106,8 @@ class ManagerDashboardViewModel(
             )
             val newJobId = jobDao.insertJob(newJob)
 
-            // 3. Local request status
             requestDao.updateRequestStatus(request.id, RequestStatus.ACCEPTED)
 
-            // 4. Local notification for the technician
             notificationDao.insertNotification(
                 Notification(
                     title = "Job Scheduled",
@@ -122,7 +117,6 @@ class ManagerDashboardViewModel(
                 )
             )
 
-            // 5. Push to server (or queue if offline)
             pushAcceptance(
                 quote = quote,
                 request = request,
@@ -137,11 +131,6 @@ class ManagerDashboardViewModel(
         }
     }
 
-    /**
-     * Returns a user-facing error message if the proposed schedule
-     * collides with an existing job for this technician, or null if
-     * the slot is free.
-     */
     private suspend fun validateConflict(
         technicianId: String,
         scheduledDate: Long,
@@ -149,7 +138,6 @@ class ManagerDashboardViewModel(
     ): String? {
         if (technicianId.isBlank() || timeSlot.isBlank()) return null
 
-        // Grab all jobs on that calendar day
         val cal = Calendar.getInstance().apply {
             timeInMillis = scheduledDate
             set(Calendar.HOUR_OF_DAY, 0)
@@ -193,7 +181,6 @@ class ManagerDashboardViewModel(
     ) {
         val online = NetworkMonitor.isOnline(appContext)
 
-        // QUOTE STATUS
         val serverQuoteId = quote.serverId
         if (serverQuoteId != null && online) {
             val ok = ApiRepository.updateQuoteStatus(appContext, serverQuoteId, QuoteStatus.ACCEPTED.name)
@@ -208,7 +195,6 @@ class ManagerDashboardViewModel(
             )
         }
 
-        // JOB CREATE
         if (online) {
             val dto = ApiRepository.pushJob(
                 context = appContext,
@@ -229,7 +215,6 @@ class ManagerDashboardViewModel(
             )
         }
 
-        // REQUEST STATUS
         val serverRequestId = request.serverId
         if (serverRequestId != null && online) {
             val ok = ApiRepository.updateRequestStatus(appContext, serverRequestId, RequestStatus.ACCEPTED.name)
@@ -245,8 +230,12 @@ class ManagerDashboardViewModel(
         }
     }
 
-    // DECLINE QUOTE
+    // DECLINE QUOTE — with optional reason
     suspend fun declineQuote(quoteId: Int) {
+        declineQuoteWithReason(quoteId, "")
+    }
+
+    suspend fun declineQuoteWithReason(quoteId: Int, reason: String) {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
         val notificationDao = database.notificationDao()
@@ -254,12 +243,17 @@ class ManagerDashboardViewModel(
         try {
             val quote = quoteDao.getQuoteById(quoteId)
             if (quote == null) {
-                Log.w(TAG, "declineQuote: quote $quoteId not found")
+                Log.w(TAG, "declineQuoteWithReason: quote $quoteId not found")
                 return
             }
             val request = requestDao.getRequestById(quote.requestId)
 
-            quoteDao.updateQuoteStatus(quoteId, QuoteStatus.DECLINED)
+            quoteDao.updateQuoteDecline(
+                quoteId = quoteId,
+                status = QuoteStatus.DECLINED,
+                reason = reason.trim(),
+                by = "CUSTOMER"
+            )
             if (request != null) {
                 requestDao.updateRequestStatus(request.id, RequestStatus.PENDING)
             }
@@ -267,7 +261,8 @@ class ManagerDashboardViewModel(
             notificationDao.insertNotification(
                 Notification(
                     title = "Quote Declined",
-                    message = "Your quote for ${quote.buildingName} was declined.",
+                    message = "Your quote for ${quote.buildingName} was declined." +
+                            if (reason.trim().isNotBlank()) " Reason: \"${reason.trim()}\"" else "",
                     type = NotificationType.QUOTE,
                     userId = quote.technicianId
                 )
@@ -275,7 +270,6 @@ class ManagerDashboardViewModel(
 
             val online = NetworkMonitor.isOnline(appContext)
 
-            // Quote status
             val sq = quote.serverId
             if (sq != null && online) {
                 val ok = ApiRepository.updateQuoteStatus(appContext, sq, QuoteStatus.DECLINED.name)
@@ -283,6 +277,16 @@ class ManagerDashboardViewModel(
                     appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
                     mapOf("status" to QuoteStatus.DECLINED.name)
                 )
+                try {
+                    ApiRepository.updateQuoteDeclineReason(
+                        context = appContext,
+                        serverId = sq,
+                        reason = reason.trim(),
+                        declinedBy = "CUSTOMER"
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Decline reason sync failed", e)
+                }
             } else {
                 SyncManager.enqueue(
                     appContext, SyncManager.TYPE_QUOTE_STATUS, quote.id,
@@ -290,7 +294,6 @@ class ManagerDashboardViewModel(
                 )
             }
 
-            // Request status
             if (request != null) {
                 val sr = request.serverId
                 if (sr != null && online) {
@@ -307,7 +310,7 @@ class ManagerDashboardViewModel(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "declineQuote failed for quote=$quoteId", e)
+            Log.e(TAG, "declineQuoteWithReason failed for quote=$quoteId", e)
         }
     }
 

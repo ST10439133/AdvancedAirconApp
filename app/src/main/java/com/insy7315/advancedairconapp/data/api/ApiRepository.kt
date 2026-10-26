@@ -141,7 +141,6 @@ object ApiRepository {
         } == true
     }
 
-    // NEW: Update quote pricing on server
     suspend fun updateQuotePricing(
         context: Context,
         serverId: Int,
@@ -162,6 +161,20 @@ object ApiRepository {
             "notes"          to notes
         )
         safeApiCall(TAG) { api.updateQuotePricing(serverId, body); true } == true
+    }
+
+    suspend fun updateQuoteDeclineReason(
+        context: Context,
+        serverId: Int,
+        reason: String,
+        declinedBy: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val api = ApiClient.get(context)
+        val body: Map<String, Any?> = mapOf(
+            "declineReason" to reason,
+            "declinedBy" to declinedBy
+        )
+        safeApiCall(TAG) { api.updateQuoteDecline(serverId, body); true } == true
     }
 
     suspend fun pushJob(

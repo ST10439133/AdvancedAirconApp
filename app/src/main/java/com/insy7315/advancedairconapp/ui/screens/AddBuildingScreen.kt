@@ -6,6 +6,7 @@ package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,7 @@ import com.insy7315.advancedairconapp.data.entities.BuildingEntity
 import com.insy7315.advancedairconapp.data.entities.BuildingType
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // BRAND TOKENS
@@ -62,6 +64,10 @@ fun AddBuildingScreen(
     var provinceExpanded by remember { mutableStateOf(false) }
     var cityExpanded by remember { mutableStateOf(false) }
     var suburbExpanded by remember { mutableStateOf(false) }
+
+    // Address autocomplete state
+    var addressSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showAddressSuggestions by remember { mutableStateOf(false) }
 
     val cities = remember(province) { SouthAfricaLocations.citiesFor(province) }
     val suburbs = remember(province, city) {
@@ -353,9 +359,14 @@ fun AddBuildingScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Street Address Field
                     OutlinedTextField(
                         value = street,
-                        onValueChange = { street = it },
+                        onValueChange = { input ->
+                            street = input
+                            // Show suggestions if the user is typing and hasn't just tapped one
+                            showAddressSuggestions = input.length >= 2
+                        },
                         label = { Text("Street Address *") },
                         placeholder = { Text("e.g. 12 Radar Drive") },
                         modifier = Modifier.fillMaxWidth(),
@@ -364,6 +375,68 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
+                    // Debounced Fetch Effect
+                    LaunchedEffect(street) {
+                        if (street.length < 2) {
+                            addressSuggestions = emptyList()
+                            return@LaunchedEffect
+                        }
+                        delay(250)
+                        val results = viewModel.getAddressSuggestions(street, 6)
+                        addressSuggestions = results
+                        // Auto-open if we have results
+                        if (results.isNotEmpty() && showAddressSuggestions) {
+                            // Results are ready to show
+                        }
+                    }
+
+                    // Inline Suggestion List (Reliable in Scroll Column)
+                    if (showAddressSuggestions && addressSuggestions.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp, bottom = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                        ) {
+                            Column {
+                                addressSuggestions.forEachIndexed { index, suggestion ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                // Fill the street field with the selected address.
+                                                // We grab just the street part (everything before the first comma).
+                                                street = suggestion.substringBefore(",")
+                                                showAddressSuggestions = false
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Place,
+                                            contentDescription = null,
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = suggestion,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.Black,
+                                            maxLines = 2
+                                        )
+                                    }
+                                    if (index < addressSuggestions.lastIndex) {
+                                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Postal Code Field
                     OutlinedTextField(
                         value = postalCode,
                         onValueChange = { input ->
@@ -380,9 +453,8 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
+                    // Full Address Preview
                     if (previewAddress.isNotBlank()) {
-                        // FIXED: Always white surface with black text so the
-                        // preview stays readable in both light and dark themes.
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White,
@@ -419,7 +491,6 @@ fun AddBuildingScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // SUBMIT
             Button(
                 onClick = {
                     if (name.isBlank() || street.isBlank() ||
@@ -485,7 +556,6 @@ fun AddBuildingScreen(
     }
 }
 
-// SECTION HEADER
 @Composable
 private fun SectionHeader(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

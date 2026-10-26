@@ -63,9 +63,14 @@ interface ArcticFlowApi {
         @Body body: StatusUpdate
     )
 
-    // NEW: Update quote pricing (discounts, adjustments)
     @PATCH("api/quotes/{id}/pricing")
     suspend fun updateQuotePricing(
+        @Path("id") id: Int,
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
+    )
+
+    @PATCH("api/quotes/{id}/decline")
+    suspend fun updateQuoteDecline(
         @Path("id") id: Int,
         @Body body: Map<String, @JvmSuppressWildcards Any?>
     )

@@ -102,6 +102,7 @@ fun ManagerDashboardScreen(
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
+    var quoteToDecline by remember { mutableStateOf<Quote?>(null) }
 
     val pendingOnlyCount = pendingQuotes.count { it.status == QuoteStatus.PENDING }
 
@@ -314,16 +315,7 @@ fun ManagerDashboardScreen(
                     PendingQuoteCard(
                         quote = quote,
                         onAccept = { quoteToSchedule = quote },
-                        onDecline = {
-                            scope.launch {
-                                viewModel.declineQuote(quote.id)
-                                Toast.makeText(
-                                    context,
-                                    "Quote declined.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
+                        onDecline = { quoteToDecline = quote }
                     )
                 }
             }
@@ -418,7 +410,7 @@ fun ManagerDashboardScreen(
         }
     }
 
-    // FIXED: acceptQuote now returns a nullable error String
+    // Accept quote — with conflict validation
     quoteToSchedule?.let { quote ->
         ScheduleAcceptDialog(
             quote = quote,
@@ -436,6 +428,23 @@ fun ManagerDashboardScreen(
                         ).show()
                         quoteToSchedule = null
                     }
+                }
+            }
+        )
+    }
+
+    // Decline quote — forces a reason and notifies the technician
+    quoteToDecline?.let { quote ->
+        DeclineReasonDialog(
+            title = "Decline Quote",
+            subtitle = "Quote #${quote.id} — ${quote.buildingName}",
+            confirmLabel = "Decline",
+            onDismiss = { quoteToDecline = null },
+            onConfirm = { reason ->
+                scope.launch {
+                    viewModel.declineQuoteWithReason(quote.id, reason)
+                    Toast.makeText(context, "Quote declined.", Toast.LENGTH_SHORT).show()
+                    quoteToDecline = null
                 }
             }
         )
@@ -673,9 +682,7 @@ fun PendingQuoteCard(
     }
 }
 
-// ================================================================
-// AWAITING PAYMENT CARD — FIXED: black text on white background
-// ================================================================
+// AWAITING PAYMENT CARD
 @Composable
 fun AwaitingPaymentCard(
     quote: Quote,

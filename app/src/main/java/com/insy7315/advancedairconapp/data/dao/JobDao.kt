@@ -36,7 +36,7 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE serverId = :serverId LIMIT 1")
     suspend fun getJobByServerId(serverId: Int): Job?
 
-    // NEW: find the job that was created from a given quote
+    // find the job that was created from a given quote
     @Query("SELECT * FROM jobs WHERE quoteId = :quoteId LIMIT 1")
     suspend fun getJobByLocalQuoteId(quoteId: Int): Job?
 
