@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
@@ -193,7 +194,7 @@ fun QuotesListScreen(
     }
 }
 
-// QUOTE ROW — Edit Pricing removed
+// QUOTE ROW — Edit Pricing removed from manager side
 @Composable
 fun QuoteRow(
     quote: Quote,
@@ -204,12 +205,14 @@ fun QuoteRow(
 ) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
+    // FIXED: AWAITING_PAYMENT branch added so `when` is exhaustive.
     val (statusBg, statusFg, statusIcon) = when (quote.status) {
-        QuoteStatus.PENDING  -> Triple(OrangeSoft,   OrangeAccent, Icons.Default.Schedule)
-        QuoteStatus.ACCEPTED -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
-        QuoteStatus.DECLINED -> Triple(ErrorSoft,    ErrorRed,     Icons.Default.Close)
-        QuoteStatus.EXPIRED  -> Triple(BabyBlueSoft, BabyBlueDeep, Icons.Default.Schedule)
-        QuoteStatus.PAID     -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
+        QuoteStatus.PENDING          -> Triple(OrangeSoft,   OrangeAccent, Icons.Default.Schedule)
+        QuoteStatus.ACCEPTED         -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
+        QuoteStatus.DECLINED         -> Triple(ErrorSoft,    ErrorRed,     Icons.Default.Close)
+        QuoteStatus.EXPIRED          -> Triple(BabyBlueSoft, BabyBlueDeep, Icons.Default.Schedule)
+        QuoteStatus.AWAITING_PAYMENT -> Triple(OrangeSoft,   OrangeAccent, Icons.Default.Payment)
+        QuoteStatus.PAID             -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
     }
 
     Card(

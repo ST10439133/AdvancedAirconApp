@@ -5,6 +5,7 @@
 
 package com.insy7315.advancedairconapp.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,7 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
+import com.insy7315.advancedairconapp.data.entities.Job
 import com.insy7315.advancedairconapp.data.entities.JobStatus
+import com.insy7315.advancedairconapp.data.entities.Quote
 import com.insy7315.advancedairconapp.data.entities.QuoteStatus
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.components.AppTopBar
@@ -44,6 +47,7 @@ private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
 private val OrangeSoft   = Color(0xFFFBE5E8)
 private val SuccessGreen = Color(0xFF2E7D32)
+private val SuccessSoft  = Color(0xFFE6F4EA)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +72,11 @@ fun TechnicianDashboardScreen(
     val myJobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())
     val myQuotes by viewModel.getQuotesForTechnician(userId).collectAsState(initial = emptyList())
     val pendingRequests by viewModel.getPendingServiceRequests().collectAsState(initial = emptyList())
+
+    // NEW: paid quotes — the technician's earnings view
+    val paidQuotes by viewModel
+        .getPaidQuotesForTechnician(userId)
+        .collectAsState(initial = emptyList())
 
     val todayStart = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
@@ -290,6 +299,39 @@ fun TechnicianDashboardScreen(
                 }
             }
 
+            // ============================================================
+            // PAYMENTS RECEIVED — quotes the customer has paid
+            // ============================================================
+            if (paidQuotes.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Payments Received",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${paidQuotes.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                items(paidQuotes, key = { "paid_${it.id}" }) { quote ->
+                    PaidQuoteCard(
+                        quote = quote,
+                        onViewReceipt = {
+                            navManager.navigateToReceiptViewer(quote.id)
+                        }
+                    )
+                }
+            }
+
             // TODAY'S SCHEDULE
             item {
                 Text(
@@ -411,7 +453,7 @@ private fun TechOverviewTile(
 
 // Today's job card
 @Composable
-private fun TodayJobCard(job: com.insy7315.advancedairconapp.data.entities.Job) {
+private fun TodayJobCard(job: Job) {
     val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -472,6 +514,149 @@ private fun TodayJobCard(job: com.insy7315.advancedairconapp.data.entities.Job) 
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
+            }
+        }
+    }
+}
+
+// ================================================================
+// PAID QUOTE CARD — completed and paid
+// ================================================================
+@Composable
+private fun PaidQuoteCard(
+    quote: Quote,
+    onViewReceipt: () -> Unit
+) {
+    val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    val amount = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
+    val paidDate = quote.paidAt?.let { dateFmt.format(Date(it)) } ?: "—"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.3f))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = SuccessSoft,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = SuccessGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            "Payment Received",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = SuccessGreen
+                        )
+                        Text(
+                            "Quote #${quote.id}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Text(
+                    "R${String.format(Locale.US, "%.2f", amount)}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = BabyBlueDeep
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                quote.buildingName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                quote.issueType,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Paid on",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    paidDate,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            quote.paymentReference?.let { ref ->
+                Spacer(Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Reference",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        ref,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = BabyBlueDeep
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = onViewReceipt,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = BabyBlueDeep
+                )
+            ) {
+                Icon(
+                    Icons.Default.Receipt,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "View Receipt",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

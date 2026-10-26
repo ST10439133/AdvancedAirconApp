@@ -5,6 +5,7 @@
     <files-path
         name="job_photos"
         path="job_photos/" />
+    <files-path name="receipts" path="receipts/" />
 
     <!-- Generic cache path (used by other parts of the app if needed) -->
     <cache-path

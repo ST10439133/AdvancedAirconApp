@@ -79,9 +79,14 @@ fun EditQuotePricingScreen(
         }
     }
 
-    // FIXED: allow editing for the full lifecycle except terminal-decline states.
+    // Allow editing for the full lifecycle except terminal-decline states.
+    // FIXED: AWAITING_PAYMENT included so last-minute discounts before
+    // the customer pays are still possible.
     val isEditable = when (quote?.status) {
-        QuoteStatus.PENDING, QuoteStatus.ACCEPTED, QuoteStatus.PAID -> true
+        QuoteStatus.PENDING,
+        QuoteStatus.ACCEPTED,
+        QuoteStatus.AWAITING_PAYMENT,
+        QuoteStatus.PAID -> true
         else -> false
     }
 
@@ -478,12 +483,14 @@ private fun DiscountChip(
 
 @Composable
 private fun StatusPill(status: QuoteStatus) {
+    // AWAITING_PAYMENT branch added so `when` is exhaustive.
     val (bg, fg) = when (status) {
-        QuoteStatus.PENDING  -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
-        QuoteStatus.ACCEPTED -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
-        QuoteStatus.DECLINED -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
-        QuoteStatus.EXPIRED  -> Color(0xFFE8EDF3) to Color(0xFF152A47)
-        QuoteStatus.PAID     -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.PENDING          -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.ACCEPTED         -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.DECLINED         -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
+        QuoteStatus.EXPIRED          -> Color(0xFFE8EDF3) to Color(0xFF152A47)
+        QuoteStatus.AWAITING_PAYMENT -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.PAID             -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
     }
     Surface(shape = RoundedCornerShape(50), color = bg) {
         Text(

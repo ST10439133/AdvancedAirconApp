@@ -67,9 +67,7 @@ interface QuoteDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    // NEW: same as updateQuoteStatus but kept as a separate symbol so
     // callers that specifically mean "this is the payment finalizer"
-    // read clearly. Behaviour is identical.
     @Query("UPDATE quotes SET status = :status, updatedAt = :updatedAt WHERE id = :quoteId")
     suspend fun updateQuoteStatusAndTotal(
         quoteId: Int,
@@ -77,7 +75,7 @@ interface QuoteDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    // NEW: update pricing (discounts / adjustments)
+    // update pricing (discounts / adjustments)
     @Query("""
         UPDATE quotes 
         SET grandTotal = :grandTotal, 
@@ -105,4 +103,30 @@ interface QuoteDao {
 
     @Query("UPDATE quotes SET serverId = :serverId WHERE id = :localId")
     suspend fun setServerId(localId: Int, serverId: Int)
+
+
+    // PAYMENT LIFECYCLE
+
+
+    // Record a successful payment against a quote and flip to PAID.
+    @Query("""
+        UPDATE quotes
+        SET status = 'PAID',
+            paymentReference = :reference,
+            paidAt = :paidAt,
+            updatedAt = :paidAt
+        WHERE id = :quoteId
+    """)
+    suspend fun markPaid(
+        quoteId: Int,
+        reference: String,
+        paidAt: Long = System.currentTimeMillis()
+    )
+
+    // Flip a quote to AWAITING_PAYMENT after the job card is submitted.
+    @Query("UPDATE quotes SET status = 'AWAITING_PAYMENT', updatedAt = :updatedAt WHERE id = :quoteId")
+    suspend fun markAwaitingPayment(
+        quoteId: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 }

@@ -6,6 +6,7 @@ package com.insy7315.advancedairconapp.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,6 +43,7 @@ import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.components.AppTopBar
 import com.insy7315.advancedairconapp.viewmodels.ManagerDashboardViewModel
 import com.insy7315.advancedairconapp.viewmodels.NotificationViewModel
+import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -76,6 +78,11 @@ fun ManagerDashboardScreen(
         factory = NotificationViewModel.Factory(context, userId)
     )
 
+    // NEW: quoteViewModel for the awaiting-payment flow
+    val quoteViewModel: QuoteViewModel = viewModel(
+        factory = QuoteViewModel.Factory(database, context)
+    )
+
     LaunchedEffect(Unit) {
         notificationViewModel.addSampleNotifications()
         viewModel.refreshFromServer("MANAGER")
@@ -86,6 +93,11 @@ fun ManagerDashboardScreen(
     val pendingQuotes by viewModel.pendingQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val acceptedQuotes by viewModel.acceptedQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle(initialValue = null)
+
+    // NEW: quotes awaiting payment
+    val awaitingPayment by quoteViewModel
+        .getAwaitingPaymentQuotesForCustomer(userId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
 
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
 
@@ -315,6 +327,35 @@ fun ManagerDashboardScreen(
                 }
             }
 
+            // ============================================================
+            // AWAITING PAYMENT — customer owes money for completed jobs
+            // ============================================================
+            if (awaitingPayment.isNotEmpty()) {
+                item {
+                    Text(
+                        "Awaiting Payment",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                items(awaitingPayment, key = { "awaiting_${it.id}" }) { quote ->
+                    var jobId by remember(quote.id) { mutableStateOf<Int?>(null) }
+
+                    LaunchedEffect(quote.id) {
+                        jobId = quoteViewModel.getJobForQuote(quote.id)?.id
+                    }
+
+                    AwaitingPaymentCard(
+                        quote = quote,
+                        jobId = jobId,
+                        onPayNow = { jId ->
+                            navManager.navigateToPayment(quote.id, jId)
+                        }
+                    )
+                }
+            }
+
             //  QUICK ACTIONS
             item {
                 Card(
@@ -493,7 +534,7 @@ fun QuickActionButton(
     }
 }
 
-// PENDING QUOTE CARD — Edit Pricing removed from manager side
+// PENDING QUOTE CARD
 @Composable
 fun PendingQuoteCard(
     quote: Quote,
@@ -508,6 +549,7 @@ fun PendingQuoteCard(
         QuoteStatus.DECLINED -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
         QuoteStatus.EXPIRED  -> Color(0xFFE8EDF3) to Color(0xFF152A47)
         QuoteStatus.PAID     -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.AWAITING_PAYMENT -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
     }
 
     Card(
@@ -598,7 +640,6 @@ fun PendingQuoteCard(
 
             Spacer(Modifier.height(14.dp))
 
-            // Only Decline and Accept — no Edit Pricing on manager side
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -628,6 +669,122 @@ fun PendingQuoteCard(
                     Spacer(Modifier.width(4.dp))
                     Text("Accept")
                 }
+            }
+        }
+    }
+}
+
+// ================================================================
+// AWAITING PAYMENT CARD
+// ================================================================
+@Composable
+fun AwaitingPaymentCard(
+    quote: Quote,
+    jobId: Int?,
+    onPayNow: (Int) -> Unit
+) {
+    val amount = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFFFE0B2))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFFE0B2),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Payment,
+                                contentDescription = null,
+                                tint = Color(0xFF8B5A00),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            "Payment Due",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8B5A00)
+                        )
+                        Text(
+                            "Quote #${quote.id}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Text(
+                    "R${String.format(Locale.US, "%.2f", amount)}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = BabyBlueDeep
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                quote.buildingName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                quote.issueType,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "Completed — awaiting your payment",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            Button(
+                onClick = {
+                    val jId = jobId
+                    if (jId != null && jId > 0) {
+                        onPayNow(jId)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = Color.White
+                ),
+                enabled = jobId != null && jobId > 0
+            ) {
+                Icon(
+                    Icons.Default.Payment,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Pay Now",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

@@ -16,6 +16,7 @@ import com.insy7315.advancedairconapp.data.sync.DataSyncManager
 import com.insy7315.advancedairconapp.data.sync.SyncManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -265,6 +266,32 @@ class QuoteViewModel(
     fun getQuotesForTechnician(technicianId: String): Flow<List<Quote>> =
         try { quoteDao.getQuotesByTechnician(technicianId) }
         catch (e: Exception) { flow { emit(emptyList()) } }
+
+    /**
+     * Quotes that belong to a customer and are awaiting payment.
+     * Used by the manager's "Awaiting Payment" section on the dashboard.
+     */
+    fun getAwaitingPaymentQuotesForCustomer(customerId: String): Flow<List<Quote>> =
+        try {
+            quoteDao.getQuotesVisibleToCustomer(customerId).map { list ->
+                list.filter { it.status == QuoteStatus.AWAITING_PAYMENT }
+            }
+        } catch (e: Exception) {
+            flow { emit(emptyList()) }
+        }
+
+    /**
+     * Quotes belonging to this technician that have been PAID.
+     * Used by the technician's "Payments Received" section.
+     */
+    fun getPaidQuotesForTechnician(technicianId: String): Flow<List<Quote>> =
+        try {
+            quoteDao.getQuotesByTechnician(technicianId).map { list ->
+                list.filter { it.status == QuoteStatus.PAID }
+            }
+        } catch (e: Exception) {
+            flow { emit(emptyList()) }
+        }
 
     suspend fun getQuoteById(quoteId: Int): Quote? =
         try { quoteDao.getQuoteById(quoteId) } catch (e: Exception) { null }
@@ -584,6 +611,15 @@ class QuoteViewModel(
 
     suspend fun getJobById(jobId: Int): Job? =
         try { jobDao.getJobById(jobId) } catch (e: Exception) { null }
+
+    /**
+     * Finds the job that was created from this quote.
+     * Used by the receipt viewer and the "Pay Now" flow to link
+     * a quote back to its job.
+     */
+    suspend fun getJobForQuote(quoteId: Int): Job? =
+        try { jobDao.getJobByLocalQuoteId(quoteId) }
+        catch (e: Exception) { null }
 
     suspend fun resolveJobAddress(job: Job): String {
         if (job.fullAddress.isNotBlank()) return job.fullAddress.trim()

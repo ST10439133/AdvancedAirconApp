@@ -221,9 +221,15 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incoming = dto.status.toQuoteStatus()
-                    val shouldUpdate =
-                        !(existing.status == QuoteStatus.ACCEPTED && incoming == QuoteStatus.PENDING)
-                                && !(existing.status == QuoteStatus.DECLINED && incoming == QuoteStatus.PENDING)
+
+                    // Never let a stale PENDING overwrite a progressed state.
+                    // Protects ACCEPTED, DECLINED, AWAITING_PAYMENT, PAID.
+                    val progressed = existing.status == QuoteStatus.ACCEPTED ||
+                            existing.status == QuoteStatus.DECLINED ||
+                            existing.status == QuoteStatus.AWAITING_PAYMENT ||
+                            existing.status == QuoteStatus.PAID
+                    val shouldUpdate = !(progressed && incoming == QuoteStatus.PENDING)
+
                     if (shouldUpdate && existing.status != incoming) {
                         db.quoteDao().updateQuoteStatus(existing.id, incoming)
                         changed++
@@ -257,9 +263,14 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incoming = dto.status.toQuoteStatus()
-                    val shouldUpdate =
-                        !(existing.status == QuoteStatus.ACCEPTED && incoming == QuoteStatus.PENDING)
-                                && !(existing.status == QuoteStatus.DECLINED && incoming == QuoteStatus.PENDING)
+
+                    // Same guard as syncCustomerQuotes.
+                    val progressed = existing.status == QuoteStatus.ACCEPTED ||
+                            existing.status == QuoteStatus.DECLINED ||
+                            existing.status == QuoteStatus.AWAITING_PAYMENT ||
+                            existing.status == QuoteStatus.PAID
+                    val shouldUpdate = !(progressed && incoming == QuoteStatus.PENDING)
+
                     if (shouldUpdate && existing.status != incoming) {
                         db.quoteDao().updateQuoteStatus(existing.id, incoming)
                         changed++
@@ -456,6 +467,13 @@ object DataSyncManager {
         )
     }
 
+    /**
+     * Builds a local Quote from a server DTO.
+     *
+     * The server does not yet return discount or payment metadata, so we
+     * seed those with neutral defaults. The local pricing editor and
+     * payment flow populate them via QuoteDao.markPaid / updateQuotePricing.
+     */
     private suspend fun QuoteDto.toEntity(db: ArcticFlowDatabase): Quote {
         val localRequest = db.serviceRequestDao().getRequestByServerId(requestId)
         return Quote(
@@ -475,10 +493,19 @@ object DataSyncManager {
             totalCost = grandTotal,
             taxAmount = 0.0,
             grandTotal = grandTotal,
+
+            discountType = "NONE",
+            discountValue = 0.0,
+            discountAmount = 0.0,
+            finalTotal = grandTotal,
+
             status = status.toQuoteStatus(),
             validUntil = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
             createdAt = createdAt,
-            updatedAt = createdAt
+            updatedAt = createdAt,
+
+            paymentReference = null,
+            paidAt = null
         )
     }
 

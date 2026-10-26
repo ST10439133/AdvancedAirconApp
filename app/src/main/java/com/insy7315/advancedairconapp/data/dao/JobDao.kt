@@ -1,3 +1,4 @@
+// app/src/main/java/com/insy7315/advancedairconapp/data/dao/JobDao.kt
 package com.insy7315.advancedairconapp.data.dao
 
 import androidx.room.*
@@ -34,6 +35,10 @@ interface JobDao {
 
     @Query("SELECT * FROM jobs WHERE serverId = :serverId LIMIT 1")
     suspend fun getJobByServerId(serverId: Int): Job?
+
+    // NEW: find the job that was created from a given quote
+    @Query("SELECT * FROM jobs WHERE quoteId = :quoteId LIMIT 1")
+    suspend fun getJobByLocalQuoteId(quoteId: Int): Job?
 
     @Query("UPDATE jobs SET status = :status WHERE id = :jobId")
     suspend fun updateJobStatus(jobId: Int, status: JobStatus)

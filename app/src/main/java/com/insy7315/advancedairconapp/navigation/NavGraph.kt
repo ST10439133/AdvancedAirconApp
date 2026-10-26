@@ -1,12 +1,19 @@
 // app/src/main/java/com/insy7315/advancedairconapp/navigation/NavGraph.kt
 package com.insy7315.advancedairconapp.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -16,6 +23,8 @@ import androidx.navigation.compose.composable
 import com.insy7315.advancedairconapp.auth.AuthState
 import com.insy7315.advancedairconapp.auth.AuthViewModel
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
+import com.insy7315.advancedairconapp.data.entities.Job
+import com.insy7315.advancedairconapp.data.entities.Quote
 import com.insy7315.advancedairconapp.ui.screens.*
 import com.insy7315.advancedairconapp.ui.theme.ThemeState
 import com.insy7315.advancedairconapp.viewmodels.*
@@ -195,7 +204,7 @@ fun NavGraph(
             )
         }
 
-        // NEW: edit quote pricing screen
+        // Edit quote pricing screen
         composable(NavManager.Destination.EditQuotePricing.route) { backStackEntry ->
             val quoteId = backStackEntry.arguments?.getString("quoteId")?.toIntOrNull() ?: 0
             EditQuotePricingScreen(
@@ -251,6 +260,135 @@ fun NavGraph(
                 jobId = jobId,
                 navManager = navManager
             )
+        }
+
+        // ============================================================
+        // PAYMENT SCREEN — loads quote + job from Room, then charges
+        // ============================================================
+        composable(NavManager.Destination.Payment.route) { backStackEntry ->
+            val quoteId = backStackEntry.arguments?.getString("quoteId")?.toIntOrNull() ?: 0
+            val jobId = backStackEntry.arguments?.getString("jobId")?.toIntOrNull() ?: 0
+
+            val userName = when (authState) {
+                is AuthState.Authenticated ->
+                    (authState as AuthState.Authenticated).user.displayName
+                        ?.substringBefore("|")?.trim()
+                        ?.ifBlank { "Customer" } ?: "Customer"
+                else -> "Customer"
+            }
+            val userEmail = when (authState) {
+                is AuthState.Authenticated ->
+                    (authState as AuthState.Authenticated).user.email
+                else -> ""
+            }
+
+            // Load the quote + job from Room on the IO dispatcher
+            var quote by remember { mutableStateOf<Quote?>(null) }
+            var job by remember { mutableStateOf<Job?>(null) }
+            var loaded by remember { mutableStateOf(false) }
+
+            LaunchedEffect(quoteId, jobId) {
+                quote = quoteViewModel.getQuoteById(quoteId)
+                job = quoteViewModel.getJobById(jobId)
+                loaded = true
+            }
+
+            if (!loaded) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                val q = quote
+                val j = job
+                if (q == null || j == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Could not load order details",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                } else {
+                    PaymentScreen(
+                        quote = q,
+                        job = j,
+                        customerEmail = userEmail,
+                        customerName = userName,
+                        technicianName = "Technician",
+                        navManager = navManager,
+                        onPaymentComplete = {
+                            // Go back to the dashboard after the customer
+                            // dismisses the success screen.
+                            navManager.navigateToMain()
+                        }
+                    )
+                }
+            }
+        }
+
+        // ============================================================
+        // RECEIPT VIEWER — technicians re-open old receipts
+        // ============================================================
+        composable(NavManager.Destination.ReceiptViewer.route) { backStackEntry ->
+            val quoteId = backStackEntry.arguments?.getString("quoteId")?.toIntOrNull() ?: 0
+
+            val userName = when (authState) {
+                is AuthState.Authenticated ->
+                    (authState as AuthState.Authenticated).user.displayName
+                        ?.substringBefore("|")?.trim()
+                        ?.ifBlank { "User" } ?: "User"
+                else -> "User"
+            }
+
+            var quote by remember { mutableStateOf<Quote?>(null) }
+            var job by remember { mutableStateOf<Job?>(null) }
+            var loaded by remember { mutableStateOf(false) }
+
+            LaunchedEffect(quoteId) {
+                val q = quoteViewModel.getQuoteById(quoteId)
+                quote = q
+                if (q != null) {
+                    // Find the job that belongs to this quote
+                    job = quoteViewModel.getJobForQuote(q.id)
+                }
+                loaded = true
+            }
+
+            if (!loaded) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                val q = quote
+                val j = job
+                if (q == null || j == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Receipt not found",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                } else {
+                    ReceiptViewerScreen(
+                        quote = q,
+                        job = j,
+                        customerName = "Customer",
+                        technicianName = userName,
+                        navManager = navManager
+                    )
+                }
+            }
         }
     }
 }

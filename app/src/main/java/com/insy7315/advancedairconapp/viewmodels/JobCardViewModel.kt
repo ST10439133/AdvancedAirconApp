@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class JobCardViewModel(
     private val database: ArcticFlowDatabase,
@@ -112,6 +113,8 @@ class JobCardViewModel(
             database.jobDao().updateJobStatus(jc.jobId, JobStatus.COMPLETED)
             Log.d(TAG, "submitJobCardAndWait: job ${jc.jobId} marked COMPLETED")
 
+            // 2b. NEW: flip the quote to AWAITING_PAYMENT so the customer's
+            // dashboard surfaces a "Pay Now" prompt on this job.
             val job = database.jobDao().getJobById(jc.jobId)
             if (job == null) {
                 Log.w(TAG, "submitJobCardAndWait: job ${jc.jobId} not found")
@@ -123,6 +126,66 @@ class JobCardViewModel(
                 "submitJobCardAndWait: job loaded, tech=${job.technicianId}, " +
                         "serverId=${job.serverId}"
             )
+
+            // NEW: flip the matching quote to AWAITING_PAYMENT (both local + server)
+            try {
+                val matchingQuote = database.quoteDao()
+                    .getQuoteByServerId(job.serverQuoteId ?: 0)
+                    ?: database.quoteDao().getQuoteById(job.quoteId)
+
+                if (matchingQuote != null) {
+                    database.quoteDao().markAwaitingPayment(matchingQuote.id)
+                    Log.d(
+                        TAG,
+                        "submitJobCardAndWait: quote ${matchingQuote.id} → AWAITING_PAYMENT"
+                    )
+
+                    // Notify the customer
+                    val amountDue = if (matchingQuote.finalTotal > 0)
+                        matchingQuote.finalTotal else matchingQuote.grandTotal
+
+                    database.notificationDao().insertNotification(
+                        Notification(
+                            title = "Job Completed — Payment Due",
+                            message = "Job at ${job.buildingName} is complete. R${
+                                String.format(Locale.US, "%.2f", amountDue)
+                            } is due.",
+                            type = NotificationType.JOB,
+                            userId = job.customerId
+                        )
+                    )
+
+                    // Push status to server (best-effort; will sync on next poll if offline)
+                    if (NetworkMonitor.isOnline(appContext) &&
+                        ApiClient.hasToken(appContext)
+                    ) {
+                        matchingQuote.serverId?.let { sid ->
+                            try {
+                                ApiRepository.updateQuoteStatus(
+                                    appContext, sid, "AWAITING_PAYMENT"
+                                )
+                                Log.d(
+                                    TAG,
+                                    "submitJobCardAndWait: AWAITING_PAYMENT pushed (serverId=$sid)"
+                                )
+                            } catch (e: Exception) {
+                                Log.w(
+                                    TAG,
+                                    "submitJobCardAndWait: AWAITING_PAYMENT server push failed",
+                                    e
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Log.w(
+                        TAG,
+                        "submitJobCardAndWait: no matching quote found for job ${job.id}"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "submitJobCardAndWait: quote status flip failed", e)
+            }
 
             // 3. Stop the LOCAL foreground tracking service FIRST.
             try {

@@ -26,17 +26,20 @@ data class Quote(
     val taxAmount: Double = 0.0,
     val grandTotal: Double = 0.0,
 
-    // Discount / adjustment fields
-    val discountType: String = "NONE",   // "NONE", "PERCENTAGE", "FIXED"
-    val discountValue: Double = 0.0,     // raw input (e.g. 10 for 10%, or 150.00 for R150 off)
-    val discountAmount: Double = 0.0,    // calculated discount in Rands
-    val finalTotal: Double = 0.0,        // grandTotal - discountAmount
+    val discountType: String = "NONE",
+    val discountValue: Double = 0.0,
+    val discountAmount: Double = 0.0,
+    val finalTotal: Double = 0.0,
 
     val status: QuoteStatus = QuoteStatus.PENDING,
     val validUntil: Long = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    // payment metadata
+    val paymentReference: String? = null,
+    val paidAt: Long? = null
 )
 
 enum class QuoteStatus {
@@ -44,5 +47,6 @@ enum class QuoteStatus {
     ACCEPTED,
     DECLINED,
     EXPIRED,
+    AWAITING_PAYMENT,
     PAID
 }

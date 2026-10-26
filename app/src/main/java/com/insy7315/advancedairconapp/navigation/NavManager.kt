@@ -31,7 +31,6 @@ class NavManager(
         object CreateQuote : Destination("create_quote/{requestId}") {
             fun passRequestId(requestId: Int) = "create_quote/$requestId"
         }
-        // NEW: edit quote pricing route
         object EditQuotePricing : Destination("edit_quote_pricing/{quoteId}") {
             fun passQuoteId(quoteId: Int) = "edit_quote_pricing/$quoteId"
         }
@@ -47,6 +46,14 @@ class NavManager(
         object ProductsList : Destination("products_list")
         object QuoteHistory : Destination("quote_history")
         object ServiceBookings : Destination("service_bookings")
+
+        // NEW: payment + receipt destinations
+        object Payment : Destination("payment/{quoteId}/{jobId}") {
+            fun pass(quoteId: Int, jobId: Int) = "payment/$quoteId/$jobId"
+        }
+        object ReceiptViewer : Destination("receipt_viewer/{quoteId}") {
+            fun passQuoteId(quoteId: Int) = "receipt_viewer/$quoteId"
+        }
     }
 
     fun navigateToLogin() {
@@ -98,7 +105,6 @@ class NavManager(
         navController.navigate(Destination.CreateQuote.passRequestId(requestId))
     }
 
-    // NEW: navigate to pricing editor
     fun navigateToEditQuotePricing(quoteId: Int) {
         navController.navigate(Destination.EditQuotePricing.passQuoteId(quoteId))
     }
@@ -141,6 +147,15 @@ class NavManager(
 
     fun navigateToQuoteHistory() {
         navController.navigate(Destination.QuoteHistory.route)
+    }
+
+    // payment + receipt navigation
+    fun navigateToPayment(quoteId: Int, jobId: Int) {
+        navController.navigate(Destination.Payment.pass(quoteId, jobId))
+    }
+
+    fun navigateToReceiptViewer(quoteId: Int) {
+        navController.navigate(Destination.ReceiptViewer.passQuoteId(quoteId))
     }
 
     fun navigateBack() {
