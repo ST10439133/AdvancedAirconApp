@@ -1,6 +1,7 @@
 // app/src/main/java/com/insy7315/advancedairconapp/utils/ReceiptGenerator.kt
 package com.insy7315.advancedairconapp.utils
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
@@ -9,6 +10,9 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.insy7315.advancedairconapp.data.entities.Job
@@ -307,6 +311,30 @@ object ReceiptGenerator {
         )
     }
 
+    /** Opens the PDF in whatever viewer the user has installed. */
+    fun open(context: Context, file: File) {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(
+                context,
+                "Install a PDF viewer to open receipts",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    /** Shares the PDF via the system share sheet. */
     fun share(context: Context, file: File) {
         try {
             val uri: Uri = FileProvider.getUriForFile(
@@ -331,24 +359,52 @@ object ReceiptGenerator {
         }
     }
 
-    fun open(context: Context, file: File) {
-        try {
-            val uri: Uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/pdf")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    /**
+     * Downloads the receipt to the user's public Downloads folder.
+     * Returns the file that ended up in Downloads, or null if the copy failed.
+     */
+    fun downloadToDevice(context: Context, sourceFile: File): File? {
+        return try {
+            val fileName = "ArcticFlow_Receipt_${System.currentTimeMillis()}.pdf"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+ — MediaStore Downloads
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS
+                    )
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                ) ?: return null
+
+                resolver.openOutputStream(uri)?.use { out ->
+                    sourceFile.inputStream().use { it.copyTo(out) }
+                }
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+
+                sourceFile
+            } else {
+                // Pre-Q — write to public Downloads dir directly
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                val target = File(downloadsDir, fileName)
+                sourceFile.copyTo(target, overwrite = true)
+                target
             }
-            context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(
-                context,
-                "No PDF viewer found",
-                Toast.LENGTH_SHORT
-            ).show()
+            e.printStackTrace()
+            null
         }
     }
 }

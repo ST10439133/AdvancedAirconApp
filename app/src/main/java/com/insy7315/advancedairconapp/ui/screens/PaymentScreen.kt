@@ -96,9 +96,9 @@ fun PaymentScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ---------------------------------------------------------
+            // =========================================================
             // SUCCESS SCREEN
-            // ---------------------------------------------------------
+            // =========================================================
             if (uiState.isSuccess) {
                 SuccessContent(
                     quote = quote,
@@ -113,9 +113,9 @@ fun PaymentScreen(
                 return@Column
             }
 
-            // ---------------------------------------------------------
+            // =========================================================
             // CHECKOUT FLOW
-            // ---------------------------------------------------------
+            // =========================================================
 
             // Hero — order summary
             Card(
@@ -518,7 +518,7 @@ private fun SuccessContent(
                         } catch (e: Exception) {
                             Toast.makeText(
                                 context,
-                                "Could not open: ${e.message}",
+                                e.message,
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -532,6 +532,40 @@ private fun SuccessContent(
                     Spacer(Modifier.width(6.dp))
                     Text("View", style = MaterialTheme.typography.labelLarge)
                 }
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val saved = ReceiptGenerator.downloadToDevice(context, receiptFile)
+                            if (saved != null) {
+                                Toast.makeText(
+                                    context,
+                                    "Saved to Downloads",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "Download failed",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                e.message,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Download, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Download", style = MaterialTheme.typography.labelLarge)
+                }
                 Button(
                     onClick = {
                         try {
@@ -539,7 +573,7 @@ private fun SuccessContent(
                         } catch (e: Exception) {
                             Toast.makeText(
                                 context,
-                                "Could not share: ${e.message}",
+                                e.message,
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

@@ -269,6 +269,7 @@ fun ReceiptViewerScreen(
                 }
             } else if (receiptFile != null) {
                 val file = receiptFile!!
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -280,19 +281,53 @@ fun ReceiptViewerScreen(
                             } catch (e: Exception) {
                                 Toast.makeText(
                                     context,
-                                    "Could not open: ${e.message}",
+                                    e.message,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Default.Download, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("View PDF", style = MaterialTheme.typography.labelLarge)
+                        Text("View", style = MaterialTheme.typography.labelLarge)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val saved = ReceiptGenerator.downloadToDevice(context, file)
+                                if (saved != null) {
+                                    Toast.makeText(
+                                        context,
+                                        "Saved to Downloads",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Download failed",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    e.message,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Download, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Download", style = MaterialTheme.typography.labelLarge)
                     }
                     Button(
                         onClick = {
@@ -301,15 +336,15 @@ fun ReceiptViewerScreen(
                             } catch (e: Exception) {
                                 Toast.makeText(
                                     context,
-                                    "Could not share: ${e.message}",
+                                    e.message,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
+                            .height(46.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = BabyBlueDeep,
                             contentColor = Color.White

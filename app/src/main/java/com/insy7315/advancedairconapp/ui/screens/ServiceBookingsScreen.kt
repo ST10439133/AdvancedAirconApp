@@ -372,7 +372,8 @@ fun BookingCard(
         JobStatus.IN_PROGRESS -> BabyBlueSoft to BabyBlueDeep
         JobStatus.SCHEDULED   -> BabyBlueSoft to BabyBlueDeep
         JobStatus.PENDING     -> OrangeSoft   to OrangeAccent
-        else                  -> Color(0xFFEEEEEE) to Color(0xFF616161)
+        JobStatus.ASSIGNED    -> BabyBlueSoft to BabyBlueDeep
+        JobStatus.CANCELLED   -> Color(0xFFEEEEEE) to Color(0xFF616161)
     }
 
     Card(
@@ -461,9 +462,10 @@ fun BookingCard(
 
             Spacer(Modifier.height(12.dp))
 
+            // FIXED: fixed light background so the black text is always legible
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isLocalToggleOn) SuccessSoft else BabyBlueSoft,
+                color = if (isLocalToggleOn) Color(0xFFE6F4EA) else Color(0xFFE8EDF3),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -472,8 +474,8 @@ fun BookingCard(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isLocalToggleOn) SuccessGreen.copy(alpha = 0.15f)
-                        else Color.White.copy(alpha = 0.6f),
+                        // FIXED: fixed light icon chip in both states
+                        color = if (isLocalToggleOn) Color(0xFFCDEBD3) else Color.White,
                         modifier = Modifier.size(34.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -487,17 +489,19 @@ fun BookingCard(
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
+                        // FIXED: black text on the light surface for both modes
                         Text(
                             if (isLocalToggleOn) "Customer can track you"
                             else "Not tracking yet",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
                         )
                         Text(
                             if (isLocalToggleOn) "Tap to stop tracking"
                             else "Tap when you depart",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.Black.copy(alpha = 0.7f)
                         )
                     }
                     Switch(

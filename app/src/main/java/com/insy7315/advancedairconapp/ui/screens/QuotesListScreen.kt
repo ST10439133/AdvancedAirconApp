@@ -163,7 +163,8 @@ fun QuotesListScreen(
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
-                        }
+                        },
+                        onViewReceipt = { navManager.navigateToReceiptViewer(quote.id) }
                     )
                 }
             }
@@ -194,18 +195,18 @@ fun QuotesListScreen(
     }
 }
 
-// QUOTE ROW — Edit Pricing removed from manager side
+// QUOTE ROW — with View Receipt for PAID quotes
 @Composable
 fun QuoteRow(
     quote: Quote,
     showActions: Boolean,
     onClick: () -> Unit,
     onAccept: () -> Unit,
-    onDecline: () -> Unit
+    onDecline: () -> Unit,
+    onViewReceipt: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
-    // FIXED: AWAITING_PAYMENT branch added so `when` is exhaustive.
     val (statusBg, statusFg, statusIcon) = when (quote.status) {
         QuoteStatus.PENDING          -> Triple(OrangeSoft,   OrangeAccent, Icons.Default.Schedule)
         QuoteStatus.ACCEPTED         -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
@@ -275,7 +276,7 @@ fun QuoteRow(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            quote.status.name.lowercase().replaceFirstChar { it.titlecase() },
+                            quote.status.displayName,
                             style = MaterialTheme.typography.labelSmall,
                             color = statusFg,
                             fontWeight = FontWeight.SemiBold
@@ -302,6 +303,23 @@ fun QuoteRow(
                     fontWeight = FontWeight.Bold,
                     color = BabyBlueDeep
                 )
+            }
+
+            // View Receipt action for PAID quotes
+            if (quote.status == QuoteStatus.PAID) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onViewReceipt,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BabyBlueDeep)
+                ) {
+                    Icon(Icons.Default.ReceiptLong, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Receipt", style = MaterialTheme.typography.labelLarge)
+                }
             }
 
             if (showActions) {

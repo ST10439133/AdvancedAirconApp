@@ -45,7 +45,6 @@ private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
-private val OrangeSoft   = Color(0xFFFBE5E8)
 private val SuccessGreen = Color(0xFF2E7D32)
 private val SuccessSoft  = Color(0xFFE6F4EA)
 
@@ -72,11 +71,7 @@ fun TechnicianDashboardScreen(
     val myJobs by viewModel.getJobsForTechnician(userId).collectAsState(initial = emptyList())
     val myQuotes by viewModel.getQuotesForTechnician(userId).collectAsState(initial = emptyList())
     val pendingRequests by viewModel.getPendingServiceRequests().collectAsState(initial = emptyList())
-
-    // NEW: paid quotes — the technician's earnings view
-    val paidQuotes by viewModel
-        .getPaidQuotesForTechnician(userId)
-        .collectAsState(initial = emptyList())
+    val paidQuotes by viewModel.getPaidQuotesForTechnician(userId).collectAsState(initial = emptyList())
 
     val todayStart = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
@@ -118,7 +113,6 @@ fun TechnicianDashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // WELCOME
             item {
                 Column {
                     Text(
@@ -153,7 +147,6 @@ fun TechnicianDashboardScreen(
                         )
                     }
 
-                    // Hero tile — jobs today
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
@@ -208,7 +201,6 @@ fun TechnicianDashboardScreen(
                         }
                     }
 
-                    // Supporting tiles
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -238,7 +230,6 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // NEW REQUESTS BANNER
             if (pendingRequests.isNotEmpty()) {
                 item {
                     Card(
@@ -299,9 +290,7 @@ fun TechnicianDashboardScreen(
                 }
             }
 
-            // ============================================================
-            // PAYMENTS RECEIVED — quotes the customer has paid
-            // ============================================================
+            // PAYMENTS RECEIVED
             if (paidQuotes.isNotEmpty()) {
                 item {
                     Row(
@@ -325,9 +314,7 @@ fun TechnicianDashboardScreen(
                 items(paidQuotes, key = { "paid_${it.id}" }) { quote ->
                     PaidQuoteCard(
                         quote = quote,
-                        onViewReceipt = {
-                            navManager.navigateToReceiptViewer(quote.id)
-                        }
+                        onViewReceipt = { navManager.navigateToReceiptViewer(quote.id) }
                     )
                 }
             }
@@ -398,7 +385,6 @@ fun TechnicianDashboardScreen(
     }
 }
 
-// Supporting overview tile
 @Composable
 private fun TechOverviewTile(
     value: String,
@@ -451,7 +437,6 @@ private fun TechOverviewTile(
     }
 }
 
-// Today's job card
 @Composable
 private fun TodayJobCard(job: Job) {
     val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
@@ -520,7 +505,7 @@ private fun TodayJobCard(job: Job) {
 }
 
 // ================================================================
-// PAID QUOTE CARD — completed and paid
+// PAID QUOTE CARD — FIXED: black text, no MOCK prefix
 // ================================================================
 @Composable
 private fun PaidQuoteCard(
@@ -530,6 +515,11 @@ private fun PaidQuoteCard(
     val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
     val amount = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
     val paidDate = quote.paidAt?.let { dateFmt.format(Date(it)) } ?: "—"
+
+    // Strip any legacy "MOCK-" prefix from the stored reference.
+    val cleanReference = quote.paymentReference
+        ?.removePrefix("MOCK-")
+        ?.takeIf { it.isNotBlank() }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -570,7 +560,7 @@ private fun PaidQuoteCard(
                         Text(
                             "Quote #${quote.id}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.Black.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -587,12 +577,13 @@ private fun PaidQuoteCard(
             Text(
                 quote.buildingName,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
             )
             Text(
                 quote.issueType,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color.Black.copy(alpha = 0.7f)
             )
 
             Spacer(Modifier.height(4.dp))
@@ -604,17 +595,17 @@ private fun PaidQuoteCard(
                 Text(
                     "Paid on",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color.Black.copy(alpha = 0.6f)
                 )
                 Text(
                     paidDate,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.Black
                 )
             }
 
-            quote.paymentReference?.let { ref ->
+            if (cleanReference != null) {
                 Spacer(Modifier.height(2.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -623,10 +614,10 @@ private fun PaidQuoteCard(
                     Text(
                         "Reference",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.Black.copy(alpha = 0.6f)
                     )
                     Text(
-                        ref,
+                        cleanReference,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = BabyBlueDeep

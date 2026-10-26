@@ -48,7 +48,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-
 // BRAND TOKENS
 private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
@@ -56,6 +55,12 @@ private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
 private val OrangeSoft   = Color(0xFFFBE5E8)
 private val SuccessGreen = Color(0xFF2E7D32)
+
+/** Turns "AWAITING_PAYMENT" into "Awaiting Payment". */
+internal fun prettyLabel(raw: String): String =
+    raw.lowercase().split('_', ' ').joinToString(" ") { part ->
+        part.replaceFirstChar { it.titlecase() }
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,8 +82,6 @@ fun ManagerDashboardScreen(
     val notificationViewModel: NotificationViewModel = viewModel(
         factory = NotificationViewModel.Factory(context, userId)
     )
-
-    // NEW: quoteViewModel for the awaiting-payment flow
     val quoteViewModel: QuoteViewModel = viewModel(
         factory = QuoteViewModel.Factory(database, context)
     )
@@ -94,7 +97,6 @@ fun ManagerDashboardScreen(
     val acceptedQuotes by viewModel.acceptedQuotes.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle(initialValue = null)
 
-    // NEW: quotes awaiting payment
     val awaitingPayment by quoteViewModel
         .getAwaitingPaymentQuotesForCustomer(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -124,7 +126,7 @@ fun ManagerDashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ===== WELCOME =====
+            // WELCOME
             item {
                 val firstName = currentUser
                     ?.displayName
@@ -226,7 +228,6 @@ fun ManagerDashboardScreen(
                         }
                     }
 
-                    // Supporting tiles
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -327,9 +328,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // ============================================================
-            // AWAITING PAYMENT — customer owes money for completed jobs
-            // ============================================================
+            // AWAITING PAYMENT
             if (awaitingPayment.isNotEmpty()) {
                 item {
                     Text(
@@ -349,14 +348,12 @@ fun ManagerDashboardScreen(
                     AwaitingPaymentCard(
                         quote = quote,
                         jobId = jobId,
-                        onPayNow = { jId ->
-                            navManager.navigateToPayment(quote.id, jId)
-                        }
+                        onPayNow = { jId -> navManager.navigateToPayment(quote.id, jId) }
                     )
                 }
             }
 
-            //  QUICK ACTIONS
+            // QUICK ACTIONS
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -421,7 +418,6 @@ fun ManagerDashboardScreen(
         }
     }
 
-    // SCHEDULING DIALOG
     quoteToSchedule?.let { quote ->
         ScheduleAcceptDialog(
             quote = quote,
@@ -441,7 +437,6 @@ fun ManagerDashboardScreen(
     }
 }
 
-// OVERVIEW TILE
 @Composable
 fun OverviewTile(
     value: String,
@@ -494,7 +489,6 @@ fun OverviewTile(
     }
 }
 
-// QUICK ACTION BUTTON
 @Composable
 fun QuickActionButton(
     icon: ImageVector,
@@ -534,7 +528,6 @@ fun QuickActionButton(
     }
 }
 
-// PENDING QUOTE CARD
 @Composable
 fun PendingQuoteCard(
     quote: Quote,
@@ -544,18 +537,19 @@ fun PendingQuoteCard(
     val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     val (statusBg, statusFg) = when (quote.status) {
-        QuoteStatus.PENDING  -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
-        QuoteStatus.ACCEPTED -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
-        QuoteStatus.DECLINED -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
-        QuoteStatus.EXPIRED  -> Color(0xFFE8EDF3) to Color(0xFF152A47)
-        QuoteStatus.PAID     -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.PENDING          -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.ACCEPTED         -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.DECLINED         -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
+        QuoteStatus.EXPIRED          -> Color(0xFFE8EDF3) to Color(0xFF152A47)
         QuoteStatus.AWAITING_PAYMENT -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.PAID             -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
     }
 
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -574,8 +568,8 @@ fun PendingQuoteCard(
                         Spacer(Modifier.width(8.dp))
                         Surface(shape = RoundedCornerShape(50), color = statusBg) {
                             Text(
-                                quote.status.name.lowercase()
-                                    .replaceFirstChar { it.titlecase() },
+                                // FIXED: use prettyLabel so AWAITING_PAYMENT reads "Awaiting Payment"
+                                prettyLabel(quote.status.name),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = statusFg,
                                 fontWeight = FontWeight.SemiBold,
@@ -588,18 +582,19 @@ fun PendingQuoteCard(
                     Text(
                         quote.buildingName,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
                     )
                     Text(
                         quote.issueType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.Black.copy(alpha = 0.7f)
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         "Submitted ${dateFmt.format(Date(quote.createdAt))}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.Black.copy(alpha = 0.6f)
                     )
                 }
                 val displayTotal = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
@@ -608,7 +603,7 @@ fun PendingQuoteCard(
                         Text(
                             "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = Color.Black.copy(alpha = 0.5f),
                             textDecoration = TextDecoration.LineThrough
                         )
                     }
@@ -622,19 +617,19 @@ fun PendingQuoteCard(
             }
 
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = Color.Black.copy(alpha = 0.1f))
             Spacer(Modifier.height(10.dp))
 
             Text(
                 "Scope of Work",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color.Black.copy(alpha = 0.7f)
             )
             Text(
                 quote.scopeOfWork,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.Black.copy(alpha = 0.7f),
                 maxLines = 4
             )
 
@@ -649,7 +644,7 @@ fun PendingQuoteCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = Color(0xFF8B1E20)
                     )
                 ) {
                     Icon(Icons.Default.Close, null, Modifier.size(16.dp))
@@ -675,7 +670,7 @@ fun PendingQuoteCard(
 }
 
 // ================================================================
-// AWAITING PAYMENT CARD
+// AWAITING PAYMENT CARD — FIXED: black text on white background
 // ================================================================
 @Composable
 fun AwaitingPaymentCard(
@@ -724,7 +719,7 @@ fun AwaitingPaymentCard(
                         Text(
                             "Quote #${quote.id}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.Black.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -741,18 +736,19 @@ fun AwaitingPaymentCard(
             Text(
                 quote.buildingName,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
             )
             Text(
                 quote.issueType,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color.Black.copy(alpha = 0.7f)
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 "Completed — awaiting your payment",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color.Black.copy(alpha = 0.6f)
             )
 
             Spacer(Modifier.height(14.dp))
@@ -760,9 +756,7 @@ fun AwaitingPaymentCard(
             Button(
                 onClick = {
                     val jId = jobId
-                    if (jId != null && jId > 0) {
-                        onPayNow(jId)
-                    }
+                    if (jId != null && jId > 0) onPayNow(jId)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -774,11 +768,7 @@ fun AwaitingPaymentCard(
                 ),
                 enabled = jobId != null && jobId > 0
             ) {
-                Icon(
-                    Icons.Default.Payment,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(Icons.Default.Payment, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "Pay Now",
@@ -790,7 +780,6 @@ fun AwaitingPaymentCard(
     }
 }
 
-// SCHEDULE ACCEPT DIALOG
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleAcceptDialog(

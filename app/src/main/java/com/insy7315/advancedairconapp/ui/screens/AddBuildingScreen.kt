@@ -5,6 +5,7 @@
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -380,9 +381,11 @@ fun AddBuildingScreen(
                     )
 
                     if (previewAddress.isNotBlank()) {
+                        // FIXED: Always white surface with black text so the
+                        // preview stays readable in both light and dark themes.
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = BabyBlueSoft,
+                            color = Color.White,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -397,7 +400,7 @@ fun AddBuildingScreen(
                                     Text(
                                         "Full Address Preview",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = BabyBlueDeep,
+                                        color = Color.Black,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -406,7 +409,7 @@ fun AddBuildingScreen(
                                     previewAddress,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = Color.Black
                                 )
                             }
                         }
@@ -443,7 +446,6 @@ fun AddBuildingScreen(
                             province = province,
                             postalCode = postalCode,
                             fullAddress = previewAddress,
-                            // latitude / longitude will default to 0.0 — not used this submission
                             unitCount = unitCount.toIntOrNull() ?: 1,
                             floors = floors.toIntOrNull() ?: 1,
                             buildingType = buildingType

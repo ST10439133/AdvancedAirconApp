@@ -26,8 +26,7 @@ class MockPaymentProcessor : PaymentProcessor {
             } else {
                 PaymentProcessor.Result(
                     success = true,
-                    reference = "MOCK-${UUID.randomUUID().toString().take(8).uppercase()}",
-                    message = "Payment of R${"%.2f".format(request.amountZar)} received",
+                    reference = UUID.randomUUID().toString().take(8).uppercase(),                    message = "Payment of R${"%.2f".format(request.amountZar)} received",
                     errorMessage = null
                 )
             }

@@ -48,5 +48,14 @@ enum class QuoteStatus {
     DECLINED,
     EXPIRED,
     AWAITING_PAYMENT,
-    PAID
+    PAID;
+
+    /** "AWAITING_PAYMENT" → "Awaiting Payment". */
+    val displayName: String
+        get() = name.lowercase()
+            .split('_', ' ')
+            .joinToString(" ") { part ->
+                part.replaceFirstChar { it.titlecase() }
+            }
 }
+
