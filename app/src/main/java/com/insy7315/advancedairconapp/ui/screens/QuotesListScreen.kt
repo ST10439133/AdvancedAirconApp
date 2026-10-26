@@ -171,12 +171,22 @@ fun QuotesListScreen(
         }
     }
 
+    // FIXED: validate before touching state
     quoteToSchedule?.let { quote ->
         ScheduleQuoteDialog(
             quote = quote,
             onDismiss = { quoteToSchedule = null },
             onConfirm = { date, slot ->
                 scope.launch {
+                    val conflict = viewModel.validateBookingConflict(
+                        technicianId = quote.technicianId,
+                        scheduledDate = date,
+                        timeSlot = slot
+                    )
+                    if (conflict != null) {
+                        Toast.makeText(context, conflict, Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
                     viewModel.updateQuoteStatusWithSchedule(
                         quoteId = quote.id,
                         status = QuoteStatus.ACCEPTED,

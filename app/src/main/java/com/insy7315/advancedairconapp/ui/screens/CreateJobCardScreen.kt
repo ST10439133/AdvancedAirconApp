@@ -54,6 +54,7 @@ import com.insy7315.advancedairconapp.data.entities.PartItem
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.viewmodels.JobCardViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -265,6 +266,155 @@ fun CreateJobCardScreen(
                 }
             }
 
+            // ============================================================
+            // TIMER — first content card so it's immediately visible
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Timer, title = "Time Logged")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Live duration tick
+                    val now = remember { mutableStateOf(System.currentTimeMillis()) }
+                    LaunchedEffect(startTime, endTime) {
+                        while (true) {
+                            now.value = System.currentTimeMillis()
+                            delay(1000)
+                        }
+                    }
+                    val effectiveEnd = endTime ?: if (startTime != null) now.value else null
+                    val liveDuration = if (startTime != null && effectiveEnd != null) {
+                        (effectiveEnd - startTime!!).coerceAtLeast(0)
+                    } else 0L
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "Duration",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                formatDuration(liveDuration),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = BabyBlueDeep
+                            )
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = when {
+                                startTime == null -> BabyBlueSoft
+                                endTime != null -> Color(0xFFE6F4EA)
+                                else -> Color(0xFFFFE0B2)
+                            },
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = when {
+                                        startTime == null -> BabyBlueDeep
+                                        endTime != null -> Color(0xFF2E7D32)
+                                        else -> Color(0xFF8B5A00)
+                                    },
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        when {
+                            startTime == null -> "Timer not started"
+                            endTime != null -> "Timer stopped"
+                            else -> "Timer running…"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                startTime = System.currentTimeMillis()
+                                endTime = null
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isSubmitting
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                "Start",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (startTime == null || endTime != null) "Start"
+                                else "Restart"
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                if (startTime != null) {
+                                    endTime = System.currentTimeMillis()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isSubmitting && startTime != null && endTime == null
+                        ) {
+                            Icon(
+                                Icons.Default.Stop,
+                                "Stop",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Stop")
+                        }
+                    }
+
+                    if (startTime != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Started: ${formatTime(startTime!!)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            endTime?.let {
+                                Text(
+                                    "Stopped: ${formatTime(it)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Work Summary
             SectionHeader(icon = Icons.Default.Description, title = "Work Performed")
 
@@ -288,7 +438,7 @@ fun CreateJobCardScreen(
                 )
             }
 
-            //Job Site Photos
+            // Job Site Photos
             SectionHeader(icon = Icons.Default.AddAPhoto, title = "Job Site Photos")
 
             Card(
@@ -349,7 +499,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            //Parts Used
+            // Parts Used
             SectionHeader(icon = Icons.Default.Build, title = "Parts Used")
 
             Card(
@@ -544,82 +694,7 @@ fun CreateJobCardScreen(
                 }
             }
 
-            //Time Logged
-            SectionHeader(icon = Icons.Default.Timer, title = "Time Logged")
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { startTime = System.currentTimeMillis() },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = !isSubmitting
-                        ) {
-                            Icon(Icons.Default.PlayArrow, "Start", modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(startTime?.let { formatTime(it) } ?: "Start")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                if (startTime != null) endTime = System.currentTimeMillis()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = !isSubmitting && startTime != null
-                        ) {
-                            Icon(Icons.Default.Stop, "Stop", modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(endTime?.let { formatTime(it) } ?: "Stop")
-                        }
-                    }
-                    if (startTime != null && endTime != null) {
-                        val dur = endTime!! - startTime!!
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BabyBlueSoft,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = BabyBlueDeep,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Duration: ${dur / (1000 * 60 * 60)}h ${
-                                        (dur % (1000 * 60 * 60)) / (1000 * 60)
-                                    }m",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = BabyBlueDeep,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            //Additional Notes
+            // Additional Notes
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
             Card(
@@ -699,7 +774,6 @@ fun CreateJobCardScreen(
                                         photoPaths = photoPaths
                                     )
 
-                                    // Await the entire submit here
                                     viewModel.submitJobCardAndWait(id)
 
                                     isSubmitting = false
@@ -818,6 +892,23 @@ private fun PhotoTile(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+/**
+ * Formats a duration in milliseconds into "1h 23m 45s" (or "23m 45s" if
+ * under an hour, or "45s" if under a minute).
+ */
+private fun formatDuration(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    return when {
+        hours > 0 -> String.format(Locale.US, "%dh %02dm %02ds", hours, minutes, seconds)
+        minutes > 0 -> String.format(Locale.US, "%dm %02ds", minutes, seconds)
+        else -> String.format(Locale.US, "%ds", seconds)
     }
 }
 

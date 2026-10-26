@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -197,7 +198,6 @@ class QuoteViewModel(
         val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
         val subtotal = serviceFee + partsSubtotal
 
-        // Compute discount using the same rules as EditQuotePricingScreen
         val normalizedType = discountType.uppercase(Locale.US)
         val discountAmount = when (normalizedType) {
             "PERCENTAGE" -> subtotal * (discountValue / 100.0)
@@ -267,10 +267,6 @@ class QuoteViewModel(
         try { quoteDao.getQuotesByTechnician(technicianId) }
         catch (e: Exception) { flow { emit(emptyList()) } }
 
-    /**
-     * Quotes that belong to a customer and are awaiting payment.
-     * Used by the manager's "Awaiting Payment" section on the dashboard.
-     */
     fun getAwaitingPaymentQuotesForCustomer(customerId: String): Flow<List<Quote>> =
         try {
             quoteDao.getQuotesVisibleToCustomer(customerId).map { list ->
@@ -280,10 +276,6 @@ class QuoteViewModel(
             flow { emit(emptyList()) }
         }
 
-    /**
-     * Quotes belonging to this technician that have been PAID.
-     * Used by the technician's "Payments Received" section.
-     */
     fun getPaidQuotesForTechnician(technicianId: String): Flow<List<Quote>> =
         try {
             quoteDao.getQuotesByTechnician(technicianId).map { list ->
@@ -612,14 +604,108 @@ class QuoteViewModel(
     suspend fun getJobById(jobId: Int): Job? =
         try { jobDao.getJobById(jobId) } catch (e: Exception) { null }
 
-    /**
-     * Finds the job that was created from this quote.
-     * Used by the receipt viewer and the "Pay Now" flow to link
-     * a quote back to its job.
-     */
     suspend fun getJobForQuote(quoteId: Int): Job? =
         try { jobDao.getJobByLocalQuoteId(quoteId) }
         catch (e: Exception) { null }
+
+    // ============================================================
+    // DOUBLE-BOOKING VALIDATION
+    // ============================================================
+
+    /**
+     * Returns the technician's already-scheduled jobs on the same
+     * calendar day as [scheduledDate].
+     */
+    private suspend fun jobsForTechnicianOnSameDay(
+        technicianId: String,
+        scheduledDate: Long
+    ): List<Job> {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = scheduledDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startMs = cal.timeInMillis
+        val endMs = startMs + 24L * 60 * 60 * 1000
+        return try {
+            jobDao.getJobsForTechnicianInRange(technicianId, startMs, endMs)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Parses "08:00 AM" (from the start of "08:00 AM - 09:30 AM")
+     * into its start-of-day offset in milliseconds.
+     */
+    private fun parseSlotStartMs(slot: String): Long? {
+        return try {
+            val startPart = slot.substringBefore("-").trim()
+            val fmt = SimpleDateFormat("hh:mm a", Locale.US)
+            fmt.parse(startPart)?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun parseSlotEndMs(slot: String): Long? {
+        return try {
+            val endPart = slot.substringAfter("-").trim()
+            val fmt = SimpleDateFormat("hh:mm a", Locale.US)
+            fmt.parse(endPart)?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Returns a user-facing error message if the proposed schedule
+     * collides with an existing job for this technician, or null if
+     * the slot is free.
+     *
+     * Call this BEFORE persisting an ACCEPTED quote / SCHEDULED job.
+     */
+    suspend fun validateBookingConflict(
+        technicianId: String,
+        scheduledDate: Long,
+        timeSlot: String
+    ): String? {
+        if (technicianId.isBlank()) return null
+        if (timeSlot.isBlank()) return null
+
+        val proposedStart = parseSlotStartMs(timeSlot) ?: return null
+        val proposedEnd = parseSlotEndMs(timeSlot)
+        val existing = jobsForTechnicianOnSameDay(technicianId, scheduledDate)
+
+        for (job in existing) {
+            val existingSlot = job.notes
+                ?.substringAfter("Time Slot:", "")
+                ?.trim()
+                .orEmpty()
+
+            if (existingSlot.isBlank()) {
+                return "Technician already has a job scheduled on this day."
+            }
+
+            if (existingSlot.equals(timeSlot, ignoreCase = true)) {
+                return "This time slot is already booked for ${job.buildingName}."
+            }
+
+            val existingStart = parseSlotStartMs(existingSlot)
+            val existingEnd = parseSlotEndMs(existingSlot)
+
+            if (existingStart != null && existingEnd != null &&
+                proposedEnd != null &&
+                proposedStart < existingEnd && existingStart < proposedEnd
+            ) {
+                return "This time overlaps with a job at ${job.buildingName} ($existingSlot)."
+            }
+        }
+
+        return null
+    }
 
     suspend fun resolveJobAddress(job: Job): String {
         if (job.fullAddress.isNotBlank()) return job.fullAddress.trim()

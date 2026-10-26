@@ -418,19 +418,24 @@ fun ManagerDashboardScreen(
         }
     }
 
+    // FIXED: acceptQuote now returns a nullable error String
     quoteToSchedule?.let { quote ->
         ScheduleAcceptDialog(
             quote = quote,
             onDismiss = { quoteToSchedule = null },
             onConfirm = { date, slot ->
                 scope.launch {
-                    viewModel.acceptQuote(quote.id, date, slot)
-                    Toast.makeText(
-                        context,
-                        "Quote accepted. Job scheduled.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    quoteToSchedule = null
+                    val error = viewModel.acceptQuote(quote.id, date, slot)
+                    if (error != null) {
+                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Quote accepted. Job scheduled.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        quoteToSchedule = null
+                    }
                 }
             }
         )
@@ -568,7 +573,6 @@ fun PendingQuoteCard(
                         Spacer(Modifier.width(8.dp))
                         Surface(shape = RoundedCornerShape(50), color = statusBg) {
                             Text(
-                                // FIXED: use prettyLabel so AWAITING_PAYMENT reads "Awaiting Payment"
                                 prettyLabel(quote.status.name),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = statusFg,

@@ -51,4 +51,8 @@ interface JobDao {
 
     @Query("UPDATE jobs SET serverId = :serverId WHERE id = :localId")
     suspend fun setServerId(localId: Int, serverId: Int)
+
+    /** All jobs assigned to a technician between two timestamps. */
+    @Query("""SELECT * FROM jobs WHERE technicianId = :technicianId AND scheduledDate IS NOT NULL AND scheduledDate >= :startMs AND scheduledDate < :endMs""") suspend fun getJobsForTechnicianInRange(technicianId: String, startMs: Long, endMs: Long): List<Job>
+
 }

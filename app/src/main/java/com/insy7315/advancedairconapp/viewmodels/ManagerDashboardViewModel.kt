@@ -18,6 +18,7 @@ import com.insy7315.advancedairconapp.data.sync.SyncManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import java.util.Calendar
 
 class ManagerDashboardViewModel(
     application: Application,
@@ -60,8 +61,12 @@ class ManagerDashboardViewModel(
         catch (e: Exception) { Log.e(TAG, "refreshFromServer failed", e) }
     }
 
-    // ACCEPT QUOTE
-    suspend fun acceptQuote(quoteId: Int, scheduledDate: Long, timeSlot: String) {
+    // ACCEPT QUOTE — returns null on success, or an error message
+    suspend fun acceptQuote(
+        quoteId: Int,
+        scheduledDate: Long,
+        timeSlot: String
+    ): String? {
         val quoteDao = database.quoteDao()
         val requestDao = database.serviceRequestDao()
         val jobDao = database.jobDao()
@@ -69,18 +74,17 @@ class ManagerDashboardViewModel(
 
         try {
             val quote = quoteDao.getQuoteById(quoteId)
-            if (quote == null) {
-                Log.e(TAG, "acceptQuote: quote $quoteId not found")
-                return
-            }
-
+                ?: return "Quote not found."
             val request = requestDao.getRequestById(quote.requestId)
-            if (request == null) {
-                Log.e(TAG, "acceptQuote: request ${quote.requestId} not found " +
-                        "for quote $quoteId (this is a sync bug — pull-sync " +
-                        "created a different local id)")
-                return
-            }
+                ?: return "Service request not found for this quote."
+
+            // ---- Double-booking check ----
+            val conflict = validateConflict(
+                technicianId = quote.technicianId,
+                scheduledDate = scheduledDate,
+                timeSlot = timeSlot
+            )
+            if (conflict != null) return conflict
 
             // 1. Local quote status
             quoteDao.updateQuoteStatus(quoteId, QuoteStatus.ACCEPTED)
@@ -126,9 +130,59 @@ class ManagerDashboardViewModel(
                 newJob = newJob.copy(id = newJobId.toInt())
             )
 
+            return null
         } catch (e: Exception) {
             Log.e(TAG, "acceptQuote failed for quote=$quoteId", e)
+            return "Could not accept quote: ${e.message}"
         }
+    }
+
+    /**
+     * Returns a user-facing error message if the proposed schedule
+     * collides with an existing job for this technician, or null if
+     * the slot is free.
+     */
+    private suspend fun validateConflict(
+        technicianId: String,
+        scheduledDate: Long,
+        timeSlot: String
+    ): String? {
+        if (technicianId.isBlank() || timeSlot.isBlank()) return null
+
+        // Grab all jobs on that calendar day
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = scheduledDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startMs = cal.timeInMillis
+        val endMs = startMs + 24L * 60 * 60 * 1000
+
+        val sameDayJobs = try {
+            database.jobDao().getJobsForTechnicianInRange(
+                technicianId, startMs, endMs
+            )
+        } catch (e: Exception) {
+            return null
+        }
+
+        for (job in sameDayJobs) {
+            val existingSlot = job.notes
+                ?.substringAfter("Time Slot:", "")
+                ?.trim()
+                .orEmpty()
+
+            if (existingSlot.isBlank()) {
+                return "Technician already has a job scheduled on this day."
+            }
+            if (existingSlot.equals(timeSlot, ignoreCase = true)) {
+                return "This time slot is already booked for ${job.buildingName}."
+            }
+        }
+
+        return null
     }
 
     private suspend fun pushAcceptance(
