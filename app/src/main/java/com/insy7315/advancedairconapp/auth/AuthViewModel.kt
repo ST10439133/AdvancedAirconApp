@@ -75,6 +75,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Parses Firebase's displayName for the embedded role suffix that
+     * registerWithEmail() / Google first-sign-in writes as:
+     *      "Display Name|ROLE"
+     *
+     * Returns:
+     *   - the parsed name (never blank — falls back to email prefix or "User")
+     *   - the role found in the string, or null if none is present
+     *
+     * A null role means "Firebase has no opinion" — the caller decides
+     * what to do (see handleFirebaseUser for the provisioning rule).
+     */
     private fun parseFirebaseNameAndRole(
         rawName: String?,
         fallbackEmail: String?,
@@ -96,6 +108,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val name = raw.trim().ifBlank {
                 fallbackEmail?.substringBefore("@") ?: "User"
             }
+            // No "|ROLE" suffix → Firebase has no role info for this user.
+            // Return fallbackRole (caller passes null here) so the caller
+            // can apply the "un-annotated = TECHNICIAN" rule.
             name to fallbackRole
         }
     }
@@ -111,14 +126,39 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     fallbackRole = null
                 )
 
-                // MANAGER is the safe default for a fresh cold start.
-                val placeholderRole = existing?.role ?: parsedRole ?: UserRole.MANAGER
+                // ROLE RESOLUTION RULES (in priority order):
+                //
+                // 1. If this device already has a local Room row, trust it.
+                //    (Covers return logins, offline sessions, biometric unlock.)
+                //
+                // 2. If Firebase's displayName carried a "|ROLE" suffix, use it.
+                //    (Covers accounts that registered through the app — those
+                //     write "Name|MANAGER" into displayName.)
+                //
+                // 3. If Firebase has NO role information at all, this account
+                //    was provisioned by an admin in the Firebase Console →
+                //    default to TECHNICIAN.
+                //
+                // We deliberately do NOT fall back to MANAGER anymore — that
+                // was the bug that sent manually-created technicians to the
+                // client dashboard.
+                val resolvedRole = existing?.role
+                    ?: parsedRole
+                    ?: UserRole.TECHNICIAN
+
+                Log.d(
+                    TAG,
+                    "handleFirebaseUser: uid=${firebaseUser.uid}, " +
+                            "hasExistingRow=${existing != null}, " +
+                            "parsedRole=$parsedRole, " +
+                            "resolvedRole=$resolvedRole"
+                )
 
                 val placeholder = User(
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: existing?.email ?: "",
                     displayName = displayName,
-                    role = placeholderRole,
+                    role = resolvedRole,
                     phoneNumber = existing?.phoneNumber,
                     photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                     isEmailVerified = firebaseUser.isEmailVerified,
@@ -126,7 +166,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 database.userDao().insertUser(placeholder)
 
-                val finalUser = syncAndResolve(firebaseUser.uid, placeholder)
+                // Trust the local role when the account had no prior local
+                // row AND Firebase carried no role annotation — i.e. a
+                // hand-provisioned account whose role we just defaulted to
+                // TECHNICIAN. We don't want a stale server row to flip that
+                // back to MANAGER on first sign-in.
+                val trustLocal = existing == null && parsedRole == null
+
+                val finalUser = syncAndResolve(
+                    uid = firebaseUser.uid,
+                    fallback = placeholder,
+                    trustLocalRole = trustLocal
+                )
 
                 _authState.value = AuthState.Authenticated(finalUser)
             } catch (e: Exception) {
@@ -135,6 +186,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
     suspend fun registerWithEmail(
         email: String,
         password: String,
@@ -177,7 +229,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 trustLocalRole = true
             )
 
-            // Sanity check: the role we return MUST be MANAGER.
+            // Sanity check: the role we return MUST be the one we registered with.
             val resolvedRole = if (finalUser.role == role) finalUser else finalUser.copy(role = role)
             if (resolvedRole != finalUser) {
                 database.userDao().insertUser(resolvedRole)
@@ -210,7 +262,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fallbackRole = null
             )
 
-            val seedRole = existing?.role ?: parsedRole ?: UserRole.MANAGER
+            // Same rules as handleFirebaseUser:
+            //   existing row → parsed role → TECHNICIAN fallback
+            val seedRole = existing?.role
+                ?: parsedRole
+                ?: UserRole.TECHNICIAN
 
             val seed = User(
                 uid = firebaseUser.uid,
@@ -224,7 +280,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(seed)
 
-            val finalUser = syncAndResolve(firebaseUser.uid, seed)
+            // Same trust rule as handleFirebaseUser.
+            val trustLocal = existing == null && parsedRole == null
+
+            val finalUser = syncAndResolve(
+                uid = firebaseUser.uid,
+                fallback = seed,
+                trustLocalRole = trustLocal
+            )
 
             _isLoading.value = false
             _authState.value = AuthState.Authenticated(finalUser)
@@ -256,14 +319,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fallbackRole = null
             )
 
+            // Same rules as handleFirebaseUser / loginWithEmail.
+            // App-registered Google accounts carry "|MANAGER" in their
+            // displayName and stay MANAGER; console-provisioned Google
+            // accounts (no "|") default to TECHNICIAN.
             val optimisticRole = existing?.role
                 ?: parsedRole
-                ?: UserRole.MANAGER
+                ?: UserRole.TECHNICIAN
 
             Log.d(
                 TAG,
                 "Google sign-in: seenBefore=$seenBeforeOnThisDevice, " +
-                        "optimisticRole=$optimisticRole, email=${firebaseUser.email}"
+                        "parsedRole=$parsedRole, " +
+                        "optimisticRole=$optimisticRole, " +
+                        "email=${firebaseUser.email}"
             )
 
             val seed = User(
@@ -278,14 +347,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(seed)
 
-            // For a brand-new Google account we also trust the local
-            // role, so the very first sign-in doesn't get clobbered
-            // by a stale server default. If the account existed already
-            // we let the server reconcile normally.
+            // Trust the local role for:
+            //   - brand-new Google accounts on this device (first sign-in)
+            //   - un-annotated (console-provisioned) accounts
+            // so a stale server row doesn't clobber the decision.
+            val trustLocal = !seenBeforeOnThisDevice || (existing == null && parsedRole == null)
+
             val finalUser = syncAndResolve(
                 uid = firebaseUser.uid,
                 fallback = seed,
-                trustLocalRole = !seenBeforeOnThisDevice
+                trustLocalRole = trustLocal
             )
 
             _isLoading.value = false
@@ -365,8 +436,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             val api = ApiClient.get(ctx)
 
             // Give the server a moment to commit the write before we
-            // read the user back. This dramatically reduces the chance
-            // of reading a stale role right after a syncUser call.
+            // read the user back.
             delay(400)
 
             val me = safeApiCall(TAG) { api.getMe() }
@@ -379,9 +449,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 if (trustLocalRole) {
-                    // We just wrote the role we want locally. Log the
-                    // server's value for diagnostics, but DO NOT
-                    // overwrite the local role.
                     Log.d(
                         TAG,
                         "trustLocalRole=true — ignoring server role " +

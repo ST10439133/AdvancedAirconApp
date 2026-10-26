@@ -1,6 +1,6 @@
-//IEEE Xplore. 2019. An Observational Study on the State of REST API Uses in Android Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/8816905 [Accessed: 5 October 2026].
-//IEEE Xplore. 2018. Android REST APIs: Volley vs Retrofit. [Online]. Available at: https://ieeexplore.ieee.org/document/8618824 [Accessed: 5 October 2026].
-//IEEE Xplore. 2025. A Case Study on Simplifying Mobile Integration Using JAX-RS Reference Implementation for RESTful Web Services. [Online]. Available at: https://ieeexplore.ieee.org/document/11126122 [Accessed: 5 October 2026].
+// IEEE Xplore. 2019. An Observational Study on the State of REST API Uses in Android Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/8816905 [Accessed: 5 October 2026].
+// IEEE Xplore. 2018. Android REST APIs: Volley vs Retrofit. [Online]. Available at: https://ieeexplore.ieee.org/document/8618824 [Accessed: 5 October 2026].
+// IEEE Xplore. 2025. A Case Study on Simplifying Mobile Integration Using JAX-RS Reference Implementation for RESTful Web Services. [Online]. Available at: https://ieeexplore.ieee.org/document/11126122 [Accessed: 5 October 2026].
 
 package com.insy7315.advancedairconapp.data.api
 
@@ -119,6 +119,10 @@ object ApiRepository {
             "totalCost"      to quote.totalCost,
             "taxAmount"      to quote.taxAmount,
             "grandTotal"     to quote.grandTotal,
+            "discountType"   to quote.discountType,
+            "discountValue"  to quote.discountValue,
+            "discountAmount" to quote.discountAmount,
+            "finalTotal"     to quote.finalTotal,
             "status"         to quote.status.name,
             "validUntil"     to quote.validUntil,
             "notes"          to quote.notes
@@ -135,6 +139,29 @@ object ApiRepository {
         safeApiCall(TAG) {
             api.updateQuoteStatus(serverId, StatusUpdate(status)); true
         } == true
+    }
+
+    // NEW: Update quote pricing on server
+    suspend fun updateQuotePricing(
+        context: Context,
+        serverId: Int,
+        grandTotal: Double,
+        discountType: String,
+        discountValue: Double,
+        discountAmount: Double,
+        finalTotal: Double,
+        notes: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val api = ApiClient.get(context)
+        val body: Map<String, Any?> = mapOf(
+            "grandTotal"     to grandTotal,
+            "discountType"   to discountType,
+            "discountValue"  to discountValue,
+            "discountAmount" to discountAmount,
+            "finalTotal"     to finalTotal,
+            "notes"          to notes
+        )
+        safeApiCall(TAG) { api.updateQuotePricing(serverId, body); true } == true
     }
 
     suspend fun pushJob(

@@ -195,6 +195,16 @@ fun NavGraph(
             )
         }
 
+        // NEW: edit quote pricing screen
+        composable(NavManager.Destination.EditQuotePricing.route) { backStackEntry ->
+            val quoteId = backStackEntry.arguments?.getString("quoteId")?.toIntOrNull() ?: 0
+            EditQuotePricingScreen(
+                viewModel = quoteViewModel,
+                quoteId = quoteId,
+                navManager = navManager
+            )
+        }
+
         composable(NavManager.Destination.MyQuotes.route) {
             val userId = when (authState) {
                 is AuthState.Authenticated -> (authState as AuthState.Authenticated).user.uid

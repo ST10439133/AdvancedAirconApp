@@ -31,6 +31,10 @@ class NavManager(
         object CreateQuote : Destination("create_quote/{requestId}") {
             fun passRequestId(requestId: Int) = "create_quote/$requestId"
         }
+        // NEW: edit quote pricing route
+        object EditQuotePricing : Destination("edit_quote_pricing/{quoteId}") {
+            fun passQuoteId(quoteId: Int) = "edit_quote_pricing/$quoteId"
+        }
         object MyQuotes : Destination("my_quotes")
         object PendingRequests : Destination("pending_requests")
         object Notifications : Destination("notifications")
@@ -92,6 +96,11 @@ class NavManager(
 
     fun navigateToCreateQuote(requestId: Int) {
         navController.navigate(Destination.CreateQuote.passRequestId(requestId))
+    }
+
+    // NEW: navigate to pricing editor
+    fun navigateToEditQuotePricing(quoteId: Int) {
+        navController.navigate(Destination.EditQuotePricing.passQuoteId(quoteId))
     }
 
     fun navigateToMyQuotes() {

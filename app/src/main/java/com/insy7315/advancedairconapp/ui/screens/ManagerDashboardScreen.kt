@@ -30,12 +30,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import com.insy7315.advancedairconapp.data.entities.Quote
+import com.insy7315.advancedairconapp.data.entities.QuoteStatus
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.components.AppTopBar
 import com.insy7315.advancedairconapp.viewmodels.ManagerDashboardViewModel
@@ -86,6 +88,8 @@ fun ManagerDashboardScreen(
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle(initialValue = null)
 
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
+
+    val pendingOnlyCount = pendingQuotes.count { it.status == QuoteStatus.PENDING }
 
     Scaffold(
         topBar = {
@@ -186,7 +190,7 @@ fun ManagerDashboardScreen(
                                 Spacer(Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Pending quotes",
+                                        "Your quotes",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = Color.White.copy(alpha = 0.9f)
                                     )
@@ -197,8 +201,11 @@ fun ManagerDashboardScreen(
                                         color = Color.White
                                     )
                                     Text(
-                                        if (pendingQuotes.isEmpty()) "You're all caught up"
-                                        else "Awaiting your approval",
+                                        when {
+                                            pendingQuotes.isEmpty() -> "No quotes yet"
+                                            pendingOnlyCount == 0 -> "All quotes are up to date"
+                                            else -> "$pendingOnlyCount awaiting your approval"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.White.copy(alpha = 0.85f)
                                     )
@@ -237,10 +244,10 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // QUOTES AWAITING APPROVAL
+            // YOUR QUOTES
             item {
                 Text(
-                    "Quotes Awaiting Your Approval",
+                    "Your Quotes",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -275,13 +282,13 @@ fun ManagerDashboardScreen(
                             }
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                "No pending quotes",
+                                "No quotes yet",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                "New quotes will appear here for approval.",
+                                "Quotes you receive will appear here.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -486,7 +493,7 @@ fun QuickActionButton(
     }
 }
 
-// PENDING QUOTE CARD
+// PENDING QUOTE CARD — Edit Pricing removed from manager side
 @Composable
 fun PendingQuoteCard(
     quote: Quote,
@@ -494,6 +501,15 @@ fun PendingQuoteCard(
     onDecline: () -> Unit
 ) {
     val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
+    val (statusBg, statusFg) = when (quote.status) {
+        QuoteStatus.PENDING  -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.ACCEPTED -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+        QuoteStatus.DECLINED -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
+        QuoteStatus.EXPIRED  -> Color(0xFFE8EDF3) to Color(0xFF152A47)
+        QuoteStatus.PAID     -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
+    }
+
     Card(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -506,12 +522,27 @@ fun PendingQuoteCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        "Quote #${quote.id}",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = BabyBlueDeep
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Quote #${quote.id}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = BabyBlueDeep
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Surface(shape = RoundedCornerShape(50), color = statusBg) {
+                            Text(
+                                quote.status.name.lowercase()
+                                    .replaceFirstChar { it.titlecase() },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusFg,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(
+                                    horizontal = 8.dp, vertical = 2.dp
+                                )
+                            )
+                        }
+                    }
                     Text(
                         quote.buildingName,
                         style = MaterialTheme.typography.titleSmall,
@@ -529,12 +560,23 @@ fun PendingQuoteCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = BabyBlueDeep
-                )
+                val displayTotal = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
+                Column(horizontalAlignment = Alignment.End) {
+                    if (quote.discountAmount > 0) {
+                        Text(
+                            "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                    }
+                    Text(
+                        "R${String.format(Locale.US, "%.2f", displayTotal)}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = BabyBlueDeep
+                    )
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -556,6 +598,7 @@ fun PendingQuoteCard(
 
             Spacer(Modifier.height(14.dp))
 
+            // Only Decline and Accept — no Edit Pricing on manager side
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -649,8 +692,9 @@ fun ScheduleAcceptDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val finalAmount = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
                 Text(
-                    "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
+                    "Total: R${String.format(Locale.US, "%.2f", finalAmount)}",
                     fontWeight = FontWeight.Bold,
                     color = BabyBlueDeep
                 )
@@ -709,7 +753,6 @@ fun ScheduleAcceptDialog(
                 onClick = {
                     val d = selectedDate
                     if (d != null && selectedSlot.isNotBlank()) {
-                        // Merge the picked date with the start time of the slot.
                         val combined = SouthAfricaLocations.combineDateAndSlot(d, selectedSlot)
                         onConfirm(combined, selectedSlot)
                     }

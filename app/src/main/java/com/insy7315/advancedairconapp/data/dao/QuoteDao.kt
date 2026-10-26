@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/data/dao/QuoteDao.kt
 package com.insy7315.advancedairconapp.data.dao
 
 import androidx.room.*
@@ -27,11 +26,6 @@ interface QuoteDao {
      * A quote belongs to the customer if EITHER:
      *   - the quote's customerId matches, OR
      *   - the quote is attached to a request this customer owns.
-     *
-     * The second condition rescues quotes whose customerId was blanked out
-     * upstream (e.g. the ServiceRequest was created while the manager's
-     * device had no JWT, so the server stored user_id = '' and the quote
-     * inherited that empty customerId).
      */
     @Query("""
         SELECT q.* FROM quotes q
@@ -70,6 +64,39 @@ interface QuoteDao {
     suspend fun updateQuoteStatus(
         quoteId: Int,
         status: QuoteStatus,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    // NEW: same as updateQuoteStatus but kept as a separate symbol so
+    // callers that specifically mean "this is the payment finalizer"
+    // read clearly. Behaviour is identical.
+    @Query("UPDATE quotes SET status = :status, updatedAt = :updatedAt WHERE id = :quoteId")
+    suspend fun updateQuoteStatusAndTotal(
+        quoteId: Int,
+        status: QuoteStatus,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    // NEW: update pricing (discounts / adjustments)
+    @Query("""
+        UPDATE quotes 
+        SET grandTotal = :grandTotal, 
+            discountType = :discountType,
+            discountValue = :discountValue,
+            discountAmount = :discountAmount,
+            finalTotal = :finalTotal,
+            notes = :notes,
+            updatedAt = :updatedAt
+        WHERE id = :quoteId
+    """)
+    suspend fun updateQuotePricing(
+        quoteId: Int,
+        grandTotal: Double,
+        discountType: String,
+        discountValue: Double,
+        discountAmount: Double,
+        finalTotal: Double,
+        notes: String,
         updatedAt: Long = System.currentTimeMillis()
     )
 

@@ -46,8 +46,6 @@ class QuoteViewModel(
             if (NetworkMonitor.isOnline(appContext)) {
                 val dto = ApiRepository.pushBuilding(appContext, localRow)
                 if (dto != null) {
-                    // Keep the local lat/lng — the server may not return them.
-                    // Only the serverId is stored from the response.
                     buildingDao.setServerId(localId.toInt(), dto.id)
                 } else {
                     SyncManager.enqueue(
@@ -185,7 +183,9 @@ class QuoteViewModel(
         serviceName: String,
         serviceFee: Double,
         lineItems: List<Pair<String, Pair<Int, Double>>>,
-        notes: String
+        notes: String,
+        discountType: String = "NONE",
+        discountValue: Double = 0.0
     ): Long {
         val request = getRequestById(requestId) ?: return 0L
 
@@ -194,7 +194,17 @@ class QuoteViewModel(
             .ifBlank { "" }
 
         val partsSubtotal = lineItems.sumOf { it.second.first * it.second.second }
-        val total = serviceFee + partsSubtotal
+        val subtotal = serviceFee + partsSubtotal
+
+        // Compute discount using the same rules as EditQuotePricingScreen
+        val normalizedType = discountType.uppercase(Locale.US)
+        val discountAmount = when (normalizedType) {
+            "PERCENTAGE" -> subtotal * (discountValue / 100.0)
+            "FIXED" -> discountValue
+            else -> 0.0
+        }.coerceIn(0.0, subtotal)
+        val finalTotal = (subtotal - discountAmount).coerceAtLeast(0.0)
+
         val partsDescription = lineItems.joinToString("\n") {
             "${it.first} x${it.second.first} - R${
                 String.format(Locale.getDefault(), "%.2f", it.second.first * it.second.second)
@@ -212,8 +222,12 @@ class QuoteViewModel(
             partsRequired = partsDescription,
             laborCost = serviceFee,
             partsCost = partsSubtotal,
-            totalCost = total,
-            grandTotal = total,
+            totalCost = subtotal,
+            grandTotal = subtotal,
+            discountType = normalizedType,
+            discountValue = discountValue,
+            discountAmount = discountAmount,
+            finalTotal = finalTotal,
             notes = notes
         )
 
@@ -222,12 +236,18 @@ class QuoteViewModel(
         updateRequestStatus(requestId, RequestStatus.QUOTED)
 
         if (resolvedCustomerId.isNotBlank()) {
+            val message = if (discountAmount > 0) {
+                "Technician quoted R${String.format(Locale.getDefault(), "%.2f", finalTotal)} " +
+                        "(after R${String.format(Locale.getDefault(), "%.2f", discountAmount)} discount) " +
+                        "for ${request.buildingName}"
+            } else {
+                "Technician quoted R${String.format(Locale.getDefault(), "%.2f", finalTotal)} " +
+                        "for ${request.buildingName}"
+            }
             createNotification(
                 userId = resolvedCustomerId,
                 title = "New Quote Received",
-                message = "Technician quoted R${
-                    String.format(Locale.getDefault(), "%.2f", total)
-                } for ${request.buildingName}",
+                message = message,
                 type = NotificationType.QUOTE
             )
         }
@@ -317,6 +337,142 @@ class QuoteViewModel(
                 else -> {}
             }
         } catch (e: Exception) { Log.e(tag, "updateQuoteStatusWithSchedule failed", e) }
+    }
+
+    // ============================================================
+    // QUOTE PRICING / DISCOUNTS
+    // ============================================================
+
+    suspend fun updateQuotePricing(
+        quoteId: Int,
+        discountType: String,
+        discountValue: Double,
+        notes: String
+    ): Boolean {
+        return try {
+            val quote = quoteDao.getQuoteById(quoteId) ?: return false
+            val originalTotal = quote.grandTotal
+            val normalizedType = discountType.uppercase(Locale.US)
+
+            val discountAmount = when (normalizedType) {
+                "PERCENTAGE" -> originalTotal * (discountValue / 100.0)
+                "FIXED" -> discountValue
+                else -> 0.0
+            }.coerceIn(0.0, originalTotal)
+
+            val finalTotal = (originalTotal - discountAmount).coerceAtLeast(0.0)
+
+            quoteDao.updateQuotePricing(
+                quoteId = quoteId,
+                grandTotal = originalTotal,
+                discountType = normalizedType,
+                discountValue = discountValue,
+                discountAmount = discountAmount,
+                finalTotal = finalTotal,
+                notes = notes
+            )
+
+            if (NetworkMonitor.isOnline(appContext)) {
+                val serverId = quote.serverId
+                if (serverId != null) {
+                    try {
+                        ApiRepository.updateQuotePricing(
+                            context = appContext,
+                            serverId = serverId,
+                            grandTotal = originalTotal,
+                            discountType = normalizedType,
+                            discountValue = discountValue,
+                            discountAmount = discountAmount,
+                            finalTotal = finalTotal,
+                            notes = notes
+                        )
+                    } catch (e: Exception) {
+                        Log.w(tag, "Server quote pricing sync failed (will retry later)", e)
+                        SyncManager.enqueue(
+                            appContext,
+                            SyncManager.TYPE_QUOTE_PRICING,
+                            quoteId,
+                            mapOf(
+                                "discountType" to normalizedType,
+                                "discountValue" to discountValue,
+                                "discountAmount" to discountAmount,
+                                "finalTotal" to finalTotal,
+                                "notes" to notes
+                            )
+                        )
+                    }
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext,
+                    SyncManager.TYPE_QUOTE_PRICING,
+                    quoteId,
+                    mapOf(
+                        "discountType" to normalizedType,
+                        "discountValue" to discountValue,
+                        "discountAmount" to discountAmount,
+                        "finalTotal" to finalTotal,
+                        "notes" to notes
+                    )
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "updateQuotePricing failed", e)
+            false
+        }
+    }
+
+    suspend fun markQuoteAsPaid(quoteId: Int): Boolean {
+        return try {
+            quoteDao.updateQuoteStatusAndTotal(quoteId, QuoteStatus.PAID)
+            val quote = quoteDao.getQuoteById(quoteId) ?: return false
+
+            createNotification(
+                userId = quote.customerId,
+                title = "Payment Received",
+                message = "Payment of R${
+                    String.format(Locale.US, "%.2f", quote.finalTotal)
+                } for ${quote.buildingName} has been received. Receipt available.",
+                type = NotificationType.QUOTE
+            )
+            createNotification(
+                userId = quote.technicianId,
+                title = "Payment Received",
+                message = "Customer paid R${
+                    String.format(Locale.US, "%.2f", quote.finalTotal)
+                } for ${quote.buildingName}.",
+                type = NotificationType.QUOTE
+            )
+
+            if (NetworkMonitor.isOnline(appContext)) {
+                val serverId = quote.serverId
+                if (serverId != null) {
+                    try {
+                        ApiRepository.updateQuoteStatus(
+                            appContext, serverId, QuoteStatus.PAID.name
+                        )
+                    } catch (e: Exception) {
+                        Log.w(tag, "markQuoteAsPaid server sync failed", e)
+                        SyncManager.enqueue(
+                            appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                            mapOf("status" to QuoteStatus.PAID.name)
+                        )
+                    }
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext, SyncManager.TYPE_QUOTE_STATUS, quoteId,
+                    mapOf("status" to QuoteStatus.PAID.name)
+                )
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "markQuoteAsPaid failed", e)
+            false
+        }
     }
 
     // JOBS

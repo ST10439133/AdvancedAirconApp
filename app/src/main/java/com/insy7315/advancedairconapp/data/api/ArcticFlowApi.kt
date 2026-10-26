@@ -1,7 +1,3 @@
-//IEEE Xplore. 2019. An Observational Study on the State of REST API Uses in Android Mobile Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/8816905 [Accessed: 5 October 2026].
-// Google for Developers. 2026. Use Kotlin Coroutines in your Android App. [Online]. Available at: https://developer.android.com/codelabs/kotlin-coroutines [Accessed: 5 October 2026].
-//Cornell AppDev. 2024. 6.4 Retrofit | Intro to Android Development. [Online]. Available at: https://android-course.cornellappdev.com/chapters/6.-networking/6.4-retrofit [Accessed: 5 October 2026].
-
 package com.insy7315.advancedairconapp.data.api
 
 import retrofit2.http.*
@@ -67,6 +63,13 @@ interface ArcticFlowApi {
         @Body body: StatusUpdate
     )
 
+    // NEW: Update quote pricing (discounts, adjustments)
+    @PATCH("api/quotes/{id}/pricing")
+    suspend fun updateQuotePricing(
+        @Path("id") id: Int,
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
+    )
+
     // Jobs
     @GET("api/jobs/customer")
     suspend fun getCustomerJobs(): List<JobDto>
@@ -102,8 +105,6 @@ interface ArcticFlowApi {
         @Path("technicianId") technicianId: String,
         @Body body: Map<String, @JvmSuppressWildcards Any?>
     )
-
-
 
     @DELETE("api/locations/{technicianId}")
     suspend fun stopTracking(@Path("technicianId") technicianId: String)

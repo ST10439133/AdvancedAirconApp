@@ -26,6 +26,7 @@ object SyncManager {
     const val TYPE_REQUEST_STATUS = "REQUEST_STATUS"
     const val TYPE_QUOTE_CREATE   = "QUOTE_CREATE"
     const val TYPE_QUOTE_STATUS   = "QUOTE_STATUS"
+    const val TYPE_QUOTE_PRICING  = "QUOTE_PRICING"
     const val TYPE_JOB_CREATE     = "JOB_CREATE"
     const val TYPE_JOB_STATUS     = "JOB_STATUS"
     const val TYPE_JOB_ON_WAY     = "JOB_ON_WAY"
@@ -170,6 +171,30 @@ object SyncManager {
                 ApiRepository.updateQuoteStatus(
                     context, serverId,
                     json.optString("status", QuoteStatus.PENDING.name)
+                )
+            }
+
+            // NEW: replay offline quote pricing changes
+            TYPE_QUOTE_PRICING -> {
+                val quote = db.quoteDao().getQuoteById(item.localId)
+                if (quote == null) {
+                    Log.w(TAG, "drop QUOTE_PRICING: local row ${item.localId} gone")
+                    return true
+                }
+                val serverId = quote.serverId
+                if (serverId == null) {
+                    Log.w(TAG, "drop QUOTE_PRICING: local row ${item.localId} has no serverId")
+                    return true
+                }
+                ApiRepository.updateQuotePricing(
+                    context = context,
+                    serverId = serverId,
+                    grandTotal = quote.grandTotal,
+                    discountType = json.optString("discountType", "NONE"),
+                    discountValue = json.optDouble("discountValue", 0.0),
+                    discountAmount = json.optDouble("discountAmount", 0.0),
+                    finalTotal = json.optDouble("finalTotal", quote.grandTotal),
+                    notes = json.optString("notes", quote.notes)
                 )
             }
 

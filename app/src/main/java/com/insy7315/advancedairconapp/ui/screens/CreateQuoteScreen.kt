@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Discount
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.RequestQuote
@@ -43,6 +44,11 @@ private val BabyBlueDeep    = Color(0xFF152A47)
 private val BabyBlueSoft    = Color(0xFFE8EDF3)
 private val OrangeAccent    = Color(0xFFC8102E)
 private val OrangeSoft      = Color(0xFFFBE5E8)
+
+// Discount type constants (must match QuoteDao / QuoteViewModel)
+private const val DISC_NONE       = "NONE"
+private const val DISC_PERCENTAGE = "PERCENTAGE"
+private const val DISC_FIXED      = "FIXED"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,9 +103,27 @@ fun CreateQuoteScreen(
     var additionalNotes by remember { mutableStateOf("") }
     var isCreating by remember { mutableStateOf(false) }
 
+    // NEW: discount state
+    var discountType by remember { mutableStateOf(DISC_NONE) }
+    var discountValueStr by remember { mutableStateOf("") }
+
     val serviceFee = selectedServiceFee?.fee ?: 0.0
     val partsSubtotal = lineItems.sumOf { it.price * it.quantity }
-    val total = serviceFee + partsSubtotal
+    val subtotal = serviceFee + partsSubtotal
+
+    // Live discount calc
+    val enteredDiscount = discountValueStr.toDoubleOrNull() ?: 0.0
+    val cappedDiscountValue = when (discountType) {
+        DISC_PERCENTAGE -> enteredDiscount.coerceIn(0.0, 100.0)
+        DISC_FIXED -> enteredDiscount.coerceIn(0.0, subtotal)
+        else -> 0.0
+    }
+    val computedDiscountAmount = when (discountType) {
+        DISC_PERCENTAGE -> subtotal * (cappedDiscountValue / 100.0)
+        DISC_FIXED -> cappedDiscountValue
+        else -> 0.0
+    }.coerceIn(0.0, subtotal)
+    val finalTotal = (subtotal - computedDiscountAmount).coerceAtLeast(0.0)
 
     Scaffold(
         topBar = {
@@ -498,7 +522,105 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 4 - Summary
+            // ============================================================
+            // SECTION 4 - DISCOUNT (NEW)
+            // ============================================================
+            SectionHeader(icon = Icons.Default.Discount, title = "Discount")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = discountType == DISC_NONE,
+                            onClick = {
+                                discountType = DISC_NONE
+                                discountValueStr = ""
+                            },
+                            label = { Text("None") },
+                            enabled = !isCreating
+                        )
+                        FilterChip(
+                            selected = discountType == DISC_PERCENTAGE,
+                            onClick = { discountType = DISC_PERCENTAGE },
+                            label = { Text("% Off") },
+                            enabled = !isCreating
+                        )
+                        FilterChip(
+                            selected = discountType == DISC_FIXED,
+                            onClick = { discountType = DISC_FIXED },
+                            label = { Text("R Off") },
+                            enabled = !isCreating
+                        )
+                    }
+
+                    if (discountType != DISC_NONE) {
+                        OutlinedTextField(
+                            value = discountValueStr,
+                            onValueChange = { input ->
+                                if (input.isEmpty() ||
+                                    input.matches(Regex("^\\d*\\.?\\d*$"))
+                                ) {
+                                    discountValueStr = input
+                                }
+                            },
+                            label = {
+                                Text(
+                                    if (discountType == DISC_PERCENTAGE)
+                                        "Discount percentage (0–100)"
+                                    else "Discount amount in Rands"
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            enabled = !isCreating,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+
+                        if (computedDiscountAmount > 0) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BabyBlueSoft,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Discount applied",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = BabyBlueDeep
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    Text(
+                                        "- R${String.format(Locale.US, "%.2f", computedDiscountAmount)}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = OrangeAccent
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============================================================
+            // SECTION 5 - Summary (shows discount result)
+            // ============================================================
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -524,6 +646,15 @@ fun CreateQuoteScreen(
 
                         SummaryRow("Service Fee", "R${String.format(Locale.US, "%.2f", serviceFee)}")
                         SummaryRow("Parts", "R${String.format(Locale.US, "%.2f", partsSubtotal)}")
+                        SummaryRow("Subtotal", "R${String.format(Locale.US, "%.2f", subtotal)}")
+
+                        if (computedDiscountAmount > 0) {
+                            SummaryRow(
+                                "Discount",
+                                "- R${String.format(Locale.US, "%.2f", computedDiscountAmount)}",
+                                highlight = true
+                            )
+                        }
 
                         Spacer(Modifier.height(8.dp))
                         HorizontalDivider(color = Color.White.copy(alpha = 0.3f))
@@ -541,7 +672,7 @@ fun CreateQuoteScreen(
                                 color = Color.White
                             )
                             Text(
-                                "R${String.format(Locale.US, "%.2f", total)}",
+                                "R${String.format(Locale.US, "%.2f", finalTotal)}",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -551,7 +682,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 5 - Notes
+            // SECTION 6 - Notes
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
             Card(
@@ -612,7 +743,10 @@ fun CreateQuoteScreen(
                                 serviceName = selectedServiceFee!!.name,
                                 serviceFee = selectedServiceFee!!.fee,
                                 lineItems = lineItems.map { it.name to (it.quantity to it.price) },
-                                notes = additionalNotes
+                                notes = additionalNotes,
+                                // NEW: pass discount to persist with the quote
+                                discountType = discountType,
+                                discountValue = cappedDiscountValue
                             )
                             if (id > 0) {
                                 Toast.makeText(context, "Quote sent!", Toast.LENGTH_SHORT).show()
@@ -726,7 +860,11 @@ private fun PriorityPill(priority: String) {
 }
 
 @Composable
-private fun SummaryRow(label: String, value: String) {
+private fun SummaryRow(
+    label: String,
+    value: String,
+    highlight: Boolean = false
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -736,12 +874,14 @@ private fun SummaryRow(label: String, value: String) {
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.9f)
+            color = Color.White.copy(alpha = if (highlight) 1f else 0.9f),
+            fontWeight = if (highlight) FontWeight.SemiBold else FontWeight.Normal
         )
         Text(
             value,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White
+            color = if (highlight) Color(0xFFFFB4BE) else Color.White,
+            fontWeight = if (highlight) FontWeight.SemiBold else FontWeight.Normal
         )
     }
 }

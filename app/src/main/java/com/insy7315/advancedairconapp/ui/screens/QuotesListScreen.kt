@@ -3,7 +3,6 @@ package com.insy7315.advancedairconapp.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import com.insy7315.advancedairconapp.data.entities.Quote
@@ -193,7 +193,7 @@ fun QuotesListScreen(
     }
 }
 
-// QUOTE ROW
+// QUOTE ROW — Edit Pricing removed
 @Composable
 fun QuoteRow(
     quote: Quote,
@@ -209,6 +209,7 @@ fun QuoteRow(
         QuoteStatus.ACCEPTED -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
         QuoteStatus.DECLINED -> Triple(ErrorSoft,    ErrorRed,     Icons.Default.Close)
         QuoteStatus.EXPIRED  -> Triple(BabyBlueSoft, BabyBlueDeep, Icons.Default.Schedule)
+        QuoteStatus.PAID     -> Triple(SuccessSoft,  SuccessGreen, Icons.Default.Check)
     }
 
     Card(
@@ -282,12 +283,23 @@ fun QuoteRow(
 
             Spacer(Modifier.height(10.dp))
 
-            Text(
-                "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BabyBlueDeep
-            )
+            val displayTotal = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
+            Column {
+                if (quote.discountAmount > 0) {
+                    Text(
+                        "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                }
+                Text(
+                    "R${String.format(Locale.US, "%.2f", displayTotal)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = BabyBlueDeep
+                )
+            }
 
             if (showActions) {
                 Spacer(Modifier.height(12.dp))
@@ -332,9 +344,7 @@ fun QuoteRow(
     }
 }
 
-// ============================================================
 // SCHEDULE QUOTE DIALOG
-// ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleQuoteDialog(
@@ -358,8 +368,6 @@ fun ScheduleQuoteDialog(
     val dateFmt = SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault())
     val cal = Calendar.getInstance()
 
-    // IMPORTANT: store only the DATE (midnight). The chosen slot's
-    // start time is merged in on Confirm.
     val picker = DatePickerDialog(
         context,
         { _, y, m, d ->
@@ -396,8 +404,9 @@ fun ScheduleQuoteDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val finalAmount = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
                 Text(
-                    "Total: R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
+                    "Total: R${String.format(Locale.US, "%.2f", finalAmount)}",
                     fontWeight = FontWeight.Bold,
                     color = BabyBlueDeep
                 )
@@ -456,7 +465,6 @@ fun ScheduleQuoteDialog(
                 onClick = {
                     val d = selectedDate
                     if (d != null && selectedSlot.isNotBlank()) {
-                        // Merge the picked date with the start time of the slot.
                         val combined = SouthAfricaLocations.combineDateAndSlot(d, selectedSlot)
                         onConfirm(combined, selectedSlot)
                     }
