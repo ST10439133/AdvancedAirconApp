@@ -32,11 +32,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.insy7315.advancedairconapp.data.CatalogPart
 import com.insy7315.advancedairconapp.data.PartCatalog
+import com.insy7315.advancedairconapp.data.entities.BuildingEntity
 import com.insy7315.advancedairconapp.data.entities.ServiceRequest
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.ceil
 
 // BRAND TOKENS
 private val BabyBlue        = Color(0xFF1F3A5F)
@@ -49,6 +51,10 @@ private val OrangeSoft      = Color(0xFFFBE5E8)
 private const val DISC_NONE       = "NONE"
 private const val DISC_PERCENTAGE = "PERCENTAGE"
 private const val DISC_FIXED      = "FIXED"
+
+// Unit multiplier chunk — the base fee covers this many units.
+// Extra units beyond this add another whole chunk.
+private const val UNITS_PER_CHUNK = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,11 +69,21 @@ fun CreateQuoteScreen(
 
     var currentRequest by remember { mutableStateOf<ServiceRequest?>(null) }
     var requestLoadFailed by remember { mutableStateOf(false) }
+    var buildingUnitCount by remember { mutableStateOf(0) }
 
     LaunchedEffect(requestId) {
         val r = viewModel.getRequestById(requestId)
         currentRequest = r
         requestLoadFailed = (r == null)
+
+        // Load the building's unit count so we can compute the multiplier
+        if (r != null) {
+            try {
+                buildingUnitCount = viewModel.getBuildingById(r.buildingId)?.unitCount ?: 0
+            } catch (e: Exception) {
+                buildingUnitCount = 0
+            }
+        }
     }
 
     data class ServiceFeeOption(val name: String, val fee: Double, val description: String = "")
@@ -92,6 +108,7 @@ fun CreateQuoteScreen(
     )
 
     var selectedServiceFee by remember { mutableStateOf<ServiceFeeOption?>(null) }
+    var customServiceFeeStr by remember { mutableStateOf("") }
     var selectedPart by remember { mutableStateOf<CatalogPart?>(null) }
     var customPartName by remember { mutableStateOf("") }
     var customPartPrice by remember { mutableStateOf("") }
@@ -103,13 +120,28 @@ fun CreateQuoteScreen(
     var additionalNotes by remember { mutableStateOf("") }
     var isCreating by remember { mutableStateOf(false) }
 
-    // NEW: discount state
+    // Discount state
     var discountType by remember { mutableStateOf(DISC_NONE) }
     var discountValueStr by remember { mutableStateOf("") }
 
-    val serviceFee = selectedServiceFee?.fee ?: 0.0
+    // ---- Per-5-units multiplier math ----
+    // Number of 5-unit chunks needed for this building.
+    // 0 units → 1 chunk (protects against divide-by-zero / empty).
+    val chunkCount: Int = if (buildingUnitCount <= 0) 1
+    else ceil(buildingUnitCount.toDouble() / UNITS_PER_CHUNK).toInt()
+
+    // Fee per 5-unit chunk.
+    // If the technician has typed an override → use it.
+    // Otherwise → fall back to the base preset fee.
+    val baseFee = selectedServiceFee?.fee ?: 0.0
+    val feePerChunk: Double = customServiceFeeStr.toDoubleOrNull()
+        ?: baseFee
+
+    // Total service fee = per-chunk fee × number of chunks.
+    val computedServiceFee: Double = feePerChunk * chunkCount
+
     val partsSubtotal = lineItems.sumOf { it.price * it.quantity }
-    val subtotal = serviceFee + partsSubtotal
+    val subtotal = computedServiceFee + partsSubtotal
 
     // Live discount calc
     val enteredDiscount = discountValueStr.toDoubleOrNull() ?: 0.0
@@ -149,7 +181,7 @@ fun CreateQuoteScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            // HERO - Request summary
+            // HERO — Request summary
             currentRequest?.let { req ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -194,7 +226,9 @@ fun CreateQuoteScreen(
                                     color = Color.White.copy(alpha = 0.9f)
                                 )
                                 Text(
-                                    req.issueType,
+                                    if (buildingUnitCount > 0)
+                                        "${req.issueType} · $buildingUnitCount unit${if (buildingUnitCount == 1) "" else "s"}"
+                                    else req.issueType,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.85f)
                                 )
@@ -220,7 +254,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 1 - Service Type & Fee
+            // SECTION 1 — Service Type & Fee
             SectionHeader(icon = Icons.Default.Work, title = "Service Type & Fee")
 
             Card(
@@ -232,6 +266,7 @@ fun CreateQuoteScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Service type dropdown
                     ExposedDropdownMenuBox(
                         expanded = serviceFeeExpanded,
                         onExpandedChange = { serviceFeeExpanded = it }
@@ -242,7 +277,9 @@ fun CreateQuoteScreen(
                             readOnly = true,
                             label = { Text("Service Type") },
                             trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceFeeExpanded)
+                                ExposedDropdownMenuDefaults.TrailingIcon(
+                                    expanded = serviceFeeExpanded
+                                )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -260,7 +297,7 @@ fun CreateQuoteScreen(
                                         Column {
                                             Text(opt.name)
                                             Text(
-                                                "R${String.format(Locale.US, "%.2f", opt.fee)}",
+                                                "R${String.format(Locale.US, "%.2f", opt.fee)} per $UNITS_PER_CHUNK units",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -268,6 +305,10 @@ fun CreateQuoteScreen(
                                     },
                                     onClick = {
                                         selectedServiceFee = opt
+                                        // Pre-fill the editable fee with the base price
+                                        customServiceFeeStr = String.format(
+                                            Locale.US, "%.2f", opt.fee
+                                        )
                                         serviceFeeExpanded = false
                                     }
                                 )
@@ -275,35 +316,97 @@ fun CreateQuoteScreen(
                         }
                     }
 
+                    // Editable per-5-unit fee + live multiplier preview
                     if (selectedServiceFee != null) {
+                        OutlinedTextField(
+                            value = customServiceFeeStr,
+                            onValueChange = { input ->
+                                if (input.isEmpty() ||
+                                    input.matches(Regex("^\\d*\\.?\\d*$"))
+                                ) {
+                                    customServiceFeeStr = input
+                                }
+                            },
+                            label = { Text("Service fee per $UNITS_PER_CHUNK units (R)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            enabled = !isCreating,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+
+                        // Multiplier info row
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = BabyBlueSoft,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(
-                                    "Service Fee",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = BabyBlueDeep
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Building units",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = BabyBlueDeep
+                                    )
+                                    Text(
+                                        buildingUnitCount.toString(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = BabyBlueDeep
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Multiplier (units ÷ $UNITS_PER_CHUNK)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = BabyBlueDeep
+                                    )
+                                    Text(
+                                        "× $chunkCount",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = BabyBlueDeep
+                                    )
+                                }
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
                                 )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    "R${String.format(Locale.US, "%.2f", selectedServiceFee!!.fee)}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BabyBlueDeep
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Total service fee",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BabyBlueDeep
+                                    )
+                                    Text(
+                                        "R${String.format(Locale.US, "%.2f", computedServiceFee)}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BabyBlueDeep
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // SECTION 2 - Parts & Materials
+            // SECTION 2 — Parts & Materials
             SectionHeader(icon = Icons.Default.Inventory2, title = "Parts & Materials")
 
             Row(
@@ -394,7 +497,9 @@ fun CreateQuoteScreen(
                                 readOnly = true,
                                 label = { Text("From Catalog") },
                                 trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = partDropdownExpanded)
+                                    ExposedDropdownMenuDefaults.TrailingIcon(
+                                        expanded = partDropdownExpanded
+                                    )
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -447,7 +552,12 @@ fun CreateQuoteScreen(
                                     onClick = {
                                         val q = qtyStr.toIntOrNull() ?: 1
                                         if (q > 0) {
-                                            lineItems = lineItems + LineItem(selectedPart!!.name, q, selectedPart!!.price, false)
+                                            lineItems = lineItems + LineItem(
+                                                selectedPart!!.name,
+                                                q,
+                                                selectedPart!!.price,
+                                                false
+                                            )
                                             selectedPart = null
                                             qtyStr = "1"
                                         }
@@ -464,7 +574,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 3 - Line Items
+            // SECTION 3 — Line Items
             if (lineItems.isNotEmpty()) {
                 SectionHeader(
                     icon = Icons.AutoMirrored.Filled.List,
@@ -503,7 +613,9 @@ fun CreateQuoteScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 IconButton(
-                                    onClick = { lineItems = lineItems.filterIndexed { i, _ -> i != index } },
+                                    onClick = {
+                                        lineItems = lineItems.filterIndexed { i, _ -> i != index }
+                                    },
                                     enabled = !isCreating
                                 ) {
                                     Icon(
@@ -522,9 +634,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============================================================
-            // SECTION 4 - DISCOUNT (NEW)
-            // ============================================================
+            // SECTION 4 — Discount
             SectionHeader(icon = Icons.Default.Discount, title = "Discount")
 
             Card(
@@ -596,7 +706,9 @@ fun CreateQuoteScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(
+                                        horizontal = 12.dp, vertical = 8.dp
+                                    ),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
@@ -618,9 +730,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // ============================================================
-            // SECTION 5 - Summary (shows discount result)
-            // ============================================================
+            // SECTION 5 — Summary
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -644,7 +754,18 @@ fun CreateQuoteScreen(
                         )
                         Spacer(Modifier.height(10.dp))
 
-                        SummaryRow("Service Fee", "R${String.format(Locale.US, "%.2f", serviceFee)}")
+                        // Service fee (shows the × chunk breakdown when relevant)
+                        if (selectedServiceFee != null && chunkCount > 1) {
+                            SummaryRow(
+                                "Service Fee (R${String.format(Locale.US, "%.2f", feePerChunk)} × $chunkCount)",
+                                "R${String.format(Locale.US, "%.2f", computedServiceFee)}"
+                            )
+                        } else {
+                            SummaryRow(
+                                "Service Fee",
+                                "R${String.format(Locale.US, "%.2f", computedServiceFee)}"
+                            )
+                        }
                         SummaryRow("Parts", "R${String.format(Locale.US, "%.2f", partsSubtotal)}")
                         SummaryRow("Subtotal", "R${String.format(Locale.US, "%.2f", subtotal)}")
 
@@ -682,7 +803,7 @@ fun CreateQuoteScreen(
                 }
             }
 
-            // SECTION 6 - Notes
+            // SECTION 6 — Notes
             SectionHeader(icon = Icons.Default.Description, title = "Notes")
 
             Card(
@@ -725,11 +846,19 @@ fun CreateQuoteScreen(
                         return@Button
                     }
                     if (selectedServiceFee == null) {
-                        Toast.makeText(context, "Select a service type", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Select a service type",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         return@Button
                     }
                     if (lineItems.isEmpty()) {
-                        Toast.makeText(context, "Add at least one part", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Add at least one part",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         return@Button
                     }
 
@@ -741,15 +870,21 @@ fun CreateQuoteScreen(
                                 technicianId = technicianId,
                                 customerId = req.userId,
                                 serviceName = selectedServiceFee!!.name,
-                                serviceFee = selectedServiceFee!!.fee,
-                                lineItems = lineItems.map { it.name to (it.quantity to it.price) },
+                                // Use the multiplied fee as the actual labour cost
+                                serviceFee = computedServiceFee,
+                                lineItems = lineItems.map {
+                                    it.name to (it.quantity to it.price)
+                                },
                                 notes = additionalNotes,
-                                // NEW: pass discount to persist with the quote
                                 discountType = discountType,
                                 discountValue = cappedDiscountValue
                             )
                             if (id > 0) {
-                                Toast.makeText(context, "Quote sent!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    "Quote sent!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                                 navManager.navigateBack()
                             } else {
                                 Toast.makeText(
@@ -759,7 +894,11 @@ fun CreateQuoteScreen(
                                 ).show()
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Error: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         } finally {
                             isCreating = false
                         }
