@@ -62,15 +62,17 @@ object LocationTrackingManager {
         technicianName: String?,
         jobId: Int?,
         customerId: String?,
-        buildingName: String?
+        buildingName: String?,
+        latitude: Double,
+        longitude: Double
     ): Boolean {
         if (technicianId.isBlank()) return false
         return try {
             val payload = mapOf(
                 "technicianId" to technicianId,
                 "technicianName" to (technicianName ?: "Technician"),
-                "latitude" to 0.0,
-                "longitude" to 0.0,
+                "latitude" to latitude,
+                "longitude" to longitude,
                 "jobId" to (jobId ?: 0),
                 "customerId" to (customerId ?: ""),
                 "buildingName" to (buildingName ?: ""),
@@ -170,7 +172,10 @@ object LocationTrackingManager {
                     }
                 }
 
-                val active = all.filter { it.onMyWay }
+                // Keep technicians who are on their way OR have just completed a job
+                val active = all.filter {
+                    it.onMyWay || it.status.equals("COMPLETED", ignoreCase = true)
+                }
 
                 val filtered = active.filter { loc ->
                     val matchesCustomer =

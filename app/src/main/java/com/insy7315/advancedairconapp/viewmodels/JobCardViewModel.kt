@@ -202,7 +202,9 @@ class JobCardViewModel(
                     technicianName = "Technician",
                     jobId = job.id,
                     customerId = job.customerId,
-                    buildingName = job.buildingName
+                    buildingName = job.buildingName,
+                    latitude = -29.8587, // Hardcoded Durban lat so the pin stays
+                    longitude = 31.0218  // Hardcoded Durban lng
                 )
                 Log.d(TAG, "submitJobCardAndWait: firestore markCompleted=$ok")
             } catch (e: Exception) {
