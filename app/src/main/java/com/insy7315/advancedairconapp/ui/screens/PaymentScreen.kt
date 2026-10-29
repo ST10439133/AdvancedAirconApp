@@ -237,8 +237,7 @@ fun PaymentScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    DetailRow("Quote", "#${quote.id}")
-                    DetailRow("Job", "#${job.id}")
+                    // REMOVED: Quote and Job rows
                     DetailRow("Building", job.buildingName.ifBlank { "—" })
                     DetailRow("Service", job.issueType.ifBlank { "—" })
                     DetailRow("Technician", technicianName)
