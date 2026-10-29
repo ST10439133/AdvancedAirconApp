@@ -73,10 +73,14 @@ fun ProductListScreen(
     navManager: NavManager,
     onBackToDashboard: () -> Unit
 ) {
-    val products by viewModel.products.collectAsStateWithLifecycle(initialValue = emptyList())
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    // Collect the single source of truth
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Collect the derived list
+    val products by viewModel.products.collectAsStateWithLifecycle()
+
     val brands by viewModel.brands.collectAsStateWithLifecycle()
-    val sortType by viewModel.sortType.collectAsStateWithLifecycle()
+
     var expanded by remember { mutableStateOf(false) }
     var selectedBrand by remember { mutableStateOf<String?>(null) }
 
@@ -161,11 +165,11 @@ fun ProductListScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Search
             OutlinedTextField(
-                value = searchQuery,
+                value = uiState.query,
                 onValueChange = { viewModel.searchProducts(it) },
                 label = { Text("Search products...") },
                 leadingIcon = {
@@ -237,22 +241,22 @@ fun ProductListScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilterChip(
-                    selected = sortType == SortType.NAME_ASC,
+                    selected = uiState.sortType == SortType.NAME_ASC,
                     onClick = { viewModel.sortProducts(SortType.NAME_ASC) },
                     label = { Text("A-Z", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
-                    selected = sortType == SortType.PRICE_LOW_TO_HIGH,
+                    selected = uiState.sortType == SortType.PRICE_LOW_TO_HIGH,
                     onClick = { viewModel.sortProducts(SortType.PRICE_LOW_TO_HIGH) },
                     label = { Text("Price ↑", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
-                    selected = sortType == SortType.PRICE_HIGH_TO_LOW,
+                    selected = uiState.sortType == SortType.PRICE_HIGH_TO_LOW,
                     onClick = { viewModel.sortProducts(SortType.PRICE_HIGH_TO_LOW) },
                     label = { Text("Price ↓", maxLines = 1, softWrap = false) }
                 )
                 FilterChip(
-                    selected = sortType == SortType.RATING_HIGH_TO_LOW,
+                    selected = uiState.sortType == SortType.RATING_HIGH_TO_LOW,
                     onClick = { viewModel.sortProducts(SortType.RATING_HIGH_TO_LOW) },
                     label = { Text("Rating", maxLines = 1, softWrap = false) }
                 )
@@ -307,7 +311,7 @@ fun ProductListScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Try adjusting your filters or search.",
                             style = MaterialTheme.typography.bodySmall,
@@ -320,7 +324,12 @@ fun ProductListScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(products, key = { it.id }) { product ->
+                    items(
+                        items = products,
+                        // FIX: Include the sort type in the key. This forces Compose
+                        // to rebuild the list when the sort changes, bypassing emulator caching.
+                        key = { product -> "${product.id}_${uiState.sortType.name}" }
+                    ) { product ->
                         ProductCard(
                             product = product,
                             onFavoriteClick = {
@@ -420,7 +429,7 @@ fun ProductCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${product.brand} · ${product.model}",
                     style = MaterialTheme.typography.bodySmall,
@@ -428,7 +437,7 @@ fun ProductCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "R${String.format(Locale.US, "%.2f", product.price)}",
@@ -436,7 +445,7 @@ fun ProductCard(
                         fontWeight = FontWeight.Bold,
                         color = BabyBlueDeep
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = BabyBlueSoft
@@ -450,7 +459,7 @@ fun ProductCard(
                         )
                     }
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = " ${String.format(Locale.US, "%.1f", product.rating)}",
                     style = MaterialTheme.typography.labelSmall,
