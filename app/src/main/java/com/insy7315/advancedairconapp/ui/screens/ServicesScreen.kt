@@ -358,7 +358,8 @@ fun RequestServiceTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        RequestPriority.values().forEach { p ->
+                        // FIXED: Only show LOW, MEDIUM, and HIGH (skips URGENT)
+                        RequestPriority.entries.take(3).forEach { p ->
                             FilterChip(
                                 selected = selectedPriority == p,
                                 onClick = { selectedPriority = p },
