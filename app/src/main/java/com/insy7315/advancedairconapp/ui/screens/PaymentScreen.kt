@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -516,66 +517,58 @@ private fun SuccessContent(
                         try {
                             ReceiptGenerator.open(context, receiptFile)
                         } catch (e: Exception) {
-                            Toast.makeText(
-                                context,
-                                e.message,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier
                         .weight(1f)
                         .height(46.dp),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Download, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("View", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "View",
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 OutlinedButton(
                     onClick = {
                         try {
                             val saved = ReceiptGenerator.downloadToDevice(context, receiptFile)
                             if (saved != null) {
-                                Toast.makeText(
-                                    context,
-                                    "Saved to Downloads",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, "Saved to Downloads", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(
-                                    context,
-                                    "Download failed",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(
-                                context,
-                                e.message,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier
                         .weight(1f)
                         .height(46.dp),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Download, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Download", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Save",
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 Button(
                     onClick = {
                         try {
                             ReceiptGenerator.share(context, receiptFile)
                         } catch (e: Exception) {
-                            Toast.makeText(
-                                context,
-                                e.message,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier
@@ -585,11 +578,17 @@ private fun SuccessContent(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = BabyBlueDeep,
                         contentColor = Color.White
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Share, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Share", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Share",
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
