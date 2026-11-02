@@ -40,7 +40,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // NEW FLAG: Prevents the background listener from interrupting manual registration
     private var isRegistering = false
 
     val googleSignInClient: GoogleSignInClient
@@ -66,7 +65,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             if (user != null) {
-                // ONLY run handleFirebaseUser if we are NOT in the middle of a manual registration
                 if (!isRegistering) {
                     handleFirebaseUser(user)
                 }
@@ -102,7 +100,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
-        // Double check we aren't registering
         if (isRegistering) return
 
         viewModelScope.launch {
@@ -115,12 +112,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     fallbackRole = null
                 )
 
-                // If we exist, trust our role. Otherwise, parse annotation. Otherwise, default MANAGER.
+                // If they exist locally, trust it.
+                // If they have a tag (e.g., |TECHNICIAN), use it.
+                // If they are brand new (no local row, no tag), they are a MANAGER.
                 val resolvedRole = existing?.role
                     ?: parsedRole
                     ?: UserRole.MANAGER
 
-                Log.d(TAG, "handleFirebaseUser: uid=${firebaseUser.uid}, parsedRole=$parsedRole, resolvedRole=$resolvedRole")
+                Log.d(TAG, "handleFirebaseUser: parsedRole=$parsedRole, resolvedRole=$resolvedRole")
 
                 val placeholder = User(
                     uid = firebaseUser.uid,
@@ -157,7 +156,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         role: UserRole = UserRole.MANAGER
     ): SignInResult {
         _isLoading.value = true
-        isRegistering = true // <--- BLOCK THE BACKGROUND LISTENER
+        isRegistering = true
 
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
@@ -196,12 +195,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             _isLoading.value = false
-            isRegistering = false // <--- UNBLOCK LISTENER
+            isRegistering = false
             _authState.value = AuthState.Authenticated(resolvedRole)
             SignInResult(success = true, user = resolvedRole)
         } catch (e: Exception) {
             _isLoading.value = false
-            isRegistering = false // <--- UNBLOCK LISTENER
+            isRegistering = false
             _authState.value = AuthState.Error(e.message ?: "Registration failed")
             SignInResult(success = false, message = e.message)
         }
@@ -281,10 +280,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fallbackRole = null
             )
 
+            // THE FIX:
+            // If they are in the local DB or pre-provisioned by email, use that role.
+            // If they have a Firebase Annotation (|TECHNICIAN), use that.
+            // If they are brand new, default to MANAGER.
             val optimisticRole = existing?.role
                 ?: existingByEmail?.role
                 ?: parsedRole
                 ?: UserRole.MANAGER
+
+            Log.d(TAG, "Google sign-in: parsedRole=$parsedRole, optimisticRole=$optimisticRole")
 
             val seed = User(
                 uid = firebaseUser.uid,
@@ -298,7 +303,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(seed)
 
-            val trustLocal = true
+            // Trust local ONLY if we manually assigned MANAGER to a brand new user.
+            // If they had a |TECHNICIAN annotation, we trust that too.
+            val trustLocal = (existing == null && existingByEmail == null) || (existingByEmail != null)
 
             val finalUser = syncAndResolve(
                 uid = firebaseUser.uid,
