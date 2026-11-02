@@ -19,9 +19,8 @@ object LocationHelper {
 
     private const val TAG = "LocationHelper"
 
-    // Fallback location if the device can't provide one (Now set to Durban)
-    private const val FALLBACK_LAT = -29.8587
-    private const val FALLBACK_LNG = 31.0218
+    private const val FALLBACK_LAT = -29.7967586
+    private const val FALLBACK_LNG = 31.0356178
 
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(context: Context): Location? {

@@ -29,10 +29,9 @@ object LocationTrackingManager {
             return false
         }
         return try {
-            // FORCE DURBAN COORDINATES FOR TESTING
             val forcedLocation = location.copy(
-                latitude = -29.8587,
-                longitude = 31.0218
+                latitude = -29.7967586,
+                longitude = 31.0356178
             )
 
             firestore.collection(COLLECTION)
