@@ -306,8 +306,11 @@ fun LoginScreen(
         ) {
             OutlinedButton(
                 onClick = {
-                    val signInIntent = viewModel.googleSignInClient.signInIntent
-                    googleLauncher.launch(signInIntent)
+                    // Sign out of Google first so the account picker appears
+                    viewModel.googleSignInClient.signOut().addOnCompleteListener {
+                        val signInIntent = viewModel.googleSignInClient.signInIntent
+                        googleLauncher.launch(signInIntent)
+                    }
                 },
                 modifier = Modifier
                     .weight(1f)
