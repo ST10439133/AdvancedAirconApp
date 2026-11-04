@@ -16,7 +16,7 @@ val BabyBlue90  = Color(0xFFD3DDE9)
 val BabyBlue95  = Color(0xFFE8EDF3)
 val BabyBlue100 = Color(0xFFFFFFFF)
 
-// ---------- Secondary: Red ---------------------------------
+// Secondary: Red
 val Orange10  = Color(0xFF2A050B)
 val Orange20  = Color(0xFF5A0A17)
 val Orange30  = Color(0xFF8B1023)

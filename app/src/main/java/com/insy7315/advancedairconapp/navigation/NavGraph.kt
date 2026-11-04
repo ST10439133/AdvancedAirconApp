@@ -262,9 +262,9 @@ fun NavGraph(
             )
         }
 
-        // ============================================================
+
         // PAYMENT SCREEN — loads quote + job from Room, then charges
-        // ============================================================
+
         composable(NavManager.Destination.Payment.route) { backStackEntry ->
             val quoteId = backStackEntry.arguments?.getString("quoteId")?.toIntOrNull() ?: 0
             val jobId = backStackEntry.arguments?.getString("jobId")?.toIntOrNull() ?: 0

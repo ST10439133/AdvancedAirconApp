@@ -35,9 +35,8 @@ class QuoteViewModel(
         catch (e: Exception) { Log.e(tag, "refreshFromServer failed", e) }
     }
 
-    // ============================================================
     // BUILDINGS
-    // ============================================================
+
     suspend fun addBuilding(userId: String, building: BuildingEntity): Long =
         try {
             val localId = buildingDao.insertBuilding(building.copy(userId = userId))
@@ -80,9 +79,9 @@ class QuoteViewModel(
         }
     }
 
-    // ============================================================
+
     // SERVICE REQUESTS
-    // ============================================================
+
     suspend fun createServiceRequest(request: ServiceRequest): Long =
         try {
             val localId = requestDao.insertRequest(request)
@@ -169,9 +168,9 @@ class QuoteViewModel(
         try { requestDao.deleteRequest(request) } catch (_: Exception) {}
     }
 
-    // ============================================================
+
     // NEW — TECHNICIAN DECLINE FLOW
-    // ============================================================
+
 
     /**
      * Technician declines a service request with a required reason.
@@ -303,9 +302,9 @@ class QuoteViewModel(
         }
     }
 
-    // ============================================================
+
     // QUOTES
-    // ============================================================
+
     suspend fun createQuote(quote: Quote): Long =
         try {
             val localId = quoteDao.insertQuote(quote)
@@ -581,9 +580,9 @@ class QuoteViewModel(
         }
     }
 
-    // ============================================================
+
     // QUOTE PRICING
-    // ============================================================
+
     suspend fun updateQuotePricing(
         quoteId: Int,
         discountType: String,
@@ -716,9 +715,8 @@ class QuoteViewModel(
         }
     }
 
-    // ============================================================
     // JOBS
-    // ============================================================
+
     private suspend fun createJobFromQuoteWithSchedule(
         quote: Quote,
         scheduledDate: Long?,
@@ -832,9 +830,9 @@ class QuoteViewModel(
         try { jobDao.getJobByLocalQuoteId(quoteId) }
         catch (e: Exception) { null }
 
-    // ============================================================
+
     // BOOKING VALIDATION
-    // ============================================================
+
     private suspend fun jobsForTechnicianOnSameDay(
         technicianId: String,
         scheduledDate: Long
@@ -959,9 +957,9 @@ class QuoteViewModel(
         } catch (e: Exception) { Log.e(tag, "setTechnicianOnWay failed", e) }
     }
 
-    // ============================================================
+
     // NOTIFICATIONS HELPER
-    // ============================================================
+
     private suspend fun createNotification(
         userId: String,
         title: String,

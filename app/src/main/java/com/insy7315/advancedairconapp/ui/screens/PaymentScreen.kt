@@ -97,9 +97,9 @@ fun PaymentScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // =========================================================
+
             // SUCCESS SCREEN
-            // =========================================================
+
             if (uiState.isSuccess) {
                 SuccessContent(
                     quote = quote,
@@ -114,9 +114,8 @@ fun PaymentScreen(
                 return@Column
             }
 
-            // =========================================================
+
             // CHECKOUT FLOW
-            // =========================================================
 
             // Hero — order summary
             Card(
@@ -387,9 +386,9 @@ fun PaymentScreen(
     }
 }
 
-// ================================================================
+
 // SUCCESS CONTENT
-// ================================================================
+
 
 @Composable
 private fun SuccessContent(
@@ -617,9 +616,9 @@ private fun SuccessContent(
     Spacer(Modifier.height(16.dp))
 }
 
-// ================================================================
+
 // SMALL HELPERS
-// ================================================================
+
 
 @Composable
 private fun SectionTitle(title: String) {

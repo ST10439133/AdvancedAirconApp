@@ -55,7 +55,7 @@ enum class QuoteStatus {
     AWAITING_PAYMENT,
     PAID;
 
-    /** "AWAITING_PAYMENT" → "Awaiting Payment". */
+    // "AWAITING_PAYMENT" → "Awaiting Payment".
     val displayName: String
         get() = name.lowercase()
             .split('_', ' ')

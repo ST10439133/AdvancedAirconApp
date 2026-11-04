@@ -36,7 +36,7 @@ class NotificationRepository(
         notificationDao.deleteReadNotifications(userId)
     }
 
-    // returns a Flow<Int> instead of a suspend Int
+    // returns a Flow<Int> instead of suspend Int
     fun getUnreadCount(userId: String): Flow<Int> {
         return notificationDao.getUnreadCount(userId)
     }

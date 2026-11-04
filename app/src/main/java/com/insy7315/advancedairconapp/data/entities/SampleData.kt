@@ -34,7 +34,7 @@ object SampleData {
             isFavorite = false
         ),
 
-        // ==================== LG ====================
+        //  LG
         Product(
             name = "LG ArtCool Inverter 12000 BTU (Wifi)",
             brand = "LG",

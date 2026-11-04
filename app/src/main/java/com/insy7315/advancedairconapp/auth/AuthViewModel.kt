@@ -74,9 +74,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ============================================================
+
     // ROLE PARSING
-    // ============================================================
+
 
     /**
      * Firebase stores the display name as "Real Name|ROLE" once the user
@@ -126,9 +126,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return byUid to byEmail
     }
 
-    // ============================================================
+
     // AUTH STATE HANDLING
-    // ============================================================
+
 
     /**
      * Resolves a signed-in Firebase user. This is the single source of
@@ -212,9 +212,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ============================================================
+
     // REGISTRATION (unchanged semantics: user picks their role)
-    // ============================================================
+
 
     suspend fun registerWithEmail(
         email: String,
@@ -276,9 +276,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ============================================================
+
     // EMAIL / PASSWORD LOGIN
-    // ============================================================
 
     suspend fun loginWithEmail(email: String, password: String): SignInResult {
         _isLoading.value = true
@@ -435,9 +434,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ============================================================
+
     // PASSWORD RESET
-    // ============================================================
 
     suspend fun resetPassword(email: String): Boolean {
         return try {

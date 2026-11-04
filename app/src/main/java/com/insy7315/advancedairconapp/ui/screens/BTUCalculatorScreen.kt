@@ -101,9 +101,9 @@ fun BTUCalculatorScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ============================================================
+
             // HERO HEADER
-            // ============================================================
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
