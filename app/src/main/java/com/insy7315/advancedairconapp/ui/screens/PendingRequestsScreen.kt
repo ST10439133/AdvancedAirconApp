@@ -1,6 +1,7 @@
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,10 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+// BRAND TOKENS
 private val BabyBlue     = Color(0xFF1F3A5F)
 private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
@@ -264,47 +266,64 @@ fun RequestCard(
                 PriorityPill(request.priority)
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
+            // --- BUTTONS FIX ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // DECLINE BUTTON
                 OutlinedButton(
                     onClick = onDecline,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
+                        .weight(0.35f)
+                        .height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = ErrorRed
-                    )
+                    ),
+                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Icon(Icons.Default.Close, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         "Decline",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
+
+                // CREATE QUOTE BUTTON
                 Button(
                     onClick = onCreateQuote,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
+                        .weight(0.65f)
+                        .height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = OrangeAccent,
                         contentColor = Color.White
-                    )
+                    ),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Icon(Icons.Default.RequestQuote, null, Modifier.size(18.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ReceiptLong,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "Create Quote",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
             }
@@ -313,8 +332,7 @@ fun RequestCard(
 }
 
 // ============================================================
-// DECLINE REASON DIALOG (renamed to avoid collision with the
-// quote-decline dialog already used by QuotesListScreen)
+// DECLINE REASON DIALOG
 // ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
