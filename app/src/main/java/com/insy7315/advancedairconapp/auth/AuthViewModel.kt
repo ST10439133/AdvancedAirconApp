@@ -74,6 +74,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ============================================================
+    // ROLE PARSING
+    // ============================================================
+
+    /**
+     * Firebase stores the display name as "Real Name|ROLE" once the user
+     * has been provisioned. Falls back to a safe default when no
+     * annotation is present.
+     */
     private fun parseFirebaseNameAndRole(
         rawName: String?,
         fallbackEmail: String?,
@@ -99,12 +108,49 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Returns the user's locally-stored role, if any, from either the UID
+     * row (fast path) or a pre-provisioned email row (e.g. an admin
+     * created the technician before their first sign-in).
+     *
+     * Returns null when we have no *deliberate* role for this user.
+     */
+    private suspend fun lookupLocalRole(
+        uid: String,
+        email: String?
+    ): Pair<User?, User?> {
+        val byUid = database.userDao().getUserById(uid)
+        val byEmail = if (byUid == null && !email.isNullOrBlank()) {
+            database.userDao().getUserByEmail(email)
+        } else null
+        return byUid to byEmail
+    }
+
+    // ============================================================
+    // AUTH STATE HANDLING
+    // ============================================================
+
+    /**
+     * Resolves a signed-in Firebase user. This is the single source of
+     * truth for what role the app should show.
+     *
+     * Resolution order (highest priority first):
+     *   1. Local row by UID (established by a previous successful login
+     *      or registerWithEmail).
+     *   2. Pre-provisioned row by email (admin-created technician).
+     *   3. Firebase displayName |ROLE annotation.
+     *   4. Server response from GET /api/users/me (canonical).
+     *   5. Safe fallback = TECHNICIAN — never MANAGER by accident.
+     */
     private fun handleFirebaseUser(firebaseUser: FirebaseUser) {
         if (isRegistering) return
 
         viewModelScope.launch {
             try {
-                val existing = database.userDao().getUserById(firebaseUser.uid)
+                val (existing, existingByEmail) = lookupLocalRole(
+                    firebaseUser.uid,
+                    firebaseUser.email
+                )
 
                 val (displayName, parsedRole) = parseFirebaseNameAndRole(
                     rawName = firebaseUser.displayName,
@@ -112,33 +158,50 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     fallbackRole = null
                 )
 
-                // If they exist locally, trust it.
-                // If they have a tag (e.g., |TECHNICIAN), use it.
-                // If they are brand new (no local row, no tag), they are a MANAGER.
-                val resolvedRole = existing?.role
+                // A role is "trusted" only if it came from a deliberate source.
+                // A brand-new Firebase user with no local row and no annotation
+                // is NOT trusted — we must ask the server.
+                val trustedRole: UserRole? = existing?.role
+                    ?: existingByEmail?.role
                     ?: parsedRole
-                    ?: UserRole.MANAGER
+                val trustLocal = trustedRole != null
 
-                Log.d(TAG, "handleFirebaseUser: parsedRole=$parsedRole, resolvedRole=$resolvedRole")
+                val seedRole = trustedRole ?: UserRole.TECHNICIAN // neutral default
 
-                val placeholder = User(
+                Log.d(
+                    TAG,
+                    "handleFirebaseUser: uid=${firebaseUser.uid}, " +
+                            "existing=${existing?.role}, " +
+                            "byEmail=${existingByEmail?.role}, " +
+                            "parsed=${parsedRole}, " +
+                            "trustLocal=$trustLocal, seedRole=$seedRole"
+                )
+
+                val seed = User(
                     uid = firebaseUser.uid,
                     email = firebaseUser.email ?: existing?.email ?: "",
                     displayName = displayName,
-                    role = resolvedRole,
-                    phoneNumber = existing?.phoneNumber,
+                    role = seedRole,
+                    phoneNumber = existing?.phoneNumber ?: existingByEmail?.phoneNumber,
                     photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                     isEmailVerified = firebaseUser.isEmailVerified,
-                    createdAt = existing?.createdAt ?: System.currentTimeMillis()
+                    createdAt = existing?.createdAt
+                        ?: existingByEmail?.createdAt
+                        ?: System.currentTimeMillis()
                 )
-                database.userDao().insertUser(placeholder)
-
-                val trustLocal = existing == null && parsedRole == null
+                database.userDao().insertUser(seed)
 
                 val finalUser = syncAndResolve(
                     uid = firebaseUser.uid,
-                    fallback = placeholder,
+                    fallback = seed,
                     trustLocalRole = trustLocal
+                )
+
+                assertNotAccidentalManagerPromotion(
+                    finalUser = finalUser,
+                    existing = existing,
+                    existingByEmail = existingByEmail,
+                    parsedRole = parsedRole
                 )
 
                 _authState.value = AuthState.Authenticated(finalUser)
@@ -148,6 +211,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    // ============================================================
+    // REGISTRATION (unchanged semantics: user picks their role)
+    // ============================================================
 
     suspend fun registerWithEmail(
         email: String,
@@ -167,6 +234,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return SignInResult(success = false, message = "Registration failed")
             }
 
+            // Stamp the role into the Firebase display name so it survives
+            // any local wipe and is visible on other devices.
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .setDisplayName("$displayName|${role.name}")
                 .build()
@@ -183,6 +252,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             )
             database.userDao().insertUser(user)
 
+            // This is a deliberate role — trust it and push it to the server.
             val finalUser = syncAndResolve(
                 uid = firebaseUser.uid,
                 fallback = user,
@@ -206,6 +276,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ============================================================
+    // EMAIL / PASSWORD LOGIN
+    // ============================================================
+
     suspend fun loginWithEmail(email: String, password: String): SignInResult {
         _isLoading.value = true
         return try {
@@ -216,35 +290,60 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return SignInResult(success = false, message = "Login failed")
             }
 
-            val existing = database.userDao().getUserById(firebaseUser.uid)
+            val (existing, existingByEmail) = lookupLocalRole(
+                firebaseUser.uid,
+                firebaseUser.email
+            )
+
             val (displayName, parsedRole) = parseFirebaseNameAndRole(
                 rawName = firebaseUser.displayName,
                 fallbackEmail = firebaseUser.email,
                 fallbackRole = null
             )
 
-            val seedRole = existing?.role
+            // Trust ONLY a deliberate role. A brand-new user with no local
+            // row and no |ROLE annotation must be resolved by the server.
+            val trustedRole: UserRole? = existing?.role
+                ?: existingByEmail?.role
                 ?: parsedRole
-                ?: UserRole.MANAGER
+            val trustLocal = trustedRole != null
+
+            val seedRole = trustedRole ?: UserRole.TECHNICIAN
+
+            Log.d(
+                TAG,
+                "loginWithEmail: uid=${firebaseUser.uid}, " +
+                        "existing=${existing?.role}, " +
+                        "byEmail=${existingByEmail?.role}, " +
+                        "parsed=${parsedRole}, " +
+                        "trustLocal=$trustLocal, seedRole=$seedRole"
+            )
 
             val seed = User(
                 uid = firebaseUser.uid,
                 email = firebaseUser.email ?: email,
                 displayName = displayName,
                 role = seedRole,
-                phoneNumber = existing?.phoneNumber,
+                phoneNumber = existing?.phoneNumber ?: existingByEmail?.phoneNumber,
                 photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                 isEmailVerified = firebaseUser.isEmailVerified,
-                createdAt = existing?.createdAt ?: System.currentTimeMillis()
+                createdAt = existing?.createdAt
+                    ?: existingByEmail?.createdAt
+                    ?: System.currentTimeMillis()
             )
             database.userDao().insertUser(seed)
-
-            val trustLocal = existing == null && parsedRole == null
 
             val finalUser = syncAndResolve(
                 uid = firebaseUser.uid,
                 fallback = seed,
                 trustLocalRole = trustLocal
+            )
+
+            assertNotAccidentalManagerPromotion(
+                finalUser = finalUser,
+                existing = existing,
+                existingByEmail = existingByEmail,
+                parsedRole = parsedRole
             )
 
             _isLoading.value = false
@@ -257,6 +356,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ============================================================
+    // GOOGLE SIGN-IN
+    // ============================================================
+
     suspend fun signInWithGoogle(idToken: String): SignInResult {
         _isLoading.value = true
         return try {
@@ -268,11 +371,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 return SignInResult(success = false, message = "Google Sign-In failed")
             }
 
-            val existing = database.userDao().getUserById(firebaseUser.uid)
-
-            val existingByEmail = if (existing == null && !firebaseUser.email.isNullOrBlank()) {
-                database.userDao().getUserByEmail(firebaseUser.email!!)
-            } else null
+            val (existing, existingByEmail) = lookupLocalRole(
+                firebaseUser.uid,
+                firebaseUser.email
+            )
 
             val (displayName, parsedRole) = parseFirebaseNameAndRole(
                 rawName = firebaseUser.displayName,
@@ -280,37 +382,47 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 fallbackRole = null
             )
 
-            // THE FIX:
-            // If they are in the local DB or pre-provisioned by email, use that role.
-            // If they have a Firebase Annotation (|TECHNICIAN), use that.
-            // If they are brand new, default to MANAGER.
-            val optimisticRole = existing?.role
+            val trustedRole: UserRole? = existing?.role
                 ?: existingByEmail?.role
                 ?: parsedRole
-                ?: UserRole.MANAGER
+            val trustLocal = trustedRole != null
 
-            Log.d(TAG, "Google sign-in: parsedRole=$parsedRole, optimisticRole=$optimisticRole")
+            val seedRole = trustedRole ?: UserRole.TECHNICIAN
+
+            Log.d(
+                TAG,
+                "signInWithGoogle: uid=${firebaseUser.uid}, " +
+                        "existing=${existing?.role}, " +
+                        "byEmail=${existingByEmail?.role}, " +
+                        "parsed=${parsedRole}, " +
+                        "trustLocal=$trustLocal, seedRole=$seedRole"
+            )
 
             val seed = User(
                 uid = firebaseUser.uid,
                 email = firebaseUser.email ?: existing?.email ?: "",
                 displayName = displayName,
-                role = optimisticRole,
+                role = seedRole,
                 phoneNumber = existing?.phoneNumber ?: existingByEmail?.phoneNumber,
                 photoUrl = firebaseUser.photoUrl?.toString() ?: existing?.photoUrl,
                 isEmailVerified = firebaseUser.isEmailVerified,
-                createdAt = existing?.createdAt ?: existingByEmail?.createdAt ?: System.currentTimeMillis()
+                createdAt = existing?.createdAt
+                    ?: existingByEmail?.createdAt
+                    ?: System.currentTimeMillis()
             )
             database.userDao().insertUser(seed)
-
-            // Trust local ONLY if we manually assigned MANAGER to a brand new user.
-            // If they had a |TECHNICIAN annotation, we trust that too.
-            val trustLocal = (existing == null && existingByEmail == null) || (existingByEmail != null)
 
             val finalUser = syncAndResolve(
                 uid = firebaseUser.uid,
                 fallback = seed,
                 trustLocalRole = trustLocal
+            )
+
+            assertNotAccidentalManagerPromotion(
+                finalUser = finalUser,
+                existing = existing,
+                existingByEmail = existingByEmail,
+                parsedRole = parsedRole
             )
 
             _isLoading.value = false
@@ -323,6 +435,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ============================================================
+    // PASSWORD RESET
+    // ============================================================
+
     suspend fun resetPassword(email: String): Boolean {
         return try {
             auth.sendPasswordResetEmail(email).await()
@@ -333,25 +449,86 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ============================================================
+    // BIOMETRIC
+    // ============================================================
+
     suspend fun signInWithBiometric(): SignInResult {
         val currentUser = auth.currentUser
-        return if (currentUser != null) {
-            handleFirebaseUser(currentUser)
-            delay(200)
-            val user = database.userDao().getUserById(currentUser.uid)
-            SignInResult(success = true, user = user)
-        } else {
-            SignInResult(success = false, message = "No saved session.")
+            ?: return SignInResult(success = false, message = "No saved session.")
+
+        return try {
+            // Reuse the same resolution path as any other sign-in so role
+            // correctness is guaranteed.
+            val (existing, existingByEmail) = lookupLocalRole(
+                currentUser.uid,
+                currentUser.email
+            )
+            val (displayName, parsedRole) = parseFirebaseNameAndRole(
+                rawName = currentUser.displayName,
+                fallbackEmail = currentUser.email,
+                fallbackRole = null
+            )
+            val trustedRole: UserRole? = existing?.role
+                ?: existingByEmail?.role
+                ?: parsedRole
+            val trustLocal = trustedRole != null
+            val seedRole = trustedRole ?: UserRole.TECHNICIAN
+
+            val seed = User(
+                uid = currentUser.uid,
+                email = currentUser.email ?: existing?.email ?: "",
+                displayName = displayName,
+                role = seedRole,
+                phoneNumber = existing?.phoneNumber ?: existingByEmail?.phoneNumber,
+                photoUrl = currentUser.photoUrl?.toString() ?: existing?.photoUrl,
+                isEmailVerified = currentUser.isEmailVerified,
+                createdAt = existing?.createdAt
+                    ?: existingByEmail?.createdAt
+                    ?: System.currentTimeMillis()
+            )
+            database.userDao().insertUser(seed)
+
+            val finalUser = syncAndResolve(
+                uid = currentUser.uid,
+                fallback = seed,
+                trustLocalRole = trustLocal
+            )
+
+            _authState.value = AuthState.Authenticated(finalUser)
+            SignInResult(success = true, user = finalUser)
+        } catch (e: Exception) {
+            Log.e(TAG, "signInWithBiometric failed", e)
+            SignInResult(success = false, message = e.message)
         }
     }
+
+    // ============================================================
+    // TOKEN REFRESH
+    // ============================================================
 
     suspend fun refreshApiToken(): Boolean {
         val currentUser = auth.currentUser ?: return false
         val localUser = database.userDao().getUserById(currentUser.uid) ?: return false
-        syncAndResolve(currentUser.uid, localUser)
+        syncAndResolve(currentUser.uid, localUser, trustLocalRole = true)
         return ApiClient.hasToken(getApplication())
     }
 
+    // ============================================================
+    // CORE SYNC + ROLE RESOLUTION
+    // ============================================================
+
+    /**
+     * Resolves the user against the server and returns the canonical User.
+     *
+     * Rules:
+     *   - If we trust a local role (deliberate), we push it up when it
+     *     differs from the server — this is the register flow.
+     *   - If we do NOT trust a local role, the server wins. If the server
+     *     has no opinion, we default to TECHNICIAN (never MANAGER).
+     *   - If we're offline and have no trusted local role, we default to
+     *     TECHNICIAN rather than guessing MANAGER.
+     */
     private suspend fun syncAndResolve(
         uid: String,
         fallback: User,
@@ -359,6 +536,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     ): User {
         val ctx = getApplication<Application>()
 
+        // ---- Step 1: obtain JWT (this is where the server learns new users) ----
         if (NetworkMonitor.isOnline(ctx)) {
             val api = ApiClient.get(ctx)
             val response = safeApiCall(TAG) {
@@ -367,20 +545,33 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         uid = fallback.uid,
                         email = fallback.email,
                         displayName = fallback.displayName,
-                        role = fallback.role.name,
+                        // If we don't trust the role, don't invent one.
+                        // Send TECHNICIAN as a neutral placeholder; the
+                        // server overrides it on /me.
+                        role = if (trustLocalRole) fallback.role.name else "TECHNICIAN",
                         phoneNumber = fallback.phoneNumber
                     )
                 )
             }
             if (response != null) {
                 ApiClient.saveToken(ctx, response.token)
+            } else if (!trustLocalRole) {
+                // Could not acquire JWT AND we have no trusted local role.
+                // Do NOT silently promote to MANAGER.
+                Log.w(TAG, "syncAndResolve: no JWT and no trusted local role")
+                return fallback.copy(role = UserRole.TECHNICIAN)
             }
+        } else if (!trustLocalRole) {
+            Log.w(TAG, "syncAndResolve: offline and no trusted local role")
+            return fallback.copy(role = UserRole.TECHNICIAN)
         }
 
+        // ---- Step 2: ask the server who this user actually is ----
         if (NetworkMonitor.isOnline(ctx) && ApiClient.hasToken(ctx)) {
             val api = ApiClient.get(ctx)
             delay(400)
             val me = safeApiCall(TAG) { api.getMe() }
+
             if (me != null) {
                 val serverRole = try {
                     UserRole.valueOf(me.role.uppercase())
@@ -389,7 +580,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 if (trustLocalRole) {
+                    // Deliberate local role wins — push it if the server disagrees.
                     if (serverRole != null && serverRole != fallback.role) {
+                        Log.d(
+                            TAG,
+                            "syncAndResolve: pushing local role " +
+                                    "${fallback.role} over server $serverRole"
+                        )
                         safeApiCall(TAG) {
                             api.syncUser(
                                 UserSyncRequest(
@@ -403,6 +600,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } else if (serverRole != null && serverRole != fallback.role) {
+                    // Server is authoritative — adopt its role.
+                    Log.d(
+                        TAG,
+                        "syncAndResolve: adopting server role $serverRole " +
+                                "(was ${fallback.role})"
+                    )
                     val corrected = fallback.copy(role = serverRole)
                     database.userDao().insertUser(corrected)
                     return corrected
@@ -414,6 +617,45 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return fallback
     }
 
+    // ============================================================
+    // DEBUG GUARD
+    // ============================================================
+
+    /**
+     * Catches accidental MANAGER promotion in debug builds.
+     * If a user ends up as MANAGER without a *deliberate* source, log a
+     * loud warning so it shows up in Logcat.
+     */
+    private fun assertNotAccidentalManagerPromotion(
+        finalUser: User,
+        existing: User?,
+        existingByEmail: User?,
+        parsedRole: UserRole?
+    ) {
+        if (!BuildConfig.DEBUG) return
+        if (finalUser.role != UserRole.MANAGER) return
+
+        val deliberateSource = existing?.role == UserRole.MANAGER ||
+                existingByEmail?.role == UserRole.MANAGER ||
+                parsedRole == UserRole.MANAGER
+
+        if (!deliberateSource) {
+            Log.e(
+                TAG,
+                "SUSPICIOUS MANAGER PROMOTION for ${finalUser.email}: " +
+                        "existing=${existing?.role}, " +
+                        "byEmail=${existingByEmail?.role}, " +
+                        "parsed=$parsedRole. " +
+                        "This means the server returned MANAGER — verify " +
+                        "the backend's user record."
+            )
+        }
+    }
+
+    // ============================================================
+    // SIGN OUT
+    // ============================================================
+
     fun signOut() {
         val ctx = getApplication<Application>()
         try {
@@ -421,6 +663,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to stop TechLocationService", e)
         }
+
+        // Clear the local user row so the next sign-in re-resolves the
+        // role from the server. This prevents stale roles from sticking
+        // around after a backend correction.
+        val uid = auth.currentUser?.uid
+        viewModelScope.launch {
+            if (uid != null) {
+                try {
+                    database.userDao().getUserById(uid)?.let {
+                        database.userDao().deleteUser(it)
+                        Log.d(TAG, "signOut: cleared local user row for uid=$uid")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "signOut: failed to clear local user", e)
+                }
+            }
+        }
+
         auth.signOut()
         googleSignInClient.signOut()
         ApiClient.clearToken(ctx)
