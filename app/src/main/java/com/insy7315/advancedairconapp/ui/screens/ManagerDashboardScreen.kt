@@ -39,6 +39,7 @@ import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.SouthAfricaLocations
 import com.insy7315.advancedairconapp.data.entities.Quote
 import com.insy7315.advancedairconapp.data.entities.QuoteStatus
+import com.insy7315.advancedairconapp.data.entities.ServiceRequest
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.components.AppTopBar
 import com.insy7315.advancedairconapp.viewmodels.ManagerDashboardViewModel
@@ -55,6 +56,8 @@ private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
 private val OrangeSoft   = Color(0xFFFBE5E8)
 private val SuccessGreen = Color(0xFF2E7D32)
+private val ErrorRed     = Color(0xFF8B1E20)
+private val ErrorSoft    = Color(0xFFF4DADD)
 
 /** Turns "AWAITING_PAYMENT" into "Awaiting Payment". */
 internal fun prettyLabel(raw: String): String =
@@ -101,8 +104,14 @@ fun ManagerDashboardScreen(
         .getAwaitingPaymentQuotesForCustomer(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
+    // Declined requests from technicians
+    val declinedRequests by quoteViewModel
+        .getDeclinedRequestsForManager(userId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+
     var quoteToSchedule by remember { mutableStateOf<Quote?>(null) }
     var quoteToDecline by remember { mutableStateOf<Quote?>(null) }
+    var declinedRequestForReason by remember { mutableStateOf<ServiceRequest?>(null) }
 
     val pendingOnlyCount = pendingQuotes.count { it.status == QuoteStatus.PENDING }
 
@@ -345,6 +354,65 @@ fun ManagerDashboardScreen(
                 }
             }
 
+            // ============================================================
+            // DECLINED REQUESTS (by technician)
+            // ============================================================
+            if (declinedRequests.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Declined Requests",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = ErrorSoft
+                        ) {
+                            Text(
+                                "${declinedRequests.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ErrorRed,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                items(declinedRequests, key = { "declined_${it.id}" }) { request ->
+                    DeclinedRequestCard(
+                        request = request,
+                        onViewReason = { declinedRequestForReason = request },
+                        onReopen = {
+                            scope.launch {
+                                val ok = quoteViewModel.reopenDeclinedRequest(
+                                    requestId = request.id,
+                                    managerId = userId
+                                )
+                                if (ok) {
+                                    Toast.makeText(
+                                        context,
+                                        "Request re-opened and returned to the technician queue.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Could not re-open request.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
             // QUICK ACTIONS
             item {
                 Card(
@@ -449,7 +517,208 @@ fun ManagerDashboardScreen(
             }
         )
     }
+
+    // Decline reason viewer for manager (opened from a DeclinedRequestCard)
+    declinedRequestForReason?.let { request ->
+        AlertDialog(
+            onDismissRequest = { declinedRequestForReason = null },
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    "Decline Reason",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${request.buildingName} — ${request.issueType}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        "Reason",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = ErrorRed
+                    )
+                    Text(
+                        request.declineReason ?: "No reason provided.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    request.declinedAt?.let { ts ->
+                        Text(
+                            "Declined on ${
+                                SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+                                    .format(Date(ts))
+                            }",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { declinedRequestForReason = null }) {
+                    Text("Close", fontWeight = FontWeight.SemiBold, color = BabyBlueDeep)
+                }
+            }
+        )
+    }
 }
+
+// ============================================================
+// DECLINED REQUEST CARD
+// ============================================================
+
+@Composable
+private fun DeclinedRequestCard(
+    request: ServiceRequest,
+    onViewReason: () -> Unit,
+    onReopen: () -> Unit
+) {
+    val dateFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+    val declinedWhen = request.declinedAt?.let { dateFormat.format(Date(it)) } ?: "—"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.35f))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Surface(
+                        shape = CircleShape,
+                        color = ErrorSoft,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Block,
+                                contentDescription = null,
+                                tint = ErrorRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            "Declined by Technician",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = ErrorRed
+                        )
+                        Text(
+                            request.buildingName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                        Text(
+                            request.issueType,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Black.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Reason panel
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = ErrorSoft,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = ErrorRed,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Reason for declining",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = ErrorRed
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        request.declineReason
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "No reason provided.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Black
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Declined $declinedWhen",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Black.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onViewReason,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BabyBlueDeep)
+                ) {
+                    Icon(Icons.Default.Info, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Details", style = MaterialTheme.typography.labelLarge)
+                }
+                Button(
+                    onClick = onReopen,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeAccent,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.Restore, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Re-open",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// OVERVIEW TILE
+// ============================================================
 
 @Composable
 fun OverviewTile(
@@ -503,6 +772,10 @@ fun OverviewTile(
     }
 }
 
+// ============================================================
+// QUICK ACTION BUTTON
+// ============================================================
+
 @Composable
 fun QuickActionButton(
     icon: ImageVector,
@@ -541,6 +814,10 @@ fun QuickActionButton(
         )
     }
 }
+
+// ============================================================
+// PENDING QUOTE CARD
+// ============================================================
 
 @Composable
 fun PendingQuoteCard(
@@ -682,7 +959,10 @@ fun PendingQuoteCard(
     }
 }
 
+// ============================================================
 // AWAITING PAYMENT CARD
+// ============================================================
+
 @Composable
 fun AwaitingPaymentCard(
     quote: Quote,
@@ -790,6 +1070,10 @@ fun AwaitingPaymentCard(
         }
     }
 }
+
+// ============================================================
+// SCHEDULE ACCEPT DIALOG
+// ============================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

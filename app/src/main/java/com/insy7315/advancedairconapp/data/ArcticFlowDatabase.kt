@@ -5,6 +5,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.insy7315.advancedairconapp.BuildConfig
 import com.insy7315.advancedairconapp.data.converters.DateConverter
 import com.insy7315.advancedairconapp.data.converters.PartItemListConverter
 import com.insy7315.advancedairconapp.data.converters.StringListConverter
@@ -42,7 +45,7 @@ import com.insy7315.advancedairconapp.data.entities.User
         JobCard::class,
         SyncQueueEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(
@@ -67,15 +70,33 @@ abstract class ArcticFlowDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: ArcticFlowDatabase? = null
 
+        /**
+         * 14 → 15: adds the three decline columns to service_requests.
+         */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE service_requests ADD COLUMN declineReason TEXT")
+                db.execSQL("ALTER TABLE service_requests ADD COLUMN declinedBy TEXT")
+                db.execSQL("ALTER TABLE service_requests ADD COLUMN declinedAt INTEGER")
+            }
+        }
+
         fun getDatabase(context: Context): ArcticFlowDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                val builder = Room.databaseBuilder(
                     context.applicationContext,
                     ArcticFlowDatabase::class.java,
                     "arcticflow_database"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
+                ).addMigrations(MIGRATION_14_15)
+
+                // Dev convenience only — keep destructive fallback in debug
+                // builds so you can iterate on schema without writing a
+                // migration every time.
+                if (BuildConfig.DEBUG) {
+                    builder.fallbackToDestructiveMigration()
+                }
+
+                val instance = builder.build()
                 INSTANCE = instance
                 instance
             }

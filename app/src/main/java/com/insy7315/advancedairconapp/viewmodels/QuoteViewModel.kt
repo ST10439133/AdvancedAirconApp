@@ -1,7 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/viewmodels/QuoteViewModel.kt
-//Google for Developers. 2026. Offline-first apps | Android Developers. [Online]. Available at: https://developer.android.com/topic/architecture/data-layer/offline-first [Accessed: 5 October 2026].
-//Google for Developers. 2026. ViewModel factories | Android Developers. [Online]. Available at: https://developer.android.com/topic/libraries/architecture/viewmodel/viewmodel-factories [Accessed: 5 October 2026].
-
 package com.insy7315.advancedairconapp.viewmodels
 
 import android.content.Context
@@ -39,14 +35,14 @@ class QuoteViewModel(
         catch (e: Exception) { Log.e(tag, "refreshFromServer failed", e) }
     }
 
+    // ============================================================
     // BUILDINGS
+    // ============================================================
     suspend fun addBuilding(userId: String, building: BuildingEntity): Long =
         try {
             val localId = buildingDao.insertBuilding(building.copy(userId = userId))
             val localRow = buildingDao.getBuildingById(localId.toInt()) ?: return localId
 
-            // TEMPORARILY BYPASSED FOR OFFLINE TESTING
-            /*
             if (NetworkMonitor.isOnline(appContext)) {
                 val dto = ApiRepository.pushBuilding(appContext, localRow)
                 if (dto != null) {
@@ -61,7 +57,6 @@ class QuoteViewModel(
                     appContext, SyncManager.TYPE_BUILDING_CREATE, localId.toInt(), emptyMap()
                 )
             }
-            */
             localId
         } catch (e: Exception) {
             Log.e(tag, "addBuilding failed", e); 0L
@@ -74,31 +69,20 @@ class QuoteViewModel(
     suspend fun getBuildingById(buildingId: Int): BuildingEntity? =
         try { buildingDao.getBuildingById(buildingId) } catch (e: Exception) { null }
 
-    // ============================================================
-    // DIAGNOSTIC VERSION
-    // ============================================================
     suspend fun getAddressSuggestions(prefix: String, limit: Int = 6): List<String> {
         val q = prefix.trim()
-        if (q.length < 2) {
-            Log.d("AddrSuggest", "skip: query too short ('$q')")
-            return emptyList()
-        }
+        if (q.length < 2) return emptyList()
         return try {
-            val all = buildingDao.getAllBuildingsDebug()
-            Log.d("AddrSuggest", "DB has ${all.size} building(s). Query='$q'")
-            all.forEach { b ->
-                Log.d("AddrSuggest", "  row id=${b.id} name='${b.name}' addr='${b.address}' full='${b.fullAddress}'")
-            }
-            val result = buildingDao.findAddressesLike(q).take(limit)
-            Log.d("AddrSuggest", "Result count=${result.size}: $result")
-            result
+            buildingDao.findAddressesLike(q).take(limit)
         } catch (e: Exception) {
             Log.e("AddrSuggest", "DAO query failed for '$q'", e)
             emptyList()
         }
     }
 
+    // ============================================================
     // SERVICE REQUESTS
+    // ============================================================
     suspend fun createServiceRequest(request: ServiceRequest): Long =
         try {
             val localId = requestDao.insertRequest(request)
@@ -142,6 +126,16 @@ class QuoteViewModel(
         try { requestDao.getRequestsByStatus(status) }
         catch (e: Exception) { flow { emit(emptyList()) } }
 
+    // NEW — manager view of declined requests
+    fun getDeclinedRequestsForManager(userId: String): Flow<List<ServiceRequest>> =
+        try { requestDao.getDeclinedByTechnicianRequestsForManager(userId) }
+        catch (e: Exception) { flow { emit(emptyList()) } }
+
+    // NEW — all declined (no manager filter, useful for diagnostics)
+    fun getAllDeclinedRequests(): Flow<List<ServiceRequest>> =
+        try { requestDao.getDeclinedByTechnicianRequests() }
+        catch (e: Exception) { flow { emit(emptyList()) } }
+
     suspend fun getRequestById(requestId: Int): ServiceRequest? =
         try { requestDao.getRequestById(requestId) } catch (e: Exception) { null }
 
@@ -175,7 +169,143 @@ class QuoteViewModel(
         try { requestDao.deleteRequest(request) } catch (_: Exception) {}
     }
 
+    // ============================================================
+    // NEW — TECHNICIAN DECLINE FLOW
+    // ============================================================
+
+    /**
+     * Technician declines a service request with a required reason.
+     * Marks the request DECLINED_BY_TECH, notifies the manager, and
+     * queues a server sync. The manager's dashboard surfaces the reason
+     * and offers a "Re-open" action.
+     */
+    suspend fun declineRequestAsTechnician(
+        requestId: Int,
+        reason: String,
+        technicianId: String
+    ): Boolean {
+        val trimmed = reason.trim()
+        if (trimmed.isBlank()) {
+            Log.w(tag, "declineRequestAsTechnician: blank reason")
+            return false
+        }
+
+        return try {
+            val request = requestDao.getRequestById(requestId)
+            if (request == null) {
+                Log.w(tag, "declineRequestAsTechnician: request $requestId not found")
+                return false
+            }
+
+            val now = System.currentTimeMillis()
+            requestDao.declineByTechnician(requestId, trimmed, now)
+
+            // Notify the manager (the customer who created this request)
+            val managerId = request.userId
+            if (managerId.isNotBlank()) {
+                val techName = try {
+                    database.userDao().getUserById(technicianId)?.displayName
+                        ?.substringBefore("|")?.trim()
+                        ?.ifBlank { "Technician" }
+                } catch (e: Exception) { null } ?: "Technician"
+
+                createNotification(
+                    userId = managerId,
+                    title = "Request Declined",
+                    message = "$techName declined your request for ${request.buildingName} " +
+                            "(${request.issueType}). Reason: \"$trimmed\"",
+                    type = NotificationType.JOB
+                )
+            }
+
+            // Sync to server
+            val online = NetworkMonitor.isOnline(appContext)
+            if (online) {
+                request.serverId?.let { sid ->
+                    try {
+                        ApiRepository.updateRequestStatus(appContext, sid, "DECLINED_BY_TECH")
+                    } catch (e: Exception) {
+                        Log.w(tag, "declineRequestAsTechnician: server push failed", e)
+                        SyncManager.enqueue(
+                            appContext,
+                            SyncManager.TYPE_REQUEST_STATUS,
+                            requestId,
+                            mapOf("status" to "DECLINED_BY_TECH")
+                        )
+                    }
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext,
+                    SyncManager.TYPE_REQUEST_STATUS,
+                    requestId,
+                    mapOf("status" to "DECLINED_BY_TECH")
+                )
+            }
+
+            Log.d(tag, "declineRequestAsTechnician: request $requestId declined")
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "declineRequestAsTechnician failed", e)
+            false
+        }
+    }
+
+    /**
+     * Manager re-opens a declined request so it returns to the technician
+     * pending queue. Clears the decline metadata.
+     */
+    suspend fun reopenDeclinedRequest(
+        requestId: Int,
+        managerId: String
+    ): Boolean {
+        return try {
+            val request = requestDao.getRequestById(requestId) ?: return false
+
+            requestDao.reopenRequest(requestId, System.currentTimeMillis())
+
+            createNotification(
+                userId = managerId,
+                title = "Request Re-Opened",
+                message = "Your request for ${request.buildingName} is back in the technician queue.",
+                type = NotificationType.JOB
+            )
+
+            val online = NetworkMonitor.isOnline(appContext)
+            if (online) {
+                request.serverId?.let { sid ->
+                    try {
+                        ApiRepository.updateRequestStatus(appContext, sid, "PENDING")
+                    } catch (e: Exception) {
+                        Log.w(tag, "reopenDeclinedRequest: server push failed", e)
+                        SyncManager.enqueue(
+                            appContext,
+                            SyncManager.TYPE_REQUEST_STATUS,
+                            requestId,
+                            mapOf("status" to "PENDING")
+                        )
+                    }
+                }
+            } else {
+                SyncManager.enqueue(
+                    appContext,
+                    SyncManager.TYPE_REQUEST_STATUS,
+                    requestId,
+                    mapOf("status" to "PENDING")
+                )
+            }
+
+            Log.d(tag, "reopenDeclinedRequest: request $requestId re-opened")
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "reopenDeclinedRequest failed", e)
+            false
+        }
+    }
+
+    // ============================================================
     // QUOTES
+    // ============================================================
     suspend fun createQuote(quote: Quote): Long =
         try {
             val localId = quoteDao.insertQuote(quote)
@@ -235,7 +365,7 @@ class QuoteViewModel(
 
         val partsDescription = lineItems.joinToString("\n") {
             "${it.first} x${it.second.first} - R${
-                String.format(Locale.getDefault(), "%.2f", it.second.first * it.second.second)
+                String.format(Locale.US, "%.2f", it.second.first * it.second.second)
             }"
         }
 
@@ -265,11 +395,11 @@ class QuoteViewModel(
 
         if (resolvedCustomerId.isNotBlank()) {
             val message = if (discountAmount > 0) {
-                "Technician quoted R${String.format(Locale.getDefault(), "%.2f", finalTotal)} " +
-                        "(after R${String.format(Locale.getDefault(), "%.2f", discountAmount)} discount) " +
+                "Technician quoted R${String.format(Locale.US, "%.2f", finalTotal)} " +
+                        "(after R${String.format(Locale.US, "%.2f", discountAmount)} discount) " +
                         "for ${request.buildingName}"
             } else {
-                "Technician quoted R${String.format(Locale.getDefault(), "%.2f", finalTotal)} " +
+                "Technician quoted R${String.format(Locale.US, "%.2f", finalTotal)} " +
                         "for ${request.buildingName}"
             }
             createNotification(
@@ -315,7 +445,6 @@ class QuoteViewModel(
     suspend fun getQuoteById(quoteId: Int): Quote? =
         try { quoteDao.getQuoteById(quoteId) } catch (e: Exception) { null }
 
-    // QUOTE ACCEPT/DECLINE
     suspend fun updateQuoteStatus(quoteId: Int, status: QuoteStatus) {
         try {
             quoteDao.updateQuoteStatus(quoteId, status)
@@ -335,10 +464,6 @@ class QuoteViewModel(
                     mapOf("status" to status.name)
                 )
             }
-
-            if (status == QuoteStatus.ACCEPTED) {
-                createJobFromQuoteWithSchedule(quote, null, null)
-            }
         } catch (e: Exception) { Log.e(tag, "updateQuoteStatus failed", e) }
     }
 
@@ -351,8 +476,6 @@ class QuoteViewModel(
         declinedBy: String? = null
     ) {
         try {
-            val quoteBefore = quoteDao.getQuoteById(quoteId) ?: return
-
             if (status == QuoteStatus.DECLINED) {
                 quoteDao.updateQuoteDecline(
                     quoteId = quoteId,
@@ -423,7 +546,6 @@ class QuoteViewModel(
     suspend fun technicianDeclineJob(jobId: Int, reason: String) {
         try {
             val job = jobDao.getJobById(jobId) ?: return
-            // job.quoteId is the LOCAL Room id of the quote — look it up directly.
             val quote = quoteDao.getQuoteById(job.quoteId)
 
             jobDao.updateJobStatus(jobId, JobStatus.CANCELLED)
@@ -460,9 +582,8 @@ class QuoteViewModel(
     }
 
     // ============================================================
-    // QUOTE PRICING / DISCOUNTS
+    // QUOTE PRICING
     // ============================================================
-
     suspend fun updateQuotePricing(
         quoteId: Int,
         discountType: String,
@@ -507,7 +628,7 @@ class QuoteViewModel(
                             notes = notes
                         )
                     } catch (e: Exception) {
-                        Log.w(tag, "Server quote pricing sync failed (will retry later)", e)
+                        Log.w(tag, "Server quote pricing sync failed", e)
                         SyncManager.enqueue(
                             appContext,
                             SyncManager.TYPE_QUOTE_PRICING,
@@ -595,7 +716,9 @@ class QuoteViewModel(
         }
     }
 
+    // ============================================================
     // JOBS
+    // ============================================================
     private suspend fun createJobFromQuoteWithSchedule(
         quote: Quote,
         scheduledDate: Long?,
@@ -710,9 +833,8 @@ class QuoteViewModel(
         catch (e: Exception) { null }
 
     // ============================================================
-    // DOUBLE-BOOKING VALIDATION
+    // BOOKING VALIDATION
     // ============================================================
-
     private suspend fun jobsForTechnicianOnSameDay(
         technicianId: String,
         scheduledDate: Long
@@ -837,7 +959,9 @@ class QuoteViewModel(
         } catch (e: Exception) { Log.e(tag, "setTechnicianOnWay failed", e) }
     }
 
-    // NOTIFICATIONS
+    // ============================================================
+    // NOTIFICATIONS HELPER
+    // ============================================================
     private suspend fun createNotification(
         userId: String,
         title: String,

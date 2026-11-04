@@ -1,8 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/data/sync/DataSyncManager.kt
-//IEEE Xplore. 2026. Building HIPAA-Compliant Offline Edge CRM Workflows with Secure ePHI Management and Resilient Synchronization. [Online]. Available at: https://ieeexplore.ieee.org/document/11476488/similar#similar [Accessed: 5 October 2026].
-//Android Developers. 2026. Build an offline-first app | App architecture. [Online]. Available at: https://developer.android.com/topic/architecture/data-layer/offline-first [Accessed: 5 October 2026].
-// Google for Developers. 2026. Use Kotlin coroutines in your Android app. [Online]. Available at: https://developer.android.com/codelabs/kotlin-coroutines [Accessed: 5 October 2026].
-
 package com.insy7315.advancedairconapp.data.sync
 
 import android.content.Context
@@ -35,7 +30,7 @@ object DataSyncManager {
 
         val firebaseUser = FirebaseAuth.getInstance().currentUser
         if (firebaseUser == null) {
-            Log.d(TAG, "ensureToken: no Firebase user, cannot re-acquire JWT")
+            Log.d(TAG, "ensureToken: no Firebase user")
             return false
         }
 
@@ -61,7 +56,7 @@ object DataSyncManager {
 
         if (response != null) {
             ApiClient.saveToken(context, response.token)
-            Log.d(TAG, "ensureToken: re-acquired JWT (len=${response.token.length})")
+            Log.d(TAG, "ensureToken: re-acquired JWT")
             return true
         }
 
@@ -74,7 +69,7 @@ object DataSyncManager {
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
             if (!ensureToken(context)) {
-                Log.d(TAG, "syncBuildings skipped: no JWT yet and couldn't get one")
+                Log.d(TAG, "syncBuildings skipped: no JWT")
                 return@withContext 0
             }
 
@@ -128,10 +123,7 @@ object DataSyncManager {
     suspend fun syncPendingRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncPendingRequests skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
             val dtos: List<ServiceRequestDto> = safeApiCall(TAG) {
@@ -148,10 +140,14 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incoming = dto.status.toRequestStatus()
+                    val terminal = existing.status == RequestStatus.DECLINED_BY_TECH ||
+                            existing.status == RequestStatus.DECLINED ||
+                            existing.status == RequestStatus.ACCEPTED ||
+                            existing.status == RequestStatus.COMPLETED
                     val shouldUpdate =
-                        !(existing.status == RequestStatus.ACCEPTED && incoming == RequestStatus.PENDING)
-                                && !(existing.status == RequestStatus.DECLINED && incoming == RequestStatus.PENDING)
-                    if (shouldUpdate && existing.status != incoming) {
+                        !(terminal && incoming == RequestStatus.PENDING) &&
+                                existing.status != incoming
+                    if (shouldUpdate) {
                         db.serviceRequestDao().updateRequestStatus(existing.id, incoming)
                         changed++
                     }
@@ -164,10 +160,7 @@ object DataSyncManager {
     suspend fun syncMyRequests(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncMyRequests skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
             val dtos: List<ServiceRequestDto> = safeApiCall(TAG) {
@@ -185,9 +178,10 @@ object DataSyncManager {
                 } else {
                     val incoming = dto.status.toRequestStatus()
                     val shouldUpdate =
-                        !(existing.status == RequestStatus.ACCEPTED && incoming == RequestStatus.PENDING)
-                                && !(existing.status == RequestStatus.DECLINED && incoming == RequestStatus.PENDING)
-                    if (shouldUpdate && existing.status != incoming) {
+                        !(existing.status == RequestStatus.ACCEPTED && incoming == RequestStatus.PENDING) &&
+                                !(existing.status == RequestStatus.DECLINED && incoming == RequestStatus.PENDING) &&
+                                existing.status != incoming
+                    if (shouldUpdate) {
                         db.serviceRequestDao().updateRequestStatus(existing.id, incoming)
                         changed++
                     }
@@ -201,15 +195,11 @@ object DataSyncManager {
     suspend fun syncCustomerQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncCustomerQuotes skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
-            val dtos: List<QuoteDto> = safeApiCall(TAG) {
-                api.getCustomerQuotes()
-            } ?: return@withContext 0
+            val dtos: List<QuoteDto> = safeApiCall(TAG) { api.getCustomerQuotes() }
+                ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
             var changed = 0
@@ -221,15 +211,11 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incoming = dto.status.toQuoteStatus()
-
-                    // Never let a stale PENDING overwrite a progressed state.
-                    // Protects ACCEPTED, DECLINED, AWAITING_PAYMENT, PAID.
                     val progressed = existing.status == QuoteStatus.ACCEPTED ||
                             existing.status == QuoteStatus.DECLINED ||
                             existing.status == QuoteStatus.AWAITING_PAYMENT ||
                             existing.status == QuoteStatus.PAID
                     val shouldUpdate = !(progressed && incoming == QuoteStatus.PENDING)
-
                     if (shouldUpdate && existing.status != incoming) {
                         db.quoteDao().updateQuoteStatus(existing.id, incoming)
                         changed++
@@ -243,15 +229,11 @@ object DataSyncManager {
     suspend fun syncTechnicianQuotes(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncTechnicianQuotes skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
-            val dtos: List<QuoteDto> = safeApiCall(TAG) {
-                api.getTechnicianQuotes()
-            } ?: return@withContext 0
+            val dtos: List<QuoteDto> = safeApiCall(TAG) { api.getTechnicianQuotes() }
+                ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
             var changed = 0
@@ -263,14 +245,11 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incoming = dto.status.toQuoteStatus()
-
-                    // Same guard as syncCustomerQuotes.
                     val progressed = existing.status == QuoteStatus.ACCEPTED ||
                             existing.status == QuoteStatus.DECLINED ||
                             existing.status == QuoteStatus.AWAITING_PAYMENT ||
                             existing.status == QuoteStatus.PAID
                     val shouldUpdate = !(progressed && incoming == QuoteStatus.PENDING)
-
                     if (shouldUpdate && existing.status != incoming) {
                         db.quoteDao().updateQuoteStatus(existing.id, incoming)
                         changed++
@@ -285,15 +264,11 @@ object DataSyncManager {
     suspend fun syncCustomerJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncCustomerJobs skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
-            val dtos: List<JobDto> = safeApiCall(TAG) {
-                api.getCustomerJobs()
-            } ?: return@withContext 0
+            val dtos: List<JobDto> = safeApiCall(TAG) { api.getCustomerJobs() }
+                ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
             var changed = 0
@@ -305,32 +280,23 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incomingStatus = dto.status.toJobStatus()
-                    val localIsTerminal =
-                        existing.status == JobStatus.COMPLETED ||
-                                existing.status == JobStatus.CANCELLED
+                    val localIsTerminal = existing.status == JobStatus.COMPLETED ||
+                            existing.status == JobStatus.CANCELLED
                     if (!localIsTerminal && existing.status != incomingStatus) {
                         db.jobDao().updateJobStatus(existing.id, incomingStatus)
                         changed++
                     }
-
                     val serverSaysOn = dto.technicianOnWay
                     val localSaysOn = existing.technicianOnWay
                     val jobIsDone = incomingStatus == JobStatus.COMPLETED ||
                             incomingStatus == JobStatus.CANCELLED
-
-                    val shouldApplyServerOnWay =
-                        when {
-                            jobIsDone -> false
-                            // Local is ON but server says OFF — keep local ON.
-                            localSaysOn && !serverSaysOn -> existing.technicianOnWay
-                            else -> serverSaysOn
-                        }
-
+                    val shouldApplyServerOnWay = when {
+                        jobIsDone -> false
+                        localSaysOn && !serverSaysOn -> existing.technicianOnWay
+                        else -> serverSaysOn
+                    }
                     if (existing.technicianOnWay != shouldApplyServerOnWay) {
-                        db.jobDao().updateTechnicianOnWay(
-                            existing.id,
-                            shouldApplyServerOnWay
-                        )
+                        db.jobDao().updateTechnicianOnWay(existing.id, shouldApplyServerOnWay)
                         changed++
                     }
                 }
@@ -342,15 +308,11 @@ object DataSyncManager {
     suspend fun syncTechnicianJobs(context: Context): Int =
         withContext(Dispatchers.IO) {
             if (!NetworkMonitor.isOnline(context)) return@withContext 0
-            if (!ensureToken(context)) {
-                Log.d(TAG, "syncTechnicianJobs skipped: no JWT yet and couldn't get one")
-                return@withContext 0
-            }
+            if (!ensureToken(context)) return@withContext 0
 
             val api = ApiClient.get(context)
-            val dtos: List<JobDto> = safeApiCall(TAG) {
-                api.getTechnicianJobs()
-            } ?: return@withContext 0
+            val dtos: List<JobDto> = safeApiCall(TAG) { api.getTechnicianJobs() }
+                ?: return@withContext 0
 
             val db = ArcticFlowDatabase.getDatabase(context)
             var changed = 0
@@ -362,32 +324,23 @@ object DataSyncManager {
                     changed++
                 } else {
                     val incomingStatus = dto.status.toJobStatus()
-                    val localIsTerminal =
-                        existing.status == JobStatus.COMPLETED ||
-                                existing.status == JobStatus.CANCELLED
+                    val localIsTerminal = existing.status == JobStatus.COMPLETED ||
+                            existing.status == JobStatus.CANCELLED
                     if (!localIsTerminal && existing.status != incomingStatus) {
                         db.jobDao().updateJobStatus(existing.id, incomingStatus)
                         changed++
                     }
-
                     val serverSaysOn = dto.technicianOnWay
                     val localSaysOn = existing.technicianOnWay
                     val jobIsDone = incomingStatus == JobStatus.COMPLETED ||
                             incomingStatus == JobStatus.CANCELLED
-
-                    val shouldApplyServerOnWay =
-                        when {
-                            jobIsDone -> false
-                            // Local is ON but server says OFF — keep local ON.
-                            localSaysOn && !serverSaysOn -> existing.technicianOnWay
-                            else -> serverSaysOn
-                        }
-
+                    val shouldApplyServerOnWay = when {
+                        jobIsDone -> false
+                        localSaysOn && !serverSaysOn -> existing.technicianOnWay
+                        else -> serverSaysOn
+                    }
                     if (existing.technicianOnWay != shouldApplyServerOnWay) {
-                        db.jobDao().updateTechnicianOnWay(
-                            existing.id,
-                            shouldApplyServerOnWay
-                        )
+                        db.jobDao().updateTechnicianOnWay(existing.id, shouldApplyServerOnWay)
                         changed++
                     }
                 }
@@ -400,22 +353,27 @@ object DataSyncManager {
     suspend fun syncEverything(context: Context, role: String) {
         try {
             if (!ensureToken(context)) {
-                Log.d(TAG, "syncEverything skipped: no JWT yet and couldn't get one")
+                Log.d(TAG, "syncEverything skipped: no JWT")
                 return
             }
+
+            val firebaseUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
             when (role.uppercase()) {
                 "MANAGER" -> {
                     syncMyRequests(context)
                     syncCustomerQuotes(context)
                     syncCustomerJobs(context)
-                    syncBuildings(context, "")
+                    syncBuildings(context, firebaseUid)
                 }
                 else -> {
-                    syncBuildings(context, "")
+                    syncBuildings(context, firebaseUid)
                     syncPendingRequests(context)
                     syncTechnicianQuotes(context)
                     syncTechnicianJobs(context)
+                    // Technicians also need the requests they created locally
+                    // (in case they ever switch roles on the same account).
+                    syncMyRequests(context)
                 }
             }
         } catch (e: Exception) {
@@ -423,8 +381,7 @@ object DataSyncManager {
         }
     }
 
-    // DTO
-
+    // DTO MAPPERS
     private fun BuildingDto.toEntity(userId: String) = BuildingEntity(
         id = 0,
         serverId = id,
@@ -467,13 +424,6 @@ object DataSyncManager {
         )
     }
 
-    /**
-     * Builds a local Quote from a server DTO.
-     *
-     * The server does not yet return discount or payment metadata, so we
-     * seed those with neutral defaults. The local pricing editor and
-     * payment flow populate them via QuoteDao.markPaid / updateQuotePricing.
-     */
     private suspend fun QuoteDto.toEntity(db: ArcticFlowDatabase): Quote {
         val localRequest = db.serviceRequestDao().getRequestByServerId(requestId)
         return Quote(
@@ -493,17 +443,14 @@ object DataSyncManager {
             totalCost = grandTotal,
             taxAmount = 0.0,
             grandTotal = grandTotal,
-
             discountType = "NONE",
             discountValue = 0.0,
             discountAmount = 0.0,
             finalTotal = grandTotal,
-
             status = status.toQuoteStatus(),
             validUntil = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000,
             createdAt = createdAt,
             updatedAt = createdAt,
-
             paymentReference = null,
             paidAt = null
         )
@@ -533,14 +480,18 @@ object DataSyncManager {
     }
 
     private fun String.toRequestStatus(): RequestStatus =
-        runCatching { RequestStatus.valueOf(uppercase()) }.getOrDefault(RequestStatus.PENDING)
+        runCatching { RequestStatus.valueOf(uppercase()) }
+            .getOrDefault(RequestStatus.PENDING)
 
     private fun String.toRequestPriority(): RequestPriority =
-        runCatching { RequestPriority.valueOf(uppercase()) }.getOrDefault(RequestPriority.MEDIUM)
+        runCatching { RequestPriority.valueOf(uppercase()) }
+            .getOrDefault(RequestPriority.MEDIUM)
 
     private fun String.toQuoteStatus(): QuoteStatus =
-        runCatching { QuoteStatus.valueOf(uppercase()) }.getOrDefault(QuoteStatus.PENDING)
+        runCatching { QuoteStatus.valueOf(uppercase()) }
+            .getOrDefault(QuoteStatus.PENDING)
 
     private fun String.toJobStatus(): JobStatus =
-        runCatching { JobStatus.valueOf(uppercase()) }.getOrDefault(JobStatus.PENDING)
+        runCatching { JobStatus.valueOf(uppercase()) }
+            .getOrDefault(JobStatus.PENDING)
 }

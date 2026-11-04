@@ -1,6 +1,6 @@
 package com.insy7315.advancedairconapp.ui.screens
 
-import androidx.compose.foundation.clickable
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RequestQuote
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.insy7315.advancedairconapp.data.ArcticFlowDatabase
 import com.insy7315.advancedairconapp.data.entities.RequestPriority
 import com.insy7315.advancedairconapp.data.entities.ServiceRequest
@@ -35,6 +37,7 @@ private val BabyBlueDeep = Color(0xFF152A47)
 private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
 private val OrangeSoft   = Color(0xFFFBE5E8)
+private val ErrorRed     = Color(0xFF8B1E20)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +55,11 @@ fun PendingRequestsScreen(
         .collectAsState(initial = emptyList())
 
     var isRefreshing by remember { mutableStateOf(false) }
+    var requestToDecline by remember { mutableStateOf<ServiceRequest?>(null) }
+
+    val currentTechId: String = remember {
+        FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    }
 
     LaunchedEffect(Unit) {
         isRefreshing = true
@@ -159,23 +167,58 @@ fun PendingRequestsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(requests, key = { it.id }) { request ->
-                    RequestCard(request) {
-                        navManager.navigateToCreateQuote(request.id)
-                    }
+                    RequestCard(
+                        request = request,
+                        onCreateQuote = { navManager.navigateToCreateQuote(request.id) },
+                        onDecline = { requestToDecline = request }
+                    )
                 }
             }
         }
     }
+
+    // ---- Decline reason dialog ----
+    requestToDecline?.let { request ->
+        RequestDeclineReasonDialog(
+            request = request,
+            onDismiss = { requestToDecline = null },
+            onConfirm = { reason ->
+                scope.launch {
+                    val ok = viewModel.declineRequestAsTechnician(
+                        requestId = request.id,
+                        reason = reason,
+                        technicianId = currentTechId
+                    )
+                    if (ok) {
+                        Toast.makeText(
+                            context,
+                            "Request declined. The manager has been notified.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        requestToDecline = null
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Could not decline request — please try again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
-fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
+fun RequestCard(
+    request: ServiceRequest,
+    onCreateQuote: () -> Unit,
+    onDecline: () -> Unit
+) {
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCreateQuote() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(1.dp),
         colors = CardDefaults.cardColors(
@@ -223,27 +266,135 @@ fun RequestCard(request: ServiceRequest, onCreateQuote: () -> Unit) {
 
             Spacer(Modifier.height(14.dp))
 
-            Button(
-                onClick = onCreateQuote,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeAccent,
-                    contentColor = Color.White
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.RequestQuote, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "Create Quote",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                OutlinedButton(
+                    onClick = onDecline,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = ErrorRed
+                    )
+                ) {
+                    Icon(Icons.Default.Close, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Decline",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Button(
+                    onClick = onCreateQuote,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangeAccent,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.RequestQuote, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Create Quote",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
+}
+
+// ============================================================
+// DECLINE REASON DIALOG (renamed to avoid collision with the
+// quote-decline dialog already used by QuotesListScreen)
+// ============================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RequestDeclineReasonDialog(
+    request: ServiceRequest,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var reason by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Text(
+                "Decline Request",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Request for ${request.buildingName} — ${request.issueType}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Please explain why you cannot take this job. Your reason " +
+                            "will be sent to the manager so they can reassign it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = {
+                        reason = it
+                        error = null
+                    },
+                    label = { Text("Reason for declining *") },
+                    placeholder = { Text("e.g. I'm fully booked next week, or the site is out of my coverage area.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6,
+                    shape = RoundedCornerShape(12.dp),
+                    isError = error != null
+                )
+                error?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val trimmed = reason.trim()
+                    if (trimmed.isBlank()) {
+                        error = "A reason is required."
+                    } else if (trimmed.length < 5) {
+                        error = "Please write at least 5 characters."
+                    } else {
+                        onConfirm(trimmed)
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ErrorRed,
+                    contentColor = Color.White
+                )
+            ) { Text("Decline Request") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable

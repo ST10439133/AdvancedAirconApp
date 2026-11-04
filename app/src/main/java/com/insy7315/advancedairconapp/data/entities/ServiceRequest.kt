@@ -21,7 +21,12 @@ data class ServiceRequest(
     val status: RequestStatus = RequestStatus.PENDING,
     val fullAddress: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    // NEW — populated when a technician declines the request
+    val declineReason: String? = null,
+    val declinedBy: String? = null,   // "TECHNICIAN"
+    val declinedAt: Long? = null
 )
 
 enum class RequestPriority {
@@ -36,6 +41,7 @@ enum class RequestStatus {
     QUOTED,
     ACCEPTED,
     DECLINED,
+    DECLINED_BY_TECH,   // NEW — technician refused to quote
     CANCELLED,
     COMPLETED
 }
