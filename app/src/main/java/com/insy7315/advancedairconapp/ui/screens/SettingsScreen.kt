@@ -1,8 +1,6 @@
-// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/SettingsScreen.kt
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.os.Build
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,9 +21,6 @@ import androidx.compose.ui.unit.dp
 import com.insy7315.advancedairconapp.auth.AuthViewModel
 import com.insy7315.advancedairconapp.navigation.NavManager
 import com.insy7315.advancedairconapp.ui.theme.ThemeState
-import com.insy7315.advancedairconapp.utils.LocaleManager
-import com.insy7315.advancedairconapp.utils.rememberTranslation
-import kotlinx.coroutines.launch
 
 // BRAND TOKENS
 private val BabyBlue     = Color(0xFF1F3A5F)
@@ -42,19 +37,10 @@ fun SettingsScreen(
     onThemeChange: (ThemeState) -> Unit,
     currentTheme: ThemeState
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val localeManager = remember { LocaleManager(context) }
-    val t = rememberTranslation()
-
-    val currentLocale = localeManager.getCurrentLocale()
-    val currentDisplayName = getLanguageDisplayName(currentLocale.language)
-    var showLanguageDialog by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(t("settings")) },
+                title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
                         Icon(
@@ -75,10 +61,10 @@ fun SettingsScreen(
         ) {
             // Profile Section
             item {
-                SettingsCard(sectionTitle = t("profile")) {
+                SettingsCard(sectionTitle = "Profile") {
                     SettingsItem(
                         icon = Icons.Default.Person,
-                        title = t("view_profile"),
+                        title = "View Profile",
                         onClick = { navManager.navigateToProfile() }
                     )
                     HorizontalDivider(
@@ -87,7 +73,7 @@ fun SettingsScreen(
                     )
                     SettingsItem(
                         icon = Icons.Default.Edit,
-                        title = t("edit_profile"),
+                        title = "Edit Profile",
                         onClick = { navManager.navigateToEditProfile() }
                     )
                 }
@@ -95,7 +81,7 @@ fun SettingsScreen(
 
             // Appearance Section
             item {
-                SettingsCard(sectionTitle = t("appearance")) {
+                SettingsCard(sectionTitle = "Appearance") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -119,7 +105,7 @@ fun SettingsScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.width(14.dp))
-                            Text(t("dark_mode"))
+                            Text("Dark Mode")
                         }
                         Switch(
                             checked = currentTheme.isDarkMode,
@@ -153,7 +139,7 @@ fun SettingsScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(14.dp))
-                                Text(t("dynamic_colors"))
+                                Text("Dynamic Colors (Android 12+)")
                             }
                             Switch(
                                 checked = currentTheme.dynamicColor,
@@ -166,24 +152,12 @@ fun SettingsScreen(
                 }
             }
 
-            // Language Section
-            item {
-                SettingsCard(sectionTitle = t("language")) {
-                    SettingsItem(
-                        icon = Icons.Default.Language,
-                        title = t("change_language"),
-                        subtitle = currentDisplayName,
-                        onClick = { showLanguageDialog = true }
-                    )
-                }
-            }
-
             // Account Section
             item {
-                SettingsCard(sectionTitle = t("account")) {
+                SettingsCard(sectionTitle = "Account") {
                     SettingsItem(
                         icon = Icons.AutoMirrored.Filled.Logout,
-                        title = t("sign_out"),
+                        title = "Sign Out",
                         iconTint = ErrorRed,
                         textColor = ErrorRed,
                         backgroundTint = ErrorSoft,
@@ -195,65 +169,6 @@ fun SettingsScreen(
                 }
             }
         }
-    }
-
-    if (showLanguageDialog) {
-        AlertDialog(
-            onDismissRequest = { showLanguageDialog = false },
-            shape = RoundedCornerShape(20.dp),
-            title = {
-                Text(
-                    t("select_language"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    localeManager.getAvailableLocales().forEach { localeInfo ->
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    localeManager.setLocale(localeInfo.locale)
-                                    showLanguageDialog = false
-                                    (context as? ComponentActivity)?.recreate()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${localeInfo.flag} ${localeInfo.displayName}",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (currentLocale.language == localeInfo.locale.language) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = BabyBlueDeep
-                                    )
-                                }
-                            }
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLanguageDialog = false }) {
-                    Text(
-                        t("cancel"),
-                        fontWeight = FontWeight.SemiBold,
-                        color = BabyBlueDeep
-                    )
-                }
-            }
-        )
     }
 }
 
@@ -343,14 +258,5 @@ fun SettingsItem(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
-    }
-}
-
-private fun getLanguageDisplayName(languageCode: String): String {
-    return when (languageCode) {
-        "en" -> "English"
-        "af" -> "Afrikaans"
-        "zu" -> "isiZulu"
-        else -> "Unknown"
     }
 }
