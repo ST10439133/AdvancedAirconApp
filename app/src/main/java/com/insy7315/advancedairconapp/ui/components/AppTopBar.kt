@@ -1,4 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/ui/components/AppTopBar.kt
 package com.insy7315.advancedairconapp.ui.components
 
 import androidx.compose.foundation.layout.size
@@ -9,7 +8,6 @@ import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.insy7315.advancedairconapp.navigation.NavManager
@@ -24,7 +22,6 @@ fun AppTopBar(
     showBackButton: Boolean = false,
     actions: @Composable () -> Unit = {}
 ) {
-
     val unreadCount: Int = if (notificationViewModel != null) {
         notificationViewModel.unreadCount.collectAsStateWithLifecycle().value
     } else {
@@ -49,13 +46,13 @@ fun AppTopBar(
                     badge = {
                         if (unreadCount > 0) {
                             Badge(
-                                containerColor = Color.Red,
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
                                 modifier = Modifier.size(18.dp)
                             ) {
                                 Text(
                                     text = if (unreadCount > 99) "99+" else unreadCount.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                             }
                         }

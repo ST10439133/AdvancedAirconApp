@@ -1,7 +1,4 @@
 // app/src/main/java/com/insy7315/advancedairconapp/ui/screens/ManagerDashboardScreen.kt
-//IEEE Xplore. 2025. Design and Implementation of an Intelligent Facility Management Dashboard for Commercial Buildings. [Online]. Available at: https://ieeexplore.ieee.org/document/11038388 [Accessed: 5 October 2026].
-//IEEE Xplore. 2024. A Cloud-Based Platform for HVAC Maintenance Management and Quote Approval Workflows. [Online]. Available at: https://ieeexplore.ieee.org/document/10444775 [Accessed: 5 October 2026].
-
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.app.DatePickerDialog
@@ -59,7 +56,6 @@ private val SuccessGreen = Color(0xFF2E7D32)
 private val ErrorRed     = Color(0xFF8B1E20)
 private val ErrorSoft    = Color(0xFFF4DADD)
 
-/** Turns "AWAITING_PAYMENT" into "Awaiting Payment". */
 internal fun prettyLabel(raw: String): String =
     raw.lowercase().split('_', ' ').joinToString(" ") { part ->
         part.replaceFirstChar { it.titlecase() }
@@ -104,7 +100,6 @@ fun ManagerDashboardScreen(
         .getAwaitingPaymentQuotesForCustomer(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // Declined requests from technicians
     val declinedRequests by quoteViewModel
         .getDeclinedRequestsForManager(userId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -354,9 +349,7 @@ fun ManagerDashboardScreen(
                 }
             }
 
-            // ============================================================
             // DECLINED REQUESTS (by technician)
-            // ============================================================
             if (declinedRequests.isNotEmpty()) {
                 item {
                     Row(
@@ -478,7 +471,7 @@ fun ManagerDashboardScreen(
         }
     }
 
-    // Accept quote — with conflict validation
+    // Accept quote
     quoteToSchedule?.let { quote ->
         ScheduleAcceptDialog(
             quote = quote,
@@ -501,7 +494,7 @@ fun ManagerDashboardScreen(
         )
     }
 
-    // Decline quote — forces a reason and notifies the technician
+    // Decline quote
     quoteToDecline?.let { quote ->
         DeclineReasonDialog(
             title = "Decline Quote",
@@ -518,7 +511,7 @@ fun ManagerDashboardScreen(
         )
     }
 
-    // Decline reason viewer for manager (opened from a DeclinedRequestCard)
+    // Decline reason viewer for manager
     declinedRequestForReason?.let { request ->
         AlertDialog(
             onDismissRequest = { declinedRequestForReason = null },
@@ -586,7 +579,7 @@ private fun DeclinedRequestCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.35f))
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -622,12 +615,12 @@ private fun DeclinedRequestCard(
                             request.buildingName,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             request.issueType,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Black.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -635,7 +628,6 @@ private fun DeclinedRequestCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Reason panel
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = ErrorSoft,
@@ -663,13 +655,13 @@ private fun DeclinedRequestCard(
                             ?.takeIf { it.isNotBlank() }
                             ?: "No reason provided.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Black
+                        color = ErrorRed
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Declined $declinedWhen",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.Black.copy(alpha = 0.6f)
+                        color = ErrorRed.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -686,7 +678,8 @@ private fun DeclinedRequestCard(
                         .weight(1f)
                         .height(44.dp),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BabyBlueDeep)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Default.Info, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -828,11 +821,11 @@ fun PendingQuoteCard(
     val dateFmt = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     val (statusBg, statusFg) = when (quote.status) {
-        QuoteStatus.PENDING          -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.PENDING          -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         QuoteStatus.ACCEPTED         -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
-        QuoteStatus.DECLINED         -> Color(0xFFF4DADD) to Color(0xFF8B1E20)
-        QuoteStatus.EXPIRED          -> Color(0xFFE8EDF3) to Color(0xFF152A47)
-        QuoteStatus.AWAITING_PAYMENT -> Color(0xFFFFE0B2) to Color(0xFF8B5A00)
+        QuoteStatus.DECLINED         -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        QuoteStatus.EXPIRED          -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        QuoteStatus.AWAITING_PAYMENT -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         QuoteStatus.PAID             -> Color(0xFFE6F4EA) to Color(0xFF2E7D32)
     }
 
@@ -840,7 +833,7 @@ fun PendingQuoteCard(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -854,7 +847,7 @@ fun PendingQuoteCard(
                             "Quote #${quote.id}",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = BabyBlueDeep
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(Modifier.width(8.dp))
                         Surface(shape = RoundedCornerShape(50), color = statusBg) {
@@ -863,9 +856,7 @@ fun PendingQuoteCard(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = statusFg,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(
-                                    horizontal = 8.dp, vertical = 2.dp
-                                )
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -873,18 +864,18 @@ fun PendingQuoteCard(
                         quote.buildingName,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         quote.issueType,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Black.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         "Submitted ${dateFmt.format(Date(quote.createdAt))}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Black.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 val displayTotal = if (quote.finalTotal > 0) quote.finalTotal else quote.grandTotal
@@ -893,7 +884,7 @@ fun PendingQuoteCard(
                         Text(
                             "R${String.format(Locale.US, "%.2f", quote.grandTotal)}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Black.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textDecoration = TextDecoration.LineThrough
                         )
                     }
@@ -901,25 +892,25 @@ fun PendingQuoteCard(
                         "R${String.format(Locale.US, "%.2f", displayTotal)}",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = BabyBlueDeep
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = Color.Black.copy(alpha = 0.1f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(10.dp))
 
             Text(
                 "Scope of Work",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 quote.scopeOfWork,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Black.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 4
             )
 
@@ -934,8 +925,9 @@ fun PendingQuoteCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF8B1E20)
-                    )
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Default.Close, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -975,8 +967,8 @@ fun AwaitingPaymentCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFFFE0B2))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -987,14 +979,14 @@ fun AwaitingPaymentCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = CircleShape,
-                        color = Color(0xFFFFE0B2),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         modifier = Modifier.size(38.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Default.Payment,
                                 contentDescription = null,
-                                tint = Color(0xFF8B5A00),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1005,12 +997,12 @@ fun AwaitingPaymentCard(
                             "Payment Due",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8B5A00)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             "Quote #${quote.id}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.Black.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1018,7 +1010,7 @@ fun AwaitingPaymentCard(
                     "R${String.format(Locale.US, "%.2f", amount)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = BabyBlueDeep
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -1028,18 +1020,18 @@ fun AwaitingPaymentCard(
                 quote.buildingName,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 quote.issueType,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Black.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 "Completed — awaiting your payment",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Black.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(14.dp))
@@ -1137,7 +1129,7 @@ fun ScheduleAcceptDialog(
                 Text(
                     "Total: R${String.format(Locale.US, "%.2f", finalAmount)}",
                     fontWeight = FontWeight.Bold,
-                    color = BabyBlueDeep
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 HorizontalDivider()
@@ -1177,7 +1169,7 @@ fun ScheduleAcceptDialog(
                             selected = selectedSlot == slot,
                             onClick = { selectedSlot = slot },
                             modifier = Modifier.size(20.dp),
-                            colors = RadioButtonDefaults.colors(selectedColor = BabyBlueDeep)
+                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(

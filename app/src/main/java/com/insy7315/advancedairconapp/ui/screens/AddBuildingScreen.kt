@@ -1,7 +1,3 @@
-// app/src/main/java/com/insy7315/advancedairconapp/ui/screens/AddBuildingScreen.kt
-//IEEE Xplore. 2023. Design and Development of an Android-Based Building Management System Using Location Services. [Online]. Available at: https://ieeexplore.ieee.org/document/10184486 [Accessed: 5 October 2026].
-//IEEE Xplore. 2024. User-Friendly Data Entry Design for Mobile Facility Management Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/10455021 [Accessed: 5 October 2026].
-
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast
@@ -34,9 +30,6 @@ import com.insy7315.advancedairconapp.viewmodels.QuoteViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// BRAND TOKENS
-private val BabyBlueDeep = Color(0xFF152A47)
-private val BabyBlueSoft = Color(0xFFE8EDF3)
 private val OrangeAccent = Color(0xFFC8102E)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,14 +58,11 @@ fun AddBuildingScreen(
     var cityExpanded by remember { mutableStateOf(false) }
     var suburbExpanded by remember { mutableStateOf(false) }
 
-    // Address autocomplete state
     var addressSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var showAddressSuggestions by remember { mutableStateOf(false) }
 
     val cities = remember(province) { SouthAfricaLocations.citiesFor(province) }
-    val suburbs = remember(province, city) {
-        SouthAfricaLocations.suburbsFor(province, city)
-    }
+    val suburbs = remember(province, city) { SouthAfricaLocations.suburbsFor(province, city) }
 
     val previewAddress = SouthAfricaLocations.composeFullAddress(
         street = street,
@@ -88,10 +78,7 @@ fun AddBuildingScreen(
                 title = { Text("Add Building") },
                 navigationIcon = {
                     IconButton(onClick = { navManager.navigateBack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -105,10 +92,7 @@ fun AddBuildingScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            // SECTION 1 — Building Details
             SectionHeader(icon = Icons.Default.Business, title = "Building Details")
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -171,8 +155,7 @@ fun AddBuildingScreen(
                                     onClick = { buildingType = type },
                                     label = {
                                         Text(
-                                            type.name.lowercase()
-                                                .replaceFirstChar { it.titlecase() },
+                                            type.name.lowercase().replaceFirstChar { it.titlecase() },
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     },
@@ -191,8 +174,7 @@ fun AddBuildingScreen(
                                     onClick = { buildingType = type },
                                     label = {
                                         Text(
-                                            type.name.lowercase()
-                                                .replaceFirstChar { it.titlecase() },
+                                            type.name.lowercase().replaceFirstChar { it.titlecase() },
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     },
@@ -204,9 +186,7 @@ fun AddBuildingScreen(
                 }
             }
 
-            // SECTION 2 — Location
             SectionHeader(icon = Icons.Default.LocationOn, title = "Location")
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -216,24 +196,17 @@ fun AddBuildingScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Province
                     ExposedDropdownMenuBox(
                         expanded = provinceExpanded,
-                        onExpandedChange = {
-                            if (!isSaving) provinceExpanded = !provinceExpanded
-                        }
+                        onExpandedChange = { if (!isSaving) provinceExpanded = !provinceExpanded }
                     ) {
                         OutlinedTextField(
                             value = province.ifBlank { "Select Province *" },
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Province") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(provinceExpanded)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(provinceExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
                             shape = RoundedCornerShape(12.dp),
                             enabled = !isSaving
                         )
@@ -255,29 +228,18 @@ fun AddBuildingScreen(
                         }
                     }
 
-                    // City
                     ExposedDropdownMenuBox(
                         expanded = cityExpanded,
-                        onExpandedChange = {
-                            if (!isSaving && province.isNotBlank()) {
-                                cityExpanded = !cityExpanded
-                            }
-                        }
+                        onExpandedChange = { if (!isSaving && province.isNotBlank()) cityExpanded = !cityExpanded }
                     ) {
                         OutlinedTextField(
-                            value = city.ifBlank {
-                                if (province.isBlank()) "Select Province first" else "Select City *"
-                            },
+                            value = city.ifBlank { if (province.isBlank()) "Select Province first" else "Select City *" },
                             onValueChange = {},
                             readOnly = true,
                             enabled = province.isNotBlank() && !isSaving,
                             label = { Text("City") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(cityExpanded)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(cityExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
                             shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
@@ -297,29 +259,18 @@ fun AddBuildingScreen(
                         }
                     }
 
-                    // Suburb
                     ExposedDropdownMenuBox(
                         expanded = suburbExpanded,
-                        onExpandedChange = {
-                            if (!isSaving && city.isNotBlank()) {
-                                suburbExpanded = !suburbExpanded
-                            }
-                        }
+                        onExpandedChange = { if (!isSaving && city.isNotBlank()) suburbExpanded = !suburbExpanded }
                     ) {
                         OutlinedTextField(
-                            value = suburb.ifBlank {
-                                if (city.isBlank()) "Select City first" else "Select Suburb *"
-                            },
+                            value = suburb.ifBlank { if (city.isBlank()) "Select City first" else "Select Suburb *" },
                             onValueChange = {},
                             readOnly = true,
                             enabled = city.isNotBlank() && !isSaving,
                             label = { Text("Suburb") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(suburbExpanded)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(suburbExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
                             shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
@@ -347,9 +298,7 @@ fun AddBuildingScreen(
                 }
             }
 
-            // SECTION 3 — Address
             SectionHeader(icon = Icons.Default.Place, title = "Address")
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -359,12 +308,10 @@ fun AddBuildingScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Street Address Field
                     OutlinedTextField(
                         value = street,
                         onValueChange = { input ->
                             street = input
-                            // Show suggestions if the user is typing and hasn't just tapped one
                             showAddressSuggestions = input.length >= 2
                         },
                         label = { Text("Street Address *") },
@@ -375,7 +322,6 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
-                    // Debounced Fetch Effect
                     LaunchedEffect(street) {
                         if (street.length < 2) {
                             addressSuggestions = emptyList()
@@ -384,13 +330,8 @@ fun AddBuildingScreen(
                         delay(250)
                         val results = viewModel.getAddressSuggestions(street, 6)
                         addressSuggestions = results
-                        // Auto-open if we have results
-                        if (results.isNotEmpty() && showAddressSuggestions) {
-                            // Results are ready to show
-                        }
                     }
 
-                    // Inline Suggestion List (Reliable in Scroll Column)
                     if (showAddressSuggestions && addressSuggestions.isNotEmpty()) {
                         Card(
                             modifier = Modifier
@@ -398,7 +339,7 @@ fun AddBuildingScreen(
                                 .padding(top = 4.dp, bottom = 4.dp),
                             shape = RoundedCornerShape(12.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column {
                                 addressSuggestions.forEachIndexed { index, suggestion ->
@@ -406,8 +347,6 @@ fun AddBuildingScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
-                                                // Fill the street field with the selected address.
-                                                // We grab just the street part (everything before the first comma).
                                                 street = suggestion.substringBefore(",")
                                                 showAddressSuggestions = false
                                             }
@@ -417,26 +356,25 @@ fun AddBuildingScreen(
                                         Icon(
                                             Icons.Default.Place,
                                             contentDescription = null,
-                                            tint = Color.Gray,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
                                             text = suggestion,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.Black,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 2
                                         )
                                     }
                                     if (index < addressSuggestions.lastIndex) {
-                                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Postal Code Field
                     OutlinedTextField(
                         value = postalCode,
                         onValueChange = { input ->
@@ -453,11 +391,10 @@ fun AddBuildingScreen(
                         enabled = !isSaving
                     )
 
-                    // Full Address Preview
                     if (previewAddress.isNotBlank()) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -465,14 +402,14 @@ fun AddBuildingScreen(
                                     Icon(
                                         Icons.Default.Place,
                                         contentDescription = null,
-                                        tint = BabyBlueDeep,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         "Full Address Preview",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color.Black,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -481,7 +418,7 @@ fun AddBuildingScreen(
                                     previewAddress,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.Black
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -507,7 +444,6 @@ fun AddBuildingScreen(
 
                     coroutineScope.launch {
                         isSaving = true
-
                         val building = BuildingEntity(
                             userId = userId,
                             name = name.trim(),
@@ -527,9 +463,7 @@ fun AddBuildingScreen(
                         navManager.navigateBack()
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OrangeAccent,
@@ -538,19 +472,11 @@ fun AddBuildingScreen(
                 enabled = !isSaving
             ) {
                 if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
                 } else {
-                    Text(
-                        "Add Building",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text("Add Building", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -568,7 +494,7 @@ private fun SectionHeader(
         Icon(
             icon,
             contentDescription = null,
-            tint = BabyBlueDeep,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -576,7 +502,7 @@ private fun SectionHeader(
             title,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = BabyBlueDeep
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
