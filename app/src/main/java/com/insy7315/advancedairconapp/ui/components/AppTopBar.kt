@@ -1,3 +1,5 @@
+// IEEE Xplore. 2024. User-Friendly Data Entry Design for Mobile Facility Management Applications. [Online]. Available at: https://ieeexplore.ieee.org/document/10455021 [Accessed: 4 November 2026].
+// Android Developers. 2026. Dark theme | Jetpack Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/designsystems/material3#dark-theme [Accessed: 4 November 2026].
 package com.insy7315.advancedairconapp.ui.components
 
 import androidx.compose.foundation.layout.size

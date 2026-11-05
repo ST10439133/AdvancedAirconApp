@@ -1,3 +1,6 @@
+// IEEE Xplore. 2025. Design and Implementation of an Intelligent Facility Management Dashboard for Commercial Buildings. [Online]. Available at: https://ieeexplore.ieee.org/document/11038388 [Accessed: 5 November 2026].
+// IEEE Xplore. 2024. A Cloud-Based Platform for HVAC Maintenance Management and Quote Approval Workflows. [Online]. Available at: https://ieeexplore.ieee.org/document/10444775 [Accessed: 1 November 2026].
+// Android Developers. 2026. Material 3 in Compose | Jetpack Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/designsystems/material3 [Accessed: 1 November 2026].
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.widget.Toast

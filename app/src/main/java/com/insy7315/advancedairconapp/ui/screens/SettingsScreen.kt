@@ -1,3 +1,5 @@
+// Android Developers. 2026. Save data on the device | Data and files. [Online]. Available at: https://developer.android.com/training/data-storage/shared-preferences [Accessed: 5 November 2026].
+// Android Developers. 2026. Dynamic color | Jetpack Compose. [Online]. Available at: https://developer.android.com/develop/ui/compose/designsystems/material3#dynamic-color [Accessed: 5 November 2026].
 package com.insy7315.advancedairconapp.ui.screens
 
 import android.os.Build

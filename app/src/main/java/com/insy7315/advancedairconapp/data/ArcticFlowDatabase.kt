@@ -1,3 +1,5 @@
+// Android Developers. 2026. Migrate your Room database | Android Developers. [Online]. Available at: https://developer.android.com/training/data-storage/room/migrating-db-versions [Accessed: 1 November 2026].
+// IEEE Xplore. 2024. Design and Implementation of an Android-Based Building Management System Using Location Services. [Online]. Available at: https://ieeexplore.ieee.org/document/10184486 [Accessed: 1 November 2026].
 package com.insy7315.advancedairconapp.data
 
 import android.content.Context
