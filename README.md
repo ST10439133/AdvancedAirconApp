@@ -222,17 +222,10 @@ AI Used: https://chatgpt.com/c/6ae622c2-0244-83e9-9d76-46c784283d75
 After removing the language selection UI from the Settings screen, we used AI to identify all the dead code that was left behind—the LocaleManager.kt utility, the attachBaseContext override in MainActivity, and the translation maps in the Translations object. AI also helped us verify that no other screens were still calling rememberTranslation(), so the app now cleanly defaults to the device's system language without the risk of stale locale preferences stored in SharedPreferences.
 AI Used: https://chatgpt.com/c/6ae622c2-0244-83e9-9d76-46c784283h67
 
-## CI/CD & Branching Strategy
-
-### Branching Strategy
-This project follows a standard Gitflow workflow:
-- `master`: Production releases
-- `develop`: Integration branch for features
-- `feature/*`: Used for developing new features (merged via Pull Requests)
 
 ### CI/CD Pipelines
 This project uses GitHub Actions for automated builds and deployments:
-- **`ci.yml`**: Runs on every push to `master` and `develop`. It builds the project, runs unit tests (`QuoteTest.kt`), and performs linting to ensure code quality.
+- **`ci.yml`**: Runs on every push to `master`. It builds the project, runs unit tests (`QuoteTest.kt`), and performs linting to ensure code quality.
 - **`release.yml`**: Triggers when a new version tag (e.g., `v1.0.0`) is pushed. It automatically builds a signed Release APK and attaches it to the GitHub Release.
 
 ## References
