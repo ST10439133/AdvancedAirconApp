@@ -196,6 +196,17 @@ open the project in Android Studio and click Run.
 ## Hosted On Railway
 <img width="1917" height="952" alt="api deployed" src="https://github.com/user-attachments/assets/67e1affa-e300-4a25-9ff8-0c7a41d4f18b" />
 
+
+### CI/CD Pipelines
+This project uses GitHub Actions for automated builds and deployments:
+- **`ci.yml`**: Runs on every push to `master`. It builds the project, runs unit tests (`QuoteTest.kt`), and performs linting to ensure code quality.
+- **`release.yml`**: Triggers when a new version tag (e.g., `v1.0.0`) is pushed. It automatically builds a signed Release APK and attaches it to the GitHub Release.
+  
+  <img width="1895" height="905" alt="Screenshot 2026-11-05 224235" src="https://github.com/user-attachments/assets/06b47a5a-4757-4f38-9983-d5566d089778" />
+
+
+
+
 ## AI Usage: 
 1.	Resolving the Technician Role Flip-Flop on First Login
 We used AI to diagnose a race condition in the authentication flow where a first-time technician signing in with technician@gmail.com was incorrectly assigned the MANAGER role because the app defaulted to MANAGER for any unknown user before the server responded. AI helped us rewrite the AuthViewModel to implement a server-first role resolution strategy, changing the safe fallback to TECHNICIAN and updating the syncAndResolve method so a local role is only trusted if it came from a deliberate source (existing database row, pre-provisioned email, or Firebase |ROLE annotation). This prevented the app from pushing a wrong role to the backend and fixed the sign-in inconsistency.
@@ -223,10 +234,7 @@ After removing the language selection UI from the Settings screen, we used AI to
 AI Used: https://chatgpt.com/c/6ae622c2-0244-83e9-9d76-46c784283h67
 
 
-### CI/CD Pipelines
-This project uses GitHub Actions for automated builds and deployments:
-- **`ci.yml`**: Runs on every push to `master`. It builds the project, runs unit tests (`QuoteTest.kt`), and performs linting to ensure code quality.
-- **`release.yml`**: Triggers when a new version tag (e.g., `v1.0.0`) is pushed. It automatically builds a signed Release APK and attaches it to the GitHub Release.
+
 
 ## References
 1. IEEE Xplore. 2026. A Comparative Study of User Experience in Mobile Banking Authentication Mechanism: Usability Analysis Using Usability Testing and SUS. [Online]. Available at: https://ieeexplore.ieee.org/abstract/document/11323707 [Accessed: 5 November 2026].
