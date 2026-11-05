@@ -12,12 +12,11 @@
 ### Android App Video Link: https: https://youtu.be/sTK4bFBy2yc
 
 ## Final POE Links:
-### MOBILE APP BLUESTACKS DEMO YOUTUBE LINK:
-### MOBILE APP OFFLINE MODE, NOTIFICATIONS & SETTINGS (MOBILE PHONE) DEMO YOUTUBE LINK:
-### MOBILE APP HOSTING DEMO YOUTUBE LINK:
+### Mobile App Bluestacks Demo YouTube Link: https://youtu.be/AnBUttFr7ts 
+### Mobile App Offline Mode, Notifications & Settings (Mobile Phone) Demo YouTube Link: https://youtube.com/shorts/XeOTCNnXSGg 
+### Mobile App Hosting Demo YouTube Link: https://youtu.be/qJ55gBSgkCE
+### Android App GitHub Link: https://github.com/ST10439133/AdvancedAirconApp.git
 ### Android App API GitHub Link: https://github.com/ST10439133/arcticflow-api
-### Website GitHub Link: https://github.com/ST10441359/HvacWebsite.git 
-### Website API Link: https://github.com/ST10441359/AdvancedAirAPI.git
 
 # Advanced Aircon App — HVAC Service Management Platform
 A comprehensive Android application for HVAC service management that connects managers, technicians, and customers through a unified platform. Built with Jetpack Compose, Room, Firebase, and a Node.js backend.
